@@ -1,6 +1,7 @@
 import SwiftUI
 
 enum BuildStatus: String, Codable, Hashable {
+    case conflict
     case pending
     case success
     case failure
@@ -9,6 +10,7 @@ enum BuildStatus: String, Codable, Hashable {
 
     var icon: String {
         switch self {
+        case .conflict: return "❗"
         case .success: return "✅"
         case .failure: return "❌"
         case .error: return "⚠️"
@@ -19,6 +21,7 @@ enum BuildStatus: String, Codable, Hashable {
 
     var color: Color {
         switch self {
+        case .conflict: return .purple
         case .success: return .green
         case .failure: return .red
         case .error: return .orange
@@ -29,6 +32,7 @@ enum BuildStatus: String, Codable, Hashable {
 
     var displayName: String {
         switch self {
+        case .conflict: return "Merge Conflict"
         case .success: return "Success"
         case .failure: return "Failed"
         case .error: return "Error"

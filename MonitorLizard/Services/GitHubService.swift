@@ -116,7 +116,7 @@ class GitHubService: ObservableObject {
             arguments: [
                 "pr", "view", "\(number)",
                 "--repo", "\(owner)/\(repo)",
-                "--json", "headRefName,statusCheckRollup"
+                "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus"
             ]
         )
 
@@ -127,17 +127,30 @@ class GitHubService: ObservableObject {
         let decoder = JSONDecoder()
         let detail = try decoder.decode(GHPRDetailResponse.self, from: jsonData)
 
-        let status = parseOverallStatus(from: detail.statusCheckRollup)
+        let status = parseOverallStatus(
+            from: detail.statusCheckRollup,
+            mergeable: detail.mergeable,
+            mergeStateStatus: detail.mergeStateStatus
+        )
 
         return (status, detail.headRefName)
     }
 
-    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?) -> BuildStatus {
+    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?) -> BuildStatus {
+        // Check for merge conflicts first (highest priority)
+        if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
+            return .conflict
+        }
+
+        if let mergeStateStatus = mergeStateStatus?.uppercased(), mergeStateStatus == "DIRTY" {
+            return .conflict
+        }
+
         guard let checks = checks, !checks.isEmpty else {
             return .unknown
         }
 
-        // Priority: failure > error > pending > success
+        // Priority: conflict > failure > error > pending > success
         var hasFailure = false
         var hasError = false
         var hasPending = false

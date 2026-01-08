@@ -61,6 +61,8 @@ struct GHPRSearchResponse: Codable {
 struct GHPRDetailResponse: Codable {
     let headRefName: String
     let statusCheckRollup: [StatusCheck]?
+    let mergeable: String?
+    let mergeStateStatus: String?
 
     struct StatusCheck: Codable {
         let name: String?
