@@ -69,7 +69,8 @@ struct PRRowView: View {
                     if pr.isDraft {
                         Text("DRAFT")
                             .font(.caption2)
-                            .foregroundColor(.white)
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(Color.orange.opacity(0.8))
