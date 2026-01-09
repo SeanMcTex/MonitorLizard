@@ -17,6 +17,7 @@ struct PullRequest: Identifiable, Hashable {
     var isWatched: Bool
     let labels: [Label]
     let type: PRType
+    let isDraft: Bool
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"
@@ -47,6 +48,7 @@ struct GHPRSearchResponse: Codable {
     let author: Author
     let updatedAt: String
     let labels: [Label]
+    let isDraft: Bool
 
     struct Repository: Codable {
         let name: String

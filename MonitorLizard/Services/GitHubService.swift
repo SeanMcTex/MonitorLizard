@@ -59,7 +59,7 @@ class GitHubService: ObservableObject {
                 "search", "prs",
                 "--author=@me",
                 "--state=open",
-                "--json", "number,title,repository,url,author,updatedAt,labels",
+                "--json", "number,title,repository,url,author,updatedAt,labels,isDraft",
                 "--limit", "100"
             ]
         )
@@ -134,7 +134,8 @@ class GitHubService: ObservableObject {
                 labels: result.labels.map { label in
                     PullRequest.Label(id: label.id, name: label.name, color: label.color)
                 },
-                type: .authored
+                type: .authored,
+                isDraft: result.isDraft
             )
 
             pullRequests.append(pr)
@@ -151,7 +152,7 @@ class GitHubService: ObservableObject {
                 "search", "prs",
                 "--review-requested=@me",
                 "--state=open",
-                "--json", "number,title,repository,url,author,updatedAt,labels",
+                "--json", "number,title,repository,url,author,updatedAt,labels,isDraft",
                 "--limit", "100"
             ]
         )
@@ -226,7 +227,8 @@ class GitHubService: ObservableObject {
                 labels: result.labels.map { label in
                     PullRequest.Label(id: label.id, name: label.name, color: label.color)
                 },
-                type: .reviewing
+                type: .reviewing,
+                isDraft: result.isDraft
             )
 
             pullRequests.append(pr)
