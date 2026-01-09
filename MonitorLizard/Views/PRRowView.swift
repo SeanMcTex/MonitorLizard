@@ -64,6 +64,18 @@ struct PRRowView: View {
                     Text("#\(pr.number)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    // Draft badge
+                    if pr.isDraft {
+                        Text("DRAFT")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.8))
+                            .cornerRadius(3)
+                    }
                 }
 
                 // Branch name
