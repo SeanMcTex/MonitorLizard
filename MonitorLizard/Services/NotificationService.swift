@@ -19,7 +19,7 @@ class NotificationService {
     }
 
     private var voiceAnnouncementText: String {
-        UserDefaults.standard.string(forKey: "voiceAnnouncementText") ?? "Build ready for Q A"
+        UserDefaults.standard.string(forKey: "voiceAnnouncementText") ?? Constants.defaultVoiceAnnouncementText
     }
 
     private init() {
@@ -34,7 +34,7 @@ class NotificationService {
             UserDefaults.standard.set(true, forKey: "showNotifications")
         }
         if UserDefaults.standard.object(forKey: "voiceAnnouncementText") == nil {
-            UserDefaults.standard.set("Build ready for Q A", forKey: "voiceAnnouncementText")
+            UserDefaults.standard.set(Constants.defaultVoiceAnnouncementText, forKey: "voiceAnnouncementText")
         }
     }
 

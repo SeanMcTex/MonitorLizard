@@ -19,15 +19,21 @@ class PRMonitorViewModel: ObservableObject {
     private var sortSettingObserver: AnyCancellable?
     private var unsortedPullRequests: [PullRequest] = []
 
-    @AppStorage("refreshInterval") private var refreshInterval: Int = 30
+    @AppStorage("refreshInterval") private var refreshInterval: Int = Constants.defaultRefreshInterval
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst: Bool = false
     @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection: Bool = false
-    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays: Int = 3
+    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays: Int = Constants.defaultStaleBranchThreshold
 
     init() {
         setupNotifications()
         startPolling()
         observeSortSetting()
+    }
+
+    deinit {
+        // Timer invalidation is safe to call synchronously from deinit
+        refreshTimer?.invalidate()
+        sortSettingObserver?.cancel()
     }
 
     private func observeSortSetting() {

@@ -142,7 +142,7 @@ struct MenuBarView: View {
     private func calculateMaxHeight() -> CGFloat {
         // Get screen height and use 70% of it, max 700px
         if let screen = NSScreen.main {
-            let maxHeight = screen.visibleFrame.height * 0.7
+            let maxHeight = screen.visibleFrame.height * Constants.menuMaxHeightMultiplier
             return min(maxHeight, 700)
         }
         return 600 // Fallback

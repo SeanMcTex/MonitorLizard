@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("refreshInterval") private var refreshInterval = 30
+    @AppStorage("refreshInterval") private var refreshInterval = Constants.defaultRefreshInterval
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst = false
     @AppStorage("enableSounds") private var enableSounds = true
     @AppStorage("enableVoice") private var enableVoice = true
-    @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = "Build ready for Q A"
+    @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = Constants.defaultVoiceAnnouncementText
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection = false
-    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays = 3
+    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays = Constants.defaultStaleBranchThreshold
 
     var body: some View {
         TabView {
@@ -27,7 +27,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 450, height: 500)
+        .frame(width: Constants.settingsWindowWidth, height: Constants.settingsWindowHeight)
         .padding()
     }
 
@@ -42,7 +42,7 @@ struct SettingsView: View {
                         Slider(value: Binding(
                             get: { Double(refreshInterval) },
                             set: { refreshInterval = Int($0) }
-                        ), in: 10...300, step: 10)
+                        ), in: Double(Constants.minRefreshInterval)...Double(Constants.maxRefreshInterval), step: Double(Constants.refreshIntervalStep))
 
                         Text("\(refreshInterval)s")
                             .frame(width: 50, alignment: .trailing)
@@ -76,7 +76,7 @@ struct SettingsView: View {
                     if enableStaleBranchDetection {
                         Stepper("Days without update: \(staleBranchThresholdDays)",
                                 value: $staleBranchThresholdDays,
-                                in: 1...90)
+                                in: Constants.minStaleBranchThreshold...Constants.maxStaleBranchThreshold)
                             .padding(.top, 4)
 
                         Text("PRs not updated for \(staleBranchThresholdDays) days will show as stale")

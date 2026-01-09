@@ -7,7 +7,7 @@ struct PRRowView: View {
     @State private var isHovering = false
 
     private var daysSinceUpdate: Int {
-        let days = Int(Date().timeIntervalSince(pr.updatedAt) / (24 * 60 * 60))
+        let days = Int(Date().timeIntervalSince(pr.updatedAt) / Constants.secondsPerDay)
         return days
     }
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		32364F9E2F1143E100493ED7 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32364F9D2F1143E100493ED7 /* Constants.swift */; };
 		329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */; };
 		329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDF2F103E3200F0E6EA /* PullRequest.swift */; };
 		329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */; };
@@ -14,11 +15,11 @@
 		329D9EF22F103E3200F0E6EA /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE42F103E3200F0E6EA /* NotificationService.swift */; };
 		329D9EF32F103E3200F0E6EA /* ShellExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE52F103E3200F0E6EA /* ShellExecutor.swift */; };
 		329D9EF42F103E3200F0E6EA /* WatchlistService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE62F103E3200F0E6EA /* WatchlistService.swift */; };
-		329D9EF92F103E3200F0E6EA /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EE91F749D44258AE659F6C /* WindowManager.swift */; };
 		329D9EF52F103E3200F0E6EA /* PRMonitorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE82F103E3200F0E6EA /* PRMonitorViewModel.swift */; };
 		329D9EF62F103E3200F0E6EA /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EEA2F103E3200F0E6EA /* MenuBarView.swift */; };
 		329D9EF72F103E3200F0E6EA /* PRRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EEB2F103E3200F0E6EA /* PRRowView.swift */; };
 		329D9EF82F103E3200F0E6EA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EEC2F103E3200F0E6EA /* SettingsView.swift */; };
+		329D9EF92F103E3200F0E6EA /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EE91F749D44258AE659F6C /* WindowManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +40,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		32364F9D2F1143E100493ED7 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		329D9EB32F103DF700F0E6EA /* MonitorLizard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MonitorLizard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		329D9EC02F103DF800F0E6EA /* MonitorLizardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MonitorLizardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		329D9ECA2F103DF800F0E6EA /* MonitorLizardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MonitorLizardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -50,11 +52,11 @@
 		329D9EE42F103E3200F0E6EA /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		329D9EE52F103E3200F0E6EA /* ShellExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellExecutor.swift; sourceTree = "<group>"; };
 		329D9EE62F103E3200F0E6EA /* WatchlistService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchlistService.swift; sourceTree = "<group>"; };
-		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
 		329D9EE82F103E3200F0E6EA /* PRMonitorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRMonitorViewModel.swift; sourceTree = "<group>"; };
 		329D9EEA2F103E3200F0E6EA /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		329D9EEB2F103E3200F0E6EA /* PRRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRRowView.swift; sourceTree = "<group>"; };
 		329D9EEC2F103E3200F0E6EA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +87,7 @@
 		329D9EAA2F103DF700F0E6EA = {
 			isa = PBXGroup;
 			children = (
+				32364F9D2F1143E100493ED7 /* Constants.swift */,
 				329D9EDD2F103E3200F0E6EA /* Info.plist */,
 				329D9EE02F103E3200F0E6EA /* Models */,
 				329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */,
@@ -294,6 +297,7 @@
 				329D9EF22F103E3200F0E6EA /* NotificationService.swift in Sources */,
 				329D9EF32F103E3200F0E6EA /* ShellExecutor.swift in Sources */,
 				329D9EF42F103E3200F0E6EA /* WatchlistService.swift in Sources */,
+				32364F9E2F1143E100493ED7 /* Constants.swift in Sources */,
 				329D9EF92F103E3200F0E6EA /* WindowManager.swift in Sources */,
 				329D9EF52F103E3200F0E6EA /* PRMonitorViewModel.swift in Sources */,
 				329D9EF62F103E3200F0E6EA /* MenuBarView.swift in Sources */,

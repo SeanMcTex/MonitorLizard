@@ -219,7 +219,7 @@ class GitHubService: ObservableObject {
         // Priority: failure > error > pending > stale > success/unknown
         // Check for stale branch if enabled (overrides success and unknown)
         if enableStaleDetection {
-            let daysSinceUpdate = Date().timeIntervalSince(updatedAt) / (24 * 60 * 60)
+            let daysSinceUpdate = Date().timeIntervalSince(updatedAt) / Constants.secondsPerDay
             if daysSinceUpdate >= Double(staleThresholdDays) {
                 return .stale
             }
