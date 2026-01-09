@@ -23,6 +23,15 @@ struct PRRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Review indicator (for PRs awaiting review)
+            if pr.type == .reviewing {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .foregroundColor(.blue)
+                    .font(.body)
+                    .help("Awaiting your review")
+                    .frame(width: 24)
+            }
+
             // Status icon
             Group {
                 if pr.buildStatus == .pending {

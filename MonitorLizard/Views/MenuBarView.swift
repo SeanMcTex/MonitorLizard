@@ -15,7 +15,7 @@ struct MenuBarView: View {
                 errorView(error)
             } else if !viewModel.isGHAvailable {
                 ghUnavailableView
-            } else if viewModel.pullRequests.isEmpty && !viewModel.isLoading {
+            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && !viewModel.isLoading {
                 emptyStateView
             } else {
                 prListView
@@ -129,14 +129,54 @@ struct MenuBarView: View {
     private var prListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(viewModel.pullRequests) { pr in
-                    PRRowView(pr: pr)
-                        .environmentObject(viewModel)
+                // Review PRs Section (FIRST - prioritize unblocking teammates)
+                if !viewModel.reviewPRs.isEmpty {
+                    sectionHeader(title: "Awaiting My Review", count: viewModel.reviewPRs.count)
+
+                    ForEach(viewModel.reviewPRs) { pr in
+                        PRRowView(pr: pr)
+                            .environmentObject(viewModel)
+                        Divider()
+                    }
+                }
+
+                // Section Divider
+                if !viewModel.authoredPRs.isEmpty && !viewModel.reviewPRs.isEmpty {
                     Divider()
+                        .padding(.vertical, 8)
+                        .background(Color.gray.opacity(0.1))
+                }
+
+                // Authored PRs Section (SECOND)
+                if !viewModel.authoredPRs.isEmpty {
+                    sectionHeader(title: "My PRs", count: viewModel.authoredPRs.count)
+
+                    ForEach(viewModel.authoredPRs) { pr in
+                        PRRowView(pr: pr)
+                            .environmentObject(viewModel)
+                        Divider()
+                    }
                 }
             }
         }
         .frame(height: calculateMaxHeight())
+    }
+
+    private func sectionHeader(title: String, count: Int) -> some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+
+            Text("(\(count))")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.gray.opacity(0.05))
     }
 
     private func calculateMaxHeight() -> CGFloat {

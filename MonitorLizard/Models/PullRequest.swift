@@ -1,5 +1,10 @@
 import Foundation
 
+enum PRType: String, Codable, Hashable {
+    case authored    // PRs created by user
+    case reviewing   // PRs awaiting user's review
+}
+
 struct PullRequest: Identifiable, Hashable {
     let number: Int
     let title: String
@@ -11,6 +16,7 @@ struct PullRequest: Identifiable, Hashable {
     var buildStatus: BuildStatus
     var isWatched: Bool
     let labels: [Label]
+    let type: PRType
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"

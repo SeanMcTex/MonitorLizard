@@ -17,23 +17,37 @@ class PRMonitorViewModel: ObservableObject {
 
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
+    private var reviewPRsSettingObserver: AnyCancellable?
     private var unsortedPullRequests: [PullRequest] = []
 
     @AppStorage("refreshInterval") private var refreshInterval: Int = Constants.defaultRefreshInterval
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst: Bool = false
     @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection: Bool = false
     @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays: Int = Constants.defaultStaleBranchThreshold
+    @AppStorage("showReviewPRs") private var showReviewPRs: Bool = true
+
+    // Computed properties for filtering PRs by type
+    var authoredPRs: [PullRequest] {
+        pullRequests.filter { $0.type == .authored }
+    }
+
+    var reviewPRs: [PullRequest] {
+        guard showReviewPRs else { return [] }
+        return pullRequests.filter { $0.type == .reviewing }
+    }
 
     init() {
         setupNotifications()
         startPolling()
         observeSortSetting()
+        observeReviewPRsSetting()
     }
 
     deinit {
         // Timer invalidation is safe to call synchronously from deinit
         refreshTimer?.invalidate()
         sortSettingObserver?.cancel()
+        reviewPRsSettingObserver?.cancel()
     }
 
     private func observeSortSetting() {
@@ -43,6 +57,16 @@ class PRMonitorViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.applySorting()
+            }
+    }
+
+    private func observeReviewPRsSetting() {
+        reviewPRsSettingObserver = UserDefaults.standard
+            .publisher(for: \.showReviewPRs)
+            .dropFirst() // Skip initial value
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
             }
     }
 
@@ -105,13 +129,8 @@ class PRMonitorViewModel: ObservableObject {
                 return updated
             }
 
-            // Apply sorting
+            // Apply sorting (also updates warning icon)
             applySorting()
-
-            // Update warning icon indicator (failures, errors, conflicts, or stale PRs)
-            showWarningIcon = pullRequests.contains { pr in
-                pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .stale
-            }
 
             lastRefreshTime = Date()
             isGHAvailable = true
@@ -137,29 +156,40 @@ class PRMonitorViewModel: ObservableObject {
     }
 
     private func applySorting() {
-        if sortNonSuccessFirst {
-            // Sort with non-success first
-            pullRequests = unsortedPullRequests.sorted { pr1, pr2 in
-                let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .pending, .stale]
-                let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus)
-                let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus)
+        // Split PRs by type
+        let authored = unsortedPullRequests.filter { $0.type == .authored }
+        let review = unsortedPullRequests.filter { $0.type == .reviewing }
 
-                // If one is non-success and other isn't, non-success comes first
-                if pr1NonSuccess != pr2NonSuccess {
-                    return pr1NonSuccess
-                }
+        // Apply sorting independently within each section
+        let sortedAuthored = sortNonSuccessFirst ? sort(authored) : authored
+        let sortedReview = sortNonSuccessFirst ? sort(review) : review
 
-                // Otherwise maintain original order
-                return false
-            }
-        } else {
-            // Restore original order from GitHub
-            pullRequests = unsortedPullRequests
-        }
+        // Concatenate with review PRs first (prioritize unblocking teammates)
+        pullRequests = sortedReview + sortedAuthored
 
-        // Update warning icon indicator (failures, errors, conflicts, or stale PRs)
-        showWarningIcon = pullRequests.contains { pr in
+        // Update warning icon indicator (failures, errors, conflicts, stale PRs, or any review PRs)
+        let hasBadStatus = pullRequests.contains { pr in
             pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .stale
+        }
+        let hasReviewPRs = pullRequests.contains { pr in
+            pr.type == .reviewing
+        }
+        showWarningIcon = hasBadStatus || hasReviewPRs
+    }
+
+    private func sort(_ prs: [PullRequest]) -> [PullRequest] {
+        prs.sorted { pr1, pr2 in
+            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .pending, .stale]
+            let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus)
+            let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus)
+
+            // If one is non-success and other isn't, non-success comes first
+            if pr1NonSuccess != pr2NonSuccess {
+                return pr1NonSuccess
+            }
+
+            // Otherwise maintain original order
+            return false
         }
     }
 
@@ -215,9 +245,13 @@ class PRMonitorViewModel: ObservableObject {
     }
 }
 
-// Extension to make UserDefaults key observable
+// Extension to make UserDefaults keys observable
 extension UserDefaults {
     @objc dynamic var sortNonSuccessFirst: Bool {
         return bool(forKey: "sortNonSuccessFirst")
+    }
+
+    @objc dynamic var showReviewPRs: Bool {
+        return bool(forKey: "showReviewPRs")
     }
 }

@@ -23,6 +23,35 @@ class GitHubService: ObservableObject {
     }
 
     func fetchAllOpenPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
+        // Fetch both authored and review PRs in parallel with independent error handling
+        async let authoredTask = fetchAuthoredPRsSafely(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+        async let reviewTask = fetchReviewPRsSafely(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+
+        let authored = await authoredTask
+        let review = await reviewTask
+
+        return review + authored  // Review PRs first to prioritize unblocking teammates
+    }
+
+    private func fetchAuthoredPRsSafely(enableStaleDetection: Bool, staleThresholdDays: Int) async -> [PullRequest] {
+        do {
+            return try await fetchAuthoredPRs(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+        } catch {
+            print("Error fetching authored PRs: \(error)")
+            return []
+        }
+    }
+
+    private func fetchReviewPRsSafely(enableStaleDetection: Bool, staleThresholdDays: Int) async -> [PullRequest] {
+        do {
+            return try await fetchReviewPRs(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+        } catch {
+            print("Error fetching review PRs: \(error)")
+            return []
+        }
+    }
+
+    private func fetchAuthoredPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
         // Fetch all open PRs authored by the current user
         let json = try await shellExecutor.execute(
             command: "gh",
@@ -104,7 +133,100 @@ class GitHubService: ObservableObject {
                 isWatched: false,
                 labels: result.labels.map { label in
                     PullRequest.Label(id: label.id, name: label.name, color: label.color)
+                },
+                type: .authored
+            )
+
+            pullRequests.append(pr)
+        }
+
+        return pullRequests
+    }
+
+    private func fetchReviewPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
+        // Fetch all open PRs where the current user is a requested reviewer
+        let json = try await shellExecutor.execute(
+            command: "gh",
+            arguments: [
+                "search", "prs",
+                "--review-requested=@me",
+                "--state=open",
+                "--json", "number,title,repository,url,author,updatedAt,labels",
+                "--limit", "100"
+            ]
+        )
+
+        // Parse the JSON response
+        guard let jsonData = json.data(using: .utf8) else {
+            throw GitHubError.invalidResponse
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            // Try different date formats
+            let formatters: [ISO8601DateFormatter] = [
+                {
+                    let f = ISO8601DateFormatter()
+                    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    return f
+                }(),
+                {
+                    let f = ISO8601DateFormatter()
+                    f.formatOptions = [.withInternetDateTime]
+                    return f
+                }()
+            ]
+
+            for formatter in formatters {
+                if let date = formatter.date(from: dateString) {
+                    return date
                 }
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date string \(dateString)"
+            )
+        }
+
+        let searchResults = try decoder.decode([GHPRSearchResponse].self, from: jsonData)
+
+        // Convert to PullRequest objects and fetch status for each
+        var pullRequests: [PullRequest] = []
+
+        for result in searchResults {
+            let updatedAt = try parseDate(result.updatedAt)
+
+            // Fetch detailed PR info with status
+            let statusInfo = try await fetchPRStatus(
+                owner: extractOwner(from: result.repository.nameWithOwner),
+                repo: extractRepo(from: result.repository.nameWithOwner),
+                number: result.number,
+                updatedAt: updatedAt,
+                enableStaleDetection: enableStaleDetection,
+                staleThresholdDays: staleThresholdDays
+            )
+
+            let pr = PullRequest(
+                number: result.number,
+                title: result.title,
+                repository: PullRequest.RepositoryInfo(
+                    name: result.repository.name,
+                    nameWithOwner: result.repository.nameWithOwner
+                ),
+                url: result.url,
+                author: PullRequest.Author(login: result.author.login),
+                headRefName: statusInfo.headRefName,
+                updatedAt: updatedAt,
+                buildStatus: statusInfo.status,
+                isWatched: false,
+                labels: result.labels.map { label in
+                    PullRequest.Label(id: label.id, name: label.name, color: label.color)
+                },
+                type: .reviewing
             )
 
             pullRequests.append(pr)

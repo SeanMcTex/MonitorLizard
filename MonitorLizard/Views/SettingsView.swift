@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("refreshInterval") private var refreshInterval = Constants.defaultRefreshInterval
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst = false
+    @AppStorage("showReviewPRs") private var showReviewPRs = true
     @AppStorage("enableSounds") private var enableSounds = true
     @AppStorage("enableVoice") private var enableVoice = true
     @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = Constants.defaultVoiceAnnouncementText
@@ -62,6 +63,18 @@ struct SettingsView: View {
                         .help("Show PRs with pending, failed, or error status at the top of the list")
 
                     Text("Success (green) PRs will appear at the bottom")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Show PRs awaiting my review", isOn: $showReviewPRs)
+                        .help("Display pull requests where you are a requested reviewer")
+
+                    Text("Review PRs appear at the top to prioritize unblocking teammates")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
