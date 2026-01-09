@@ -9,7 +9,7 @@ struct MonitorLizardApp: App {
             MenuBarView()
                 .environmentObject(viewModel)
         } label: {
-            MenuBarLabel(hasFailingBuilds: viewModel.hasFailingBuilds)
+            MenuBarLabel(showWarningIcon: viewModel.showWarningIcon)
         }
         .menuBarExtraStyle(.window)
 
@@ -20,10 +20,10 @@ struct MonitorLizardApp: App {
 }
 
 struct MenuBarLabel: View {
-    let hasFailingBuilds: Bool
+    let showWarningIcon: Bool
 
     var body: some View {
-        Image(systemName: hasFailingBuilds ? "exclamationmark.triangle.fill" : "lizard")
-            .foregroundColor(hasFailingBuilds ? .red : nil)
+        Image(systemName: showWarningIcon ? "exclamationmark.triangle.fill" : "lizard")
+            .foregroundColor(showWarningIcon ? .red : nil)
     }
 }

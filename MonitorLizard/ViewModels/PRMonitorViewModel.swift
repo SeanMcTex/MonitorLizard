@@ -9,7 +9,7 @@ class PRMonitorViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var lastRefreshTime: Date?
     @Published var isGHAvailable = true
-    @Published var hasFailingBuilds = false
+    @Published var showWarningIcon = false
 
     private let githubService = GitHubService()
     private let watchlistService = WatchlistService.shared
@@ -108,9 +108,9 @@ class PRMonitorViewModel: ObservableObject {
             // Apply sorting
             applySorting()
 
-            // Update failure indicator (includes stale, failure, error, conflict, pending)
-            hasFailingBuilds = pullRequests.contains { pr in
-                pr.buildStatus != .success && pr.buildStatus != .unknown
+            // Update warning icon indicator (failures, errors, conflicts, or stale PRs)
+            showWarningIcon = pullRequests.contains { pr in
+                pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .stale
             }
 
             lastRefreshTime = Date()
@@ -157,9 +157,9 @@ class PRMonitorViewModel: ObservableObject {
             pullRequests = unsortedPullRequests
         }
 
-        // Update failure indicator (includes stale, failure, error, conflict, pending)
-        hasFailingBuilds = pullRequests.contains { pr in
-            pr.buildStatus != .success && pr.buildStatus != .unknown
+        // Update warning icon indicator (failures, errors, conflicts, or stale PRs)
+        showWarningIcon = pullRequests.contains { pr in
+            pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .stale
         }
     }
 
