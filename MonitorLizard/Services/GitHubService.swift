@@ -22,7 +22,7 @@ class GitHubService: ObservableObject {
         }
     }
 
-    func fetchAllOpenPRs() async throws -> [PullRequest] {
+    func fetchAllOpenPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
         // Fetch all open PRs authored by the current user
         let json = try await shellExecutor.execute(
             command: "gh",
@@ -83,7 +83,10 @@ class GitHubService: ObservableObject {
             let statusInfo = try await fetchPRStatus(
                 owner: extractOwner(from: result.repository.nameWithOwner),
                 repo: extractRepo(from: result.repository.nameWithOwner),
-                number: result.number
+                number: result.number,
+                updatedAt: updatedAt,
+                enableStaleDetection: enableStaleDetection,
+                staleThresholdDays: staleThresholdDays
             )
 
             let pr = PullRequest(
@@ -110,7 +113,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    func fetchPRStatus(owner: String, repo: String, number: Int) async throws -> (status: BuildStatus, headRefName: String) {
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String) {
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -130,13 +133,16 @@ class GitHubService: ObservableObject {
         let status = parseOverallStatus(
             from: detail.statusCheckRollup,
             mergeable: detail.mergeable,
-            mergeStateStatus: detail.mergeStateStatus
+            mergeStateStatus: detail.mergeStateStatus,
+            updatedAt: updatedAt,
+            enableStaleDetection: enableStaleDetection,
+            staleThresholdDays: staleThresholdDays
         )
 
         return (status, detail.headRefName)
     }
 
-    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?) -> BuildStatus {
+    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableStaleDetection: Bool, staleThresholdDays: Int) -> BuildStatus {
         // Check for merge conflicts first (highest priority)
         if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
             return .conflict
@@ -209,6 +215,16 @@ class GitHubService: ObservableObject {
         if hasPending {
             return .pending
         }
+
+        // Priority: failure > error > pending > stale > success/unknown
+        // Check for stale branch if enabled (overrides success and unknown)
+        if enableStaleDetection {
+            let daysSinceUpdate = Date().timeIntervalSince(updatedAt) / (24 * 60 * 60)
+            if daysSinceUpdate >= Double(staleThresholdDays) {
+                return .stale
+            }
+        }
+
         if hasSuccess {
             return .success
         }

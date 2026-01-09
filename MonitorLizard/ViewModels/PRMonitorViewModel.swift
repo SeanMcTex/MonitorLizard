@@ -21,6 +21,8 @@ class PRMonitorViewModel: ObservableObject {
 
     @AppStorage("refreshInterval") private var refreshInterval: Int = 30
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst: Bool = false
+    @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection: Bool = false
+    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays: Int = 3
 
     init() {
         setupNotifications()
@@ -77,7 +79,10 @@ class PRMonitorViewModel: ObservableObject {
 
         do {
             // Fetch all open PRs with their statuses
-            let fetchedPRs = try await githubService.fetchAllOpenPRs()
+            let fetchedPRs = try await githubService.fetchAllOpenPRs(
+                enableStaleDetection: enableStaleBranchDetection,
+                staleThresholdDays: staleBranchThresholdDays
+            )
 
             // Check for watched PR completions
             let completed = watchlistService.checkForCompletions(currentPRs: fetchedPRs)
@@ -97,8 +102,10 @@ class PRMonitorViewModel: ObservableObject {
             // Apply sorting
             applySorting()
 
-            // Update failure indicator
-            hasFailingBuilds = pullRequests.contains { $0.buildStatus == .failure || $0.buildStatus == .error }
+            // Update failure indicator (includes stale, failure, error, conflict, pending)
+            hasFailingBuilds = pullRequests.contains { pr in
+                pr.buildStatus != .success && pr.buildStatus != .unknown
+            }
 
             lastRefreshTime = Date()
             isGHAvailable = true
@@ -127,12 +134,13 @@ class PRMonitorViewModel: ObservableObject {
         if sortNonSuccessFirst {
             // Sort with non-success first
             pullRequests = unsortedPullRequests.sorted { pr1, pr2 in
-                let pr1Success = pr1.buildStatus == .success
-                let pr2Success = pr2.buildStatus == .success
+                let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .pending, .stale]
+                let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus)
+                let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus)
 
-                // If one is success and other isn't, non-success comes first
-                if pr1Success != pr2Success {
-                    return !pr1Success
+                // If one is non-success and other isn't, non-success comes first
+                if pr1NonSuccess != pr2NonSuccess {
+                    return pr1NonSuccess
                 }
 
                 // Otherwise maintain original order
@@ -143,8 +151,10 @@ class PRMonitorViewModel: ObservableObject {
             pullRequests = unsortedPullRequests
         }
 
-        // Update failure indicator
-        hasFailingBuilds = pullRequests.contains { $0.buildStatus == .failure || $0.buildStatus == .error }
+        // Update failure indicator (includes stale, failure, error, conflict, pending)
+        hasFailingBuilds = pullRequests.contains { pr in
+            pr.buildStatus != .success && pr.buildStatus != .unknown
+        }
     }
 
     func toggleWatch(for pr: PullRequest) {

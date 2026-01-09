@@ -7,6 +7,8 @@ struct SettingsView: View {
     @AppStorage("enableVoice") private var enableVoice = true
     @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = "Build ready for Q A"
     @AppStorage("showNotifications") private var showNotifications = true
+    @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection = false
+    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays = 3
 
     var body: some View {
         TabView {
@@ -25,7 +27,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 450, height: 350)
+        .frame(width: 450, height: 500)
         .padding()
     }
 
@@ -62,6 +64,26 @@ struct SettingsView: View {
                     Text("Success (green) PRs will appear at the bottom")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+            }
+
+            Section("Stale Branch Detection") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Enable stale branch detection", isOn: $enableStaleBranchDetection)
+                        .help("Highlight PRs that haven't been updated in a while")
+
+                    if enableStaleBranchDetection {
+                        Stepper("Days without update: \(staleBranchThresholdDays)",
+                                value: $staleBranchThresholdDays,
+                                in: 1...90)
+                            .padding(.top, 4)
+
+                        Text("PRs not updated for \(staleBranchThresholdDays) days will show as stale")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.vertical, 8)
             }

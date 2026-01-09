@@ -6,6 +6,21 @@ struct PRRowView: View {
 
     @State private var isHovering = false
 
+    private var daysSinceUpdate: Int {
+        let days = Int(Date().timeIntervalSince(pr.updatedAt) / (24 * 60 * 60))
+        return days
+    }
+
+    private var daysSinceUpdateText: String {
+        if daysSinceUpdate == 0 {
+            return "updated today"
+        } else if daysSinceUpdate == 1 {
+            return "updated 1 day ago"
+        } else {
+            return "updated \(daysSinceUpdate) days ago"
+        }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Status icon
@@ -56,10 +71,20 @@ struct PRRowView: View {
                     }
                 }
 
-                // Build status text
-                Text(pr.buildStatus.displayName)
-                    .font(.caption2)
-                    .foregroundColor(pr.buildStatus.color)
+                // Build status text with days since update
+                HStack(spacing: 4) {
+                    Text(pr.buildStatus.displayName)
+                        .font(.caption2)
+                        .foregroundColor(pr.buildStatus.color)
+
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    Text("(\(daysSinceUpdateText))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
 
                 // Labels
                 if !pr.labels.isEmpty {
