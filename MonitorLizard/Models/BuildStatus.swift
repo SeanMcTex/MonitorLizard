@@ -8,7 +8,7 @@ enum BuildStatus: String, Codable, Hashable {
     case error
     case changesRequested
     case unknown
-    case stale
+    case inactive
 
     var icon: String {
         switch self {
@@ -19,7 +19,7 @@ enum BuildStatus: String, Codable, Hashable {
         case .changesRequested: return "🔄"
         case .pending: return "🔄"
         case .unknown: return "❓"
-        case .stale: return "⏳"
+        case .inactive: return "⏳"
         }
     }
 
@@ -32,7 +32,7 @@ enum BuildStatus: String, Codable, Hashable {
         case .changesRequested: return .orange
         case .pending: return .blue
         case .unknown: return .gray
-        case .stale: return .orange
+        case .inactive: return .orange
         }
     }
 
@@ -45,7 +45,7 @@ enum BuildStatus: String, Codable, Hashable {
         case .changesRequested: return "Changes Requested"
         case .pending: return "Pending"
         case .unknown: return "Unknown"
-        case .stale: return "Stale"
+        case .inactive: return "Inactive"
         }
     }
 }

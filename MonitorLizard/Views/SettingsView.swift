@@ -8,8 +8,8 @@ struct SettingsView: View {
     @AppStorage("enableVoice") private var enableVoice = true
     @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = Constants.defaultVoiceAnnouncementText
     @AppStorage("showNotifications") private var showNotifications = true
-    @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection = false
-    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays = Constants.defaultStaleBranchThreshold
+    @AppStorage("enableInactiveBranchDetection") private var enableInactiveBranchDetection = false
+    @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays = Constants.defaultInactiveBranchThreshold
 
     var body: some View {
         TabView {
@@ -81,18 +81,18 @@ struct SettingsView: View {
                 .padding(.vertical, 8)
             }
 
-            Section("Stale Branch Detection") {
+            Section("Inactive Branch Detection") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Enable stale branch detection", isOn: $enableStaleBranchDetection)
+                    Toggle("Enable inactive branch detection", isOn: $enableInactiveBranchDetection)
                         .help("Highlight PRs that haven't been updated in a while")
 
-                    if enableStaleBranchDetection {
-                        Stepper("Days without update: \(staleBranchThresholdDays)",
-                                value: $staleBranchThresholdDays,
-                                in: Constants.minStaleBranchThreshold...Constants.maxStaleBranchThreshold)
+                    if enableInactiveBranchDetection {
+                        Stepper("Days without update: \(inactiveBranchThresholdDays)",
+                                value: $inactiveBranchThresholdDays,
+                                in: Constants.minInactiveBranchThreshold...Constants.maxInactiveBranchThreshold)
                             .padding(.top, 4)
 
-                        Text("PRs not updated for \(staleBranchThresholdDays) days will show as stale")
+                        Text("PRs not updated for \(inactiveBranchThresholdDays) days will show as inactive")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)

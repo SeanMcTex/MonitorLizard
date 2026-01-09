@@ -22,8 +22,8 @@ class PRMonitorViewModel: ObservableObject {
 
     @AppStorage("refreshInterval") private var refreshInterval: Int = Constants.defaultRefreshInterval
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst: Bool = false
-    @AppStorage("enableStaleBranchDetection") private var enableStaleBranchDetection: Bool = false
-    @AppStorage("staleBranchThresholdDays") private var staleBranchThresholdDays: Int = Constants.defaultStaleBranchThreshold
+    @AppStorage("enableInactiveBranchDetection") private var enableInactiveBranchDetection: Bool = false
+    @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays: Int = Constants.defaultInactiveBranchThreshold
     @AppStorage("showReviewPRs") private var showReviewPRs: Bool = true
 
     // Computed properties for filtering PRs by type
@@ -110,8 +110,8 @@ class PRMonitorViewModel: ObservableObject {
         do {
             // Fetch all open PRs with their statuses
             let fetchedPRs = try await githubService.fetchAllOpenPRs(
-                enableStaleDetection: enableStaleBranchDetection,
-                staleThresholdDays: staleBranchThresholdDays
+                enableInactiveDetection: enableInactiveBranchDetection,
+                inactiveThresholdDays: inactiveBranchThresholdDays
             )
 
             // Check for watched PR completions
@@ -167,9 +167,9 @@ class PRMonitorViewModel: ObservableObject {
         // Concatenate with review PRs first (prioritize unblocking teammates)
         pullRequests = sortedReview + sortedAuthored
 
-        // Update warning icon indicator (failures, errors, conflicts, changes requested, stale PRs, or any review PRs)
+        // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
         let hasBadStatus = pullRequests.contains { pr in
-            pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .changesRequested || pr.buildStatus == .stale
+            pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .changesRequested || pr.buildStatus == .inactive
         }
         let hasReviewPRs = pullRequests.contains { pr in
             pr.type == .reviewing
@@ -179,7 +179,7 @@ class PRMonitorViewModel: ObservableObject {
 
     private func sort(_ prs: [PullRequest]) -> [PullRequest] {
         prs.sorted { pr1, pr2 in
-            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .changesRequested, .pending, .stale]
+            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .changesRequested, .pending, .inactive]
             let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus)
             let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus)
 

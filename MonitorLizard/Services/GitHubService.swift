@@ -22,10 +22,10 @@ class GitHubService: ObservableObject {
         }
     }
 
-    func fetchAllOpenPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
+    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
         // Fetch both authored and review PRs in parallel with independent error handling
-        async let authoredTask = fetchAuthoredPRsSafely(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
-        async let reviewTask = fetchReviewPRsSafely(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+        async let authoredTask = fetchAuthoredPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+        async let reviewTask = fetchReviewPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
 
         let authored = await authoredTask
         let review = await reviewTask
@@ -33,25 +33,25 @@ class GitHubService: ObservableObject {
         return review + authored  // Review PRs first to prioritize unblocking teammates
     }
 
-    private func fetchAuthoredPRsSafely(enableStaleDetection: Bool, staleThresholdDays: Int) async -> [PullRequest] {
+    private func fetchAuthoredPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> [PullRequest] {
         do {
-            return try await fetchAuthoredPRs(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+            return try await fetchAuthoredPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
         } catch {
             print("Error fetching authored PRs: \(error)")
             return []
         }
     }
 
-    private func fetchReviewPRsSafely(enableStaleDetection: Bool, staleThresholdDays: Int) async -> [PullRequest] {
+    private func fetchReviewPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> [PullRequest] {
         do {
-            return try await fetchReviewPRs(enableStaleDetection: enableStaleDetection, staleThresholdDays: staleThresholdDays)
+            return try await fetchReviewPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
         } catch {
             print("Error fetching review PRs: \(error)")
             return []
         }
     }
 
-    private func fetchAuthoredPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
+    private func fetchAuthoredPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
         // Fetch all open PRs authored by the current user
         let json = try await shellExecutor.execute(
             command: "gh",
@@ -114,8 +114,8 @@ class GitHubService: ObservableObject {
                 repo: extractRepo(from: result.repository.nameWithOwner),
                 number: result.number,
                 updatedAt: updatedAt,
-                enableStaleDetection: enableStaleDetection,
-                staleThresholdDays: staleThresholdDays
+                enableInactiveDetection: enableInactiveDetection,
+                inactiveThresholdDays: inactiveThresholdDays
             )
 
             let pr = PullRequest(
@@ -143,7 +143,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    private func fetchReviewPRs(enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> [PullRequest] {
+    private func fetchReviewPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
         // Fetch all open PRs where the current user is a requested reviewer
         let json = try await shellExecutor.execute(
             command: "gh",
@@ -206,8 +206,8 @@ class GitHubService: ObservableObject {
                 repo: extractRepo(from: result.repository.nameWithOwner),
                 number: result.number,
                 updatedAt: updatedAt,
-                enableStaleDetection: enableStaleDetection,
-                staleThresholdDays: staleThresholdDays
+                enableInactiveDetection: enableInactiveDetection,
+                inactiveThresholdDays: inactiveThresholdDays
             )
 
             let pr = PullRequest(
@@ -235,7 +235,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableStaleDetection: Bool, staleThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String) {
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String) {
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -258,14 +258,14 @@ class GitHubService: ObservableObject {
             mergeStateStatus: detail.mergeStateStatus,
             reviewDecision: detail.reviewDecision,
             updatedAt: updatedAt,
-            enableStaleDetection: enableStaleDetection,
-            staleThresholdDays: staleThresholdDays
+            enableInactiveDetection: enableInactiveDetection,
+            inactiveThresholdDays: inactiveThresholdDays
         )
 
         return (status, detail.headRefName)
     }
 
-    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, reviewDecision: String?, updatedAt: Date, enableStaleDetection: Bool, staleThresholdDays: Int) -> BuildStatus {
+    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, reviewDecision: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
         // Check for merge conflicts first (highest priority)
         if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
             return .conflict
@@ -345,12 +345,12 @@ class GitHubService: ObservableObject {
             return .pending
         }
 
-        // Priority: failure > error > pending > stale > success/unknown
-        // Check for stale branch if enabled (overrides success and unknown)
-        if enableStaleDetection {
+        // Priority: failure > error > pending > inactive > success/unknown
+        // Check for inactive branch if enabled (overrides success and unknown)
+        if enableInactiveDetection {
             let daysSinceUpdate = Date().timeIntervalSince(updatedAt) / Constants.secondsPerDay
-            if daysSinceUpdate >= Double(staleThresholdDays) {
-                return .stale
+            if daysSinceUpdate >= Double(inactiveThresholdDays) {
+                return .inactive
             }
         }
 

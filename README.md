@@ -7,7 +7,7 @@ A native macOS menu bar application that monitors your GitHub pull requests and 
 - **Live PR Monitoring**: Displays all your open pull requests with real-time build status
 - **Auto-Refresh**: Polls GitHub every 30 seconds (configurable 10-300s)
 - **Watch PRs**: Mark specific PRs to get notified when their builds finish
-- **Stale Branch Detection**: Highlights PRs that haven't been updated in N days (configurable)
+- **Inactive Branch Detection**: Highlights PRs that haven't been updated in N days (configurable)
 - **Smart Sorting**: Optionally sort non-success PRs to the top of the list
 - **Age Indicators**: Shows how long ago each PR was last updated
 - **Native Notifications**: macOS notifications with sound and voice announcements
@@ -17,7 +17,7 @@ A native macOS menu bar application that monitors your GitHub pull requests and 
   - ❌ Failure (red)
   - ⚠️ Error (orange)
   - 🔄 Pending (blue)
-  - ⏳ Stale (orange)
+  - ⏳ Inactive (orange)
   - ✅ Success (green)
   - ❓ Unknown (gray)
 
@@ -77,8 +77,8 @@ Click **Settings** to configure:
 
 **General:**
 - **Refresh Interval**: 10-300 seconds (default: 30s)
-- **Sort non-success PRs first**: Show failing/pending/stale PRs at the top
-- **Stale Branch Detection**: Enable detection and set threshold (1-90 days)
+- **Sort non-success PRs first**: Show failing/pending/inactive PRs at the top
+- **Inactive Branch Detection**: Enable detection and set threshold (1-90 days)
 
 **Notifications:**
 - **Show Notifications**: Enable/disable macOS notifications
@@ -116,8 +116,8 @@ MonitorLizard/
 2. **Fetch PRs**: Executes `gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt,labels`
 3. **Fetch Status**: For each PR, executes `gh pr view N --json headRefName,statusCheckRollup,mergeable,mergeStateStatus`
 4. **Parse Status**: Determines overall status from individual checks
-   - **Priority**: conflict > failure > error > pending > stale > success > unknown
-   - **Stale Detection**: If enabled, marks PRs as stale when `updatedAt` exceeds threshold
+   - **Priority**: conflict > failure > error > pending > inactive > success > unknown
+   - **Inactive Detection**: If enabled, marks PRs as inactive when `updatedAt` exceeds threshold
 5. **Display**: Shows PRs with status icons, age indicators, and labels
 6. **Check Completions**: Compares with previous status for watched PRs
 7. **Notify**: Sends notifications for completed builds

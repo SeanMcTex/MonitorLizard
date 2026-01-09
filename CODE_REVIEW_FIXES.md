@@ -31,12 +31,12 @@ enum Constants {
     static let defaultShellTimeout: TimeInterval = 30
 
     // Settings defaults
-    static let defaultStaleBranchThreshold = 3
+    static let defaultInactiveBranchThreshold = 3
     static let minRefreshInterval = 10
     static let maxRefreshInterval = 300
     static let refreshIntervalStep = 10
-    static let minStaleBranchThreshold = 1
-    static let maxStaleBranchThreshold = 90
+    static let minInactiveBranchThreshold = 1
+    static let maxInactiveBranchThreshold = 90
 
     // UI constants
     static let menuMaxHeightMultiplier = 0.7
@@ -50,7 +50,7 @@ enum Constants {
 
 **Updated files:**
 - `PRRowView.swift` - Days calculation
-- `GitHubService.swift` - Stale detection calculation
+- `GitHubService.swift` - Inactive detection calculation
 - `SettingsView.swift` - All default values and slider bounds
 - `PRMonitorViewModel.swift` - Default settings values
 - `NotificationService.swift` - Default voice announcement text
@@ -112,7 +112,7 @@ enum Constants {
 Before sharing, manually test:
 
 1. **Memory:** Open Settings, close it, repeat 10 times - should not leak
-2. **Stale Detection:** Enable with 1-day threshold, verify calculations are correct
+2. **Inactive Detection:** Enable with 1-day threshold, verify calculations are correct
 3. **Error Handling:** Disconnect network, verify app handles gracefully
 4. **Settings Persistence:** Change settings, quit app, relaunch - verify settings saved
 5. **Timer Cleanup:** Use Instruments to verify no timer leaks

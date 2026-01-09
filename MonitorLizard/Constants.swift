@@ -7,12 +7,12 @@ enum Constants {
     static let defaultShellTimeout: TimeInterval = 30
 
     // Settings defaults
-    static let defaultStaleBranchThreshold = 3
+    static let defaultInactiveBranchThreshold = 3
     static let minRefreshInterval = 10
     static let maxRefreshInterval = 300
     static let refreshIntervalStep = 10
-    static let minStaleBranchThreshold = 1
-    static let maxStaleBranchThreshold = 90
+    static let minInactiveBranchThreshold = 1
+    static let maxInactiveBranchThreshold = 90
 
     // UI constants
     static let menuMaxHeightMultiplier = 0.7
