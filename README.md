@@ -7,14 +7,19 @@ A native macOS menu bar application that monitors your GitHub pull requests and 
 - **Live PR Monitoring**: Displays all your open pull requests with real-time build status
 - **Auto-Refresh**: Polls GitHub every 30 seconds (configurable 10-300s)
 - **Watch PRs**: Mark specific PRs to get notified when their builds finish
+- **Stale Branch Detection**: Highlights PRs that haven't been updated in N days (configurable)
+- **Smart Sorting**: Optionally sort non-success PRs to the top of the list
+- **Age Indicators**: Shows how long ago each PR was last updated
 - **Native Notifications**: macOS notifications with sound and voice announcements
 - **Multi-Repository**: Monitors PRs across all repositories you have access to
 - **Build Status Icons**:
-  - ✅ Success
-  - ❌ Failure
-  - ⚠️ Error
-  - 🔄 Pending
-  - ❓ Unknown
+  - ❗ Merge Conflict (purple)
+  - ❌ Failure (red)
+  - ⚠️ Error (orange)
+  - 🔄 Pending (blue)
+  - ⏳ Stale (orange)
+  - ✅ Success (green)
+  - ❓ Unknown (gray)
 
 ## Requirements
 
@@ -38,60 +43,15 @@ gh auth login
 
 Follow the prompts to authenticate with your GitHub account.
 
-### 3. Build the Application
+### 3. Build and Run
 
-Since the Swift source files are already created, you need to create an Xcode project:
+1. Open `MonitorLizard/MonitorLizard.xcodeproj` in Xcode
+2. Select your development team under **Signing & Capabilities** if needed
+3. Press **⌘R** to build and run
+4. The app will appear in your menu bar with a lizard icon 🦎
+5. Grant notification permissions when prompted
 
-#### Option A: Create Xcode Project (Recommended)
-
-1. Open Xcode
-2. Select **File > New > Project**
-3. Choose **macOS > App**
-4. Configure project:
-   - **Product Name**: MonitorLizard
-   - **Team**: Select your team
-   - **Organization Identifier**: com.yourname.monitorlizard
-   - **Interface**: SwiftUI
-   - **Language**: Swift
-   - **Storage**: None
-5. **Save** the project to `/Users/seanmcmains/Developer/MonitorLizard`
-6. **Delete** the default `ContentView.swift` and `MonitorLizardApp.swift` files Xcode created
-7. In Xcode, **File > Add Files to "MonitorLizard"**
-8. Select the `MonitorLizard/MonitorLizard` directory containing all the Swift files
-9. Ensure "Copy items if needed" is **unchecked** and "Create groups" is selected
-10. Click **Add**
-
-#### Configure Project Settings
-
-1. Select the project in the navigator
-2. Under **Signing & Capabilities**:
-   - Enable **Hardened Runtime**
-   - Under **Resource Access**, enable:
-     - **User Selected Files** (Read/Write)
-   - Add capability **Push Notifications**
-3. Under **Info**:
-   - Set **Minimum Deployments** to macOS 13.0
-   - Add `Info.plist` from `MonitorLizard/MonitorLizard/Info.plist`
-4. Under **Build Settings**:
-   - Search for "Info.plist File"
-   - Set to `MonitorLizard/MonitorLizard/Info.plist`
-
-#### Build and Run
-
-1. Select **Product > Run** (⌘R)
-2. The app will appear in your menu bar with a lizard icon 🦎
-
-#### Option B: Use Swift Package Manager (Advanced)
-
-If you prefer command-line building, you can create a Package.swift:
-
-```bash
-cd /Users/seanmcmains/Developer/MonitorLizard
-swift build
-swift run MonitorLizard
-```
-
-However, note that MenuBarExtra requires a proper app bundle, so you'll need to create a `.app` bundle manually.
+**Note:** The app runs as a menu bar-only application (no Dock icon). Look for the lizard icon in your menu bar.
 
 ## Usage
 
@@ -115,10 +75,15 @@ However, note that MenuBarExtra requires a proper app bundle, so you'll need to 
 
 Click **Settings** to configure:
 
+**General:**
 - **Refresh Interval**: 10-300 seconds (default: 30s)
+- **Sort non-success PRs first**: Show failing/pending/stale PRs at the top
+- **Stale Branch Detection**: Enable detection and set threshold (1-90 days)
+
+**Notifications:**
 - **Show Notifications**: Enable/disable macOS notifications
 - **Play Sounds**: Enable/disable sound effects
-- **Voice Announcements**: Enable/disable text-to-speech
+- **Voice Announcements**: Enable/disable and customize text-to-speech message
 
 ## Architecture
 
@@ -126,14 +91,16 @@ The app follows MVVM architecture with SwiftUI:
 
 ```
 MonitorLizard/
+├── Constants.swift      # Centralized constants
 ├── Models/              # Data models
 │   ├── BuildStatus.swift
 │   └── PullRequest.swift
 ├── Services/            # Business logic
-│   ├── GitHubService.swift      # gh CLI wrapper
-│   ├── ShellExecutor.swift      # Process execution
+│   ├── GitHubService.swift       # gh CLI wrapper
+│   ├── ShellExecutor.swift       # Process execution
 │   ├── NotificationService.swift # Notifications
-│   └── WatchlistService.swift   # Persistent storage
+│   ├── WatchlistService.swift    # Persistent storage
+│   └── WindowManager.swift       # Settings window
 ├── ViewModels/          # State management
 │   └── PRMonitorViewModel.swift
 └── Views/               # UI components
@@ -146,21 +113,26 @@ MonitorLizard/
 ### How It Works
 
 1. **Polling**: Timer fires every N seconds (configurable)
-2. **Fetch PRs**: Executes `gh search prs --author=@me --state=open`
-3. **Fetch Status**: For each PR, executes `gh pr view N --json statusCheckRollup`
+2. **Fetch PRs**: Executes `gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt,labels`
+3. **Fetch Status**: For each PR, executes `gh pr view N --json headRefName,statusCheckRollup,mergeable,mergeStateStatus`
 4. **Parse Status**: Determines overall status from individual checks
-   - Priority: failure > error > pending > success
-5. **Check Completions**: Compares with previous status for watched PRs
-6. **Notify**: Sends notifications for completed builds
+   - **Priority**: conflict > failure > error > pending > stale > success > unknown
+   - **Stale Detection**: If enabled, marks PRs as stale when `updatedAt` exceeds threshold
+5. **Display**: Shows PRs with status icons, age indicators, and labels
+6. **Check Completions**: Compares with previous status for watched PRs
+7. **Notify**: Sends notifications for completed builds
 
 ### GitHub CLI Commands
 
 ```bash
 # Fetch all open PRs
-gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt
+gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt,labels --limit 100
 
-# Fetch PR details with status
-gh pr view 123 --repo owner/repo --json headRefName,statusCheckRollup
+# Fetch PR details with status and merge state
+gh pr view 123 --repo owner/repo --json headRefName,statusCheckRollup,mergeable,mergeStateStatus
+
+# Check gh CLI authentication
+gh auth status
 ```
 
 ## Troubleshooting
@@ -213,7 +185,9 @@ The codebase is structured for easy extension:
 - **New PR filters**: Modify `GitHubService.fetchAllOpenPRs()`
 - **Custom notifications**: Extend `NotificationService`
 - **Additional UI**: Add views to `Views/` directory
-- **New status types**: Extend `BuildStatus` enum
+- **New status types**: Extend `BuildStatus` enum and update priority logic in `GitHubService.parseOverallStatus()`
+- **New settings**: Add to `Constants.swift`, create `@AppStorage` properties in `SettingsView`, and wire through to services
+- **Time-based features**: Use `Constants.secondsPerDay` for date calculations
 
 ## Credits
 
