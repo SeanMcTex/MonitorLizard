@@ -189,6 +189,87 @@ The codebase is structured for easy extension:
 - **New settings**: Add to `Constants.swift`, create `@AppStorage` properties in `SettingsView`, and wire through to services
 - **Time-based features**: Use `Constants.secondsPerDay` for date calculations
 
+## Distribution & Notarization
+
+To distribute MonitorLizard outside of the App Store, you'll need to notarize it with Apple.
+
+### Prerequisites
+
+- Apple Developer account
+- Valid Developer ID Application certificate
+- App-specific password for notarization
+
+### Build Archive
+
+1. In Xcode, select **Product > Archive**
+2. Select your development team in **Signing & Capabilities**
+3. Wait for the archive to complete
+4. In the Organizer window, select the archive and click **Distribute App**
+
+### Export for Distribution
+
+1. Choose **Developer ID** distribution method
+2. Select **Upload** or **Export** based on your workflow
+3. Xcode will automatically code sign with Hardened Runtime enabled
+4. Export the .app bundle
+
+### Notarization
+
+Apple requires notarization for apps distributed outside the App Store on macOS 10.15+.
+
+**Using Xcode (Automatic):**
+1. During export, choose **Upload** to automatically submit for notarization
+2. Xcode will handle the notarization process
+3. Once complete, download the notarized app
+
+**Using Command Line:**
+```bash
+# Create a zip of the app
+cd /path/to/exported/app
+ditto -c -k --keepParent MonitorLizard.app MonitorLizard.zip
+
+# Submit for notarization (requires app-specific password)
+xcrun notarytool submit MonitorLizard.zip \
+  --apple-id "your-apple-id@example.com" \
+  --team-id "YOUR_TEAM_ID" \
+  --password "your-app-specific-password" \
+  --wait
+
+# Check status
+xcrun notarytool log <submission-id> \
+  --apple-id "your-apple-id@example.com" \
+  --team-id "YOUR_TEAM_ID" \
+  --password "your-app-specific-password"
+
+# Staple the notarization ticket (optional but recommended)
+xcrun stapler staple MonitorLizard.app
+```
+
+**Creating an App-Specific Password:**
+1. Go to [appleid.apple.com](https://appleid.apple.com)
+2. Sign in with your Apple ID
+3. In the Security section, select **App-Specific Passwords**
+4. Click **+** to generate a new password
+5. Use this password for notarization (not your Apple ID password)
+
+### Hardened Runtime
+
+The project is configured with Hardened Runtime enabled, which is required for notarization. The entitlements file (`MonitorLizard.entitlements`) includes:
+
+- App Sandbox disabled (required for shell command execution)
+- Get Task Allow enabled (for debugging)
+
+If you need additional entitlements, edit `MonitorLizard/MonitorLizard.entitlements`.
+
+### Distribution Checklist
+
+- [ ] Valid Developer ID certificate installed
+- [ ] Hardened Runtime enabled (already configured)
+- [ ] App signed with Developer ID
+- [ ] App notarized by Apple
+- [ ] Notarization ticket stapled to app (optional)
+- [ ] Test on a different Mac to verify Gatekeeper acceptance
+
 ## Credits
 
 Inspired by the original `watch-ci-build` bash script that watched CircleCI builds via GitHub API.
