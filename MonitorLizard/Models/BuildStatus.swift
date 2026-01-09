@@ -6,6 +6,7 @@ enum BuildStatus: String, Codable, Hashable {
     case success
     case failure
     case error
+    case changesRequested
     case unknown
     case stale
 
@@ -15,6 +16,7 @@ enum BuildStatus: String, Codable, Hashable {
         case .success: return "✅"
         case .failure: return "❌"
         case .error: return "⚠️"
+        case .changesRequested: return "🔄"
         case .pending: return "🔄"
         case .unknown: return "❓"
         case .stale: return "⏳"
@@ -27,6 +29,7 @@ enum BuildStatus: String, Codable, Hashable {
         case .success: return .green
         case .failure: return .red
         case .error: return .orange
+        case .changesRequested: return .orange
         case .pending: return .blue
         case .unknown: return .gray
         case .stale: return .orange
@@ -39,6 +42,7 @@ enum BuildStatus: String, Codable, Hashable {
         case .success: return "Success"
         case .failure: return "Failed"
         case .error: return "Error"
+        case .changesRequested: return "Changes Requested"
         case .pending: return "Pending"
         case .unknown: return "Unknown"
         case .stale: return "Stale"

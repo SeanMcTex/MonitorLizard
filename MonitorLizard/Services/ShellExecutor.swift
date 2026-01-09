@@ -18,7 +18,7 @@ enum ShellError: Error {
 }
 
 actor ShellExecutor {
-    func execute(command: String, arguments: [String] = [], timeout: TimeInterval = Constants.defaultShellTimeout) async throws -> String {
+    func execute(command: String, arguments: [String] = [], timeout: TimeInterval = 30) async throws -> String {
         let process = Process()
 
         // Set up the process

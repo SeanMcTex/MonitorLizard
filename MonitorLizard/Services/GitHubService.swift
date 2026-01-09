@@ -241,7 +241,7 @@ class GitHubService: ObservableObject {
             arguments: [
                 "pr", "view", "\(number)",
                 "--repo", "\(owner)/\(repo)",
-                "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus"
+                "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision"
             ]
         )
 
@@ -256,6 +256,7 @@ class GitHubService: ObservableObject {
             from: detail.statusCheckRollup,
             mergeable: detail.mergeable,
             mergeStateStatus: detail.mergeStateStatus,
+            reviewDecision: detail.reviewDecision,
             updatedAt: updatedAt,
             enableStaleDetection: enableStaleDetection,
             staleThresholdDays: staleThresholdDays
@@ -264,7 +265,7 @@ class GitHubService: ObservableObject {
         return (status, detail.headRefName)
     }
 
-    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableStaleDetection: Bool, staleThresholdDays: Int) -> BuildStatus {
+    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, reviewDecision: String?, updatedAt: Date, enableStaleDetection: Bool, staleThresholdDays: Int) -> BuildStatus {
         // Check for merge conflicts first (highest priority)
         if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
             return .conflict
@@ -334,6 +335,12 @@ class GitHubService: ObservableObject {
         if hasError {
             return .error
         }
+
+        // Check for changes requested (after errors, before pending)
+        if let reviewDecision = reviewDecision?.uppercased(), reviewDecision == "CHANGES_REQUESTED" {
+            return .changesRequested
+        }
+
         if hasPending {
             return .pending
         }
