@@ -56,6 +56,7 @@
 		329D9EEA2F103E3200F0E6EA /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		329D9EEB2F103E3200F0E6EA /* PRRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRRowView.swift; sourceTree = "<group>"; };
 		329D9EEC2F103E3200F0E6EA /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		329D9EFA2F103E4500F0E6EA /* MonitorLizard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MonitorLizard.entitlements; sourceTree = "<group>"; };
 		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -89,6 +90,7 @@
 			children = (
 				32364F9D2F1143E100493ED7 /* Constants.swift */,
 				329D9EDD2F103E3200F0E6EA /* Info.plist */,
+				329D9EFA2F103E4500F0E6EA /* MonitorLizard.entitlements */,
 				329D9EE02F103E3200F0E6EA /* Models */,
 				329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */,
 				329D9EE22F103E3200F0E6EA /* Resources */,
@@ -459,10 +461,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_ENTITLEMENTS = MonitorLizard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -488,10 +491,11 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "";
+				CODE_SIGN_ENTITLEMENTS = MonitorLizard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
