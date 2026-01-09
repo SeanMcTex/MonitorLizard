@@ -26,7 +26,7 @@ struct MenuBarView: View {
             // Footer
             footerView
         }
-        .frame(width: 400)
+        .frame(minWidth: 350, maxWidth: 400)
     }
 
     private var headerView: some View {
@@ -81,7 +81,8 @@ struct MenuBarView: View {
                 }
             }
         }
-        .frame(height: 300)
+        .frame(minHeight: 200, maxHeight: 300)
+        .frame(maxWidth: .infinity)
     }
 
     private var ghUnavailableView: some View {
@@ -105,7 +106,8 @@ struct MenuBarView: View {
                 }
             }
         }
-        .frame(height: 300)
+        .frame(minHeight: 200, maxHeight: 300)
+        .frame(maxWidth: .infinity)
     }
 
     private var emptyStateView: some View {
@@ -123,11 +125,20 @@ struct MenuBarView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
         }
-        .frame(height: 300)
+        .frame(minHeight: 200, maxHeight: 300)
+        .frame(maxWidth: .infinity)
     }
 
     private var prListView: some View {
-        ScrollView {
+        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count
+        let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
+        let sectionHeaderHeight: CGFloat = 40
+        let numSections = (viewModel.authoredPRs.isEmpty ? 0 : 1) + (viewModel.reviewPRs.isEmpty ? 0 : 1)
+        let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
+        let maxHeight = calculateMaxHeight()
+        let targetHeight = min(estimatedContentHeight, maxHeight)
+
+        return ScrollView {
             LazyVStack(spacing: 0) {
                 // Review PRs Section (FIRST - prioritize unblocking teammates)
                 if !viewModel.reviewPRs.isEmpty {
@@ -138,13 +149,6 @@ struct MenuBarView: View {
                             .environmentObject(viewModel)
                         Divider()
                     }
-                }
-
-                // Section Divider
-                if !viewModel.authoredPRs.isEmpty && !viewModel.reviewPRs.isEmpty {
-                    Divider()
-                        .padding(.vertical, 8)
-                        .background(Color.gray.opacity(0.1))
                 }
 
                 // Authored PRs Section (SECOND)
@@ -159,7 +163,7 @@ struct MenuBarView: View {
                 }
             }
         }
-        .frame(height: calculateMaxHeight())
+        .frame(height: targetHeight)
     }
 
     private func sectionHeader(title: String, count: Int) -> some View {
