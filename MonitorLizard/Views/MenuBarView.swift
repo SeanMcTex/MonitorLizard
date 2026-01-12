@@ -138,32 +138,39 @@ struct MenuBarView: View {
         let maxHeight = calculateMaxHeight()
         let targetHeight = min(estimatedContentHeight, maxHeight)
 
-        return ScrollView {
-            LazyVStack(spacing: 0) {
-                // Review PRs Section (FIRST - prioritize unblocking teammates)
-                if !viewModel.reviewPRs.isEmpty {
-                    sectionHeader(title: "Awaiting My Review", count: viewModel.reviewPRs.count)
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    // Review PRs Section (FIRST - prioritize unblocking teammates)
+                    if !viewModel.reviewPRs.isEmpty {
+                        sectionHeader(title: "Awaiting My Review", count: viewModel.reviewPRs.count)
+                            .id("top")
 
-                    ForEach(viewModel.reviewPRs) { pr in
-                        PRRowView(pr: pr)
-                            .environmentObject(viewModel)
-                        Divider()
+                        ForEach(viewModel.reviewPRs) { pr in
+                            PRRowView(pr: pr)
+                                .environmentObject(viewModel)
+                            Divider()
+                        }
                     }
-                }
 
-                // Authored PRs Section (SECOND)
-                if !viewModel.authoredPRs.isEmpty {
-                    sectionHeader(title: "My PRs", count: viewModel.authoredPRs.count)
+                    // Authored PRs Section (SECOND)
+                    if !viewModel.authoredPRs.isEmpty {
+                        sectionHeader(title: "My PRs", count: viewModel.authoredPRs.count)
+                            .id(viewModel.reviewPRs.isEmpty ? "top" : nil)
 
-                    ForEach(viewModel.authoredPRs) { pr in
-                        PRRowView(pr: pr)
-                            .environmentObject(viewModel)
-                        Divider()
+                        ForEach(viewModel.authoredPRs) { pr in
+                            PRRowView(pr: pr)
+                                .environmentObject(viewModel)
+                            Divider()
+                        }
                     }
                 }
             }
+            .frame(height: targetHeight)
+            .onAppear {
+                proxy.scrollTo("top", anchor: .top)
+            }
         }
-        .frame(height: targetHeight)
     }
 
     private func sectionHeader(title: String, count: Int) -> some View {
