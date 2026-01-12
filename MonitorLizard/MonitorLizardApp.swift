@@ -2,7 +2,10 @@ import SwiftUI
 
 @main
 struct MonitorLizardApp: App {
-    @StateObject private var viewModel = PRMonitorViewModel()
+    @StateObject private var viewModel = {
+        let isDemoMode = CommandLine.arguments.contains("--demo-mode")
+        return PRMonitorViewModel(isDemoMode: isDemoMode)
+    }()
 
     var body: some Scene {
         MenuBarExtra {

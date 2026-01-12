@@ -4,11 +4,16 @@ import Combine
 @MainActor
 class GitHubService: ObservableObject {
     private let shellExecutor = ShellExecutor()
+    private let isDemoMode: Bool
     private let dateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
     }()
+
+    init(isDemoMode: Bool = false) {
+        self.isDemoMode = isDemoMode
+    }
 
     func checkGHAvailable() async throws {
         let isInstalled = try await shellExecutor.checkGHInstalled()
@@ -22,7 +27,12 @@ class GitHubService: ObservableObject {
         }
     }
 
-    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
+    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool = false) async throws -> [PullRequest] {
+        // Return demo data if in demo mode
+        if isDemoMode {
+            return DemoData.samplePullRequests
+        }
+
         // Fetch both authored and review PRs in parallel with independent error handling
         async let authoredTask = fetchAuthoredPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
         async let reviewTask = fetchReviewPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)

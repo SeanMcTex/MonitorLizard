@@ -11,7 +11,8 @@ class PRMonitorViewModel: ObservableObject {
     @Published var isGHAvailable = true
     @Published var showWarningIcon = false
 
-    private let githubService = GitHubService()
+    private let githubService: GitHubService
+    private let isDemoMode: Bool
     private let watchlistService = WatchlistService.shared
     private let notificationService = NotificationService.shared
 
@@ -36,7 +37,9 @@ class PRMonitorViewModel: ObservableObject {
         return pullRequests.filter { $0.type == .reviewing }
     }
 
-    init() {
+    init(isDemoMode: Bool = false) {
+        self.isDemoMode = isDemoMode
+        self.githubService = GitHubService(isDemoMode: isDemoMode)
         setupNotifications()
         startPolling()
         observeSortSetting()
@@ -111,7 +114,8 @@ class PRMonitorViewModel: ObservableObject {
             // Fetch all open PRs with their statuses
             let fetchedPRs = try await githubService.fetchAllOpenPRs(
                 enableInactiveDetection: enableInactiveBranchDetection,
-                inactiveThresholdDays: inactiveBranchThresholdDays
+                inactiveThresholdDays: inactiveBranchThresholdDays,
+                isDemoMode: isDemoMode
             )
 
             // Check for watched PR completions

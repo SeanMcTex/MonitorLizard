@@ -10,6 +10,7 @@
 		32364F9E2F1143E100493ED7 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32364F9D2F1143E100493ED7 /* Constants.swift */; };
 		329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */; };
 		329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDF2F103E3200F0E6EA /* PullRequest.swift */; };
+		32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32DEMO9E2F103E3200F0E6EA /* DemoData.swift */; };
 		329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */; };
 		329D9EF12F103E3200F0E6EA /* GitHubService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE32F103E3200F0E6EA /* GitHubService.swift */; };
 		329D9EF22F103E3200F0E6EA /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE42F103E3200F0E6EA /* NotificationService.swift */; };
@@ -48,6 +49,7 @@
 		329D9EDD2F103E3200F0E6EA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildStatus.swift; sourceTree = "<group>"; };
 		329D9EDF2F103E3200F0E6EA /* PullRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PullRequest.swift; sourceTree = "<group>"; };
+		32DEMO9E2F103E3200F0E6EA /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitorLizardApp.swift; sourceTree = "<group>"; };
 		329D9EE32F103E3200F0E6EA /* GitHubService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubService.swift; sourceTree = "<group>"; };
 		329D9EE42F103E3200F0E6EA /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
@@ -118,6 +120,7 @@
 			children = (
 				329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */,
 				329D9EDF2F103E3200F0E6EA /* PullRequest.swift */,
+				32DEMO9E2F103E3200F0E6EA /* DemoData.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -298,6 +301,7 @@
 			files = (
 				329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */,
 				329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */,
+				32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */,
 				329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */,
 				329D9EF12F103E3200F0E6EA /* GitHubService.swift in Sources */,
 				329D9EF22F103E3200F0E6EA /* NotificationService.swift in Sources */,
