@@ -1,25 +1,41 @@
-# MonitorLizard 🦎
+# MonitorLizard
+
+![MonitorLizard app icon](logo_transparent_small.png)
 
 A native macOS menu bar application that monitors your GitHub pull requests and notifies you when builds complete.
+
+Note: this is not production quality code. It's a developer tool, created to meet a very particular need. It's
+unrepentently vibe coded, and while I have used it for a week or so and found it pretty handy, I can't warrant
+whether it will work for your needs or, indeed, work at all.
+
+Thanks to my team at Doximity for encouragement, support, and some tokens.
 
 ## Features
 
 - **Live PR Monitoring**: Displays all your open pull requests with real-time build status
+- **Review Requests**: Shows both PRs you authored and PRs awaiting your review (with a special indicator)
 - **Auto-Refresh**: Polls GitHub every 30 seconds (configurable 10-300s)
 - **Watch PRs**: Mark specific PRs to get notified when their builds finish
 - **Inactive Branch Detection**: Highlights PRs that haven't been updated in N days (configurable)
 - **Smart Sorting**: Optionally sort non-success PRs to the top of the list
 - **Age Indicators**: Shows how long ago each PR was last updated
+- **Draft PR Support**: Clearly identifies draft pull requests with a DRAFT badge
 - **Native Notifications**: macOS notifications with sound and voice announcements
 - **Multi-Repository**: Monitors PRs across all repositories you have access to
 - **Build Status Icons**:
   - ❗ Merge Conflict (purple)
   - ❌ Failure (red)
   - ⚠️ Error (orange)
-  - 🔄 Pending (blue)
+  - 🔄 Changes Requested (orange)
   - ⏳ Inactive (orange)
   - ✅ Success (green)
   - ❓ Unknown (gray)
+  - 🔵 Pending (animated spinner)
+
+  Here's what it looks like in action:
+
+  ![MonitorLizard screenshot with various fictional tickets](screenshot.png)
+
 
 ## Requirements
 
@@ -113,23 +129,29 @@ MonitorLizard/
 ### How It Works
 
 1. **Polling**: Timer fires every N seconds (configurable)
-2. **Fetch PRs**: Executes `gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt,labels`
-3. **Fetch Status**: For each PR, executes `gh pr view N --json headRefName,statusCheckRollup,mergeable,mergeStateStatus`
+2. **Fetch PRs**: Executes two queries:
+   - PRs you authored: `gh search prs --author=@me --state=open`
+   - PRs awaiting your review: `gh search prs --review-requested=@me --state=open`
+   - Both queries fetch: `number,title,repository,url,author,updatedAt,labels,isDraft`
+3. **Fetch Status**: For each PR, executes `gh pr view N --json headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision`
 4. **Parse Status**: Determines overall status from individual checks
-   - **Priority**: conflict > failure > error > pending > inactive > success > unknown
+   - **Priority**: conflict > failure > error > changes requested > pending > inactive > success > unknown
    - **Inactive Detection**: If enabled, marks PRs as inactive when `updatedAt` exceeds threshold
-5. **Display**: Shows PRs with status icons, age indicators, and labels
+5. **Display**: Shows PRs with status icons, age indicators, labels, and review indicator
 6. **Check Completions**: Compares with previous status for watched PRs
 7. **Notify**: Sends notifications for completed builds
 
 ### GitHub CLI Commands
 
 ```bash
-# Fetch all open PRs
-gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt,labels --limit 100
+# Fetch PRs you authored
+gh search prs --author=@me --state=open --json number,title,repository,url,author,updatedAt,labels,isDraft --limit 100
+
+# Fetch PRs awaiting your review
+gh search prs --review-requested=@me --state=open --json number,title,repository,url,author,updatedAt,labels,isDraft --limit 100
 
 # Fetch PR details with status and merge state
-gh pr view 123 --repo owner/repo --json headRefName,statusCheckRollup,mergeable,mergeStateStatus
+gh pr view 123 --repo owner/repo --json headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision
 
 # Check gh CLI authentication
 gh auth status
