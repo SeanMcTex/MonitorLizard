@@ -62,13 +62,14 @@ class GitHubService: ObservableObject {
     }
 
     private func fetchAuthoredPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
-        // Fetch all open PRs authored by the current user
+        // Fetch all open PRs authored by the current user, excluding archived repositories
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
                 "search", "prs",
                 "--author=@me",
                 "--state=open",
+                "--archived=false",
                 "--json", "number,title,repository,url,author,updatedAt,labels,isDraft",
                 "--limit", "100"
             ]
@@ -155,13 +156,14 @@ class GitHubService: ObservableObject {
     }
 
     private func fetchReviewPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
-        // Fetch all open PRs where the current user is a requested reviewer
+        // Fetch all open PRs where the current user is a requested reviewer, excluding archived repositories
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
                 "search", "prs",
                 "--review-requested=@me",
                 "--state=open",
+                "--archived=false",
                 "--json", "number,title,repository,url,author,updatedAt,labels,isDraft",
                 "--limit", "100"
             ]
