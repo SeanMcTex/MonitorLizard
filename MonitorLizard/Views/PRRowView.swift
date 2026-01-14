@@ -11,6 +11,20 @@ struct PRRowView: View {
         return days
     }
 
+    private func openPRURL() {
+        // Close the menu bar extra by ordering out all panels
+        NSApp.windows.forEach { window in
+            if window is NSPanel {
+                window.orderOut(nil)
+            }
+        }
+
+        // Open the URL
+        if let url = URL(string: pr.url) {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     private var daysSinceUpdateText: String {
         if daysSinceUpdate == 0 {
             return "updated today"
@@ -140,11 +154,7 @@ struct PRRowView: View {
                 .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
 
                 // Open in browser button
-                Button(action: {
-                    if let url = URL(string: pr.url) {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
+                Button(action: openPRURL) {
                     Image(systemName: "arrow.up.right.square")
                         .foregroundColor(.gray)
                 }
@@ -162,9 +172,7 @@ struct PRRowView: View {
             isHovering = hovering
         }
         .onTapGesture {
-            if let url = URL(string: pr.url) {
-                NSWorkspace.shared.open(url)
-            }
+            openPRURL()
         }
     }
 }
