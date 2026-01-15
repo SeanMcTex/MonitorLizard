@@ -15,6 +15,8 @@ struct MenuBarView: View {
                 errorView(error)
             } else if !viewModel.isGHAvailable {
                 ghUnavailableView
+            } else if viewModel.isLoading && viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty {
+                loadingView
             } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && !viewModel.isLoading {
                 emptyStateView
             } else {
@@ -124,6 +126,16 @@ struct MenuBarView: View {
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
+        }
+        .frame(minHeight: 200, maxHeight: 300)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var loadingView: some View {
+        ContentUnavailableView {
+            Label("Loading Pull Requests", systemImage: "arrow.circlepath")
+        } description: {
+            Text("Fetching your open PRs from GitHub...")
         }
         .frame(minHeight: 200, maxHeight: 300)
         .frame(maxWidth: .infinity)
