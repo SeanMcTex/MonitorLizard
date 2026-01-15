@@ -62,7 +62,7 @@ struct PRRowView: View {
                 // PR Title
                 Text(pr.title)
                     .font(.body)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
 
                 // Repo and PR number

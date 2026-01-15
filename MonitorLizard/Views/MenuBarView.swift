@@ -26,7 +26,7 @@ struct MenuBarView: View {
             // Footer
             footerView
         }
-        .frame(minWidth: 350, maxWidth: 400)
+        .frame(minWidth: 400, maxWidth: 500)
     }
 
     private var headerView: some View {
