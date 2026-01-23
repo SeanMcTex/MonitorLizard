@@ -214,9 +214,11 @@ struct MenuBarView: View {
     private var footerView: some View {
         HStack(spacing: 12) {
             if let lastRefresh = viewModel.lastRefreshTime {
-                Text("Updated \(timeAgo(lastRefresh))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text("Updated \(timeAgo(lastRefresh))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Spacer()
