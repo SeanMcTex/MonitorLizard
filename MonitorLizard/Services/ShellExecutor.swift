@@ -4,6 +4,7 @@ enum ShellError: Error {
     case executionFailed(String)
     case invalidOutput
     case commandNotFound
+    case networkError(String)
 
     var localizedDescription: String {
         switch self {
@@ -13,6 +14,8 @@ enum ShellError: Error {
             return "Invalid command output"
         case .commandNotFound:
             return "Command not found"
+        case .networkError:
+            return "Network connection unavailable. Please check your internet connection."
         }
     }
 }
@@ -70,6 +73,32 @@ actor ShellExecutor {
         // Check exit status
         guard process.terminationStatus == 0 else {
             let errorMessage = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Unknown error"
+
+            // Detect network-related errors from gh CLI output
+            // When network is unavailable, gh returns messages like:
+            // - "error connecting to api.github.com"
+            // - "check your internet connection"
+            // These patterns help distinguish network issues from auth/permission errors
+            let networkErrorPatterns = [
+                "error connecting",
+                "check your internet connection",
+                "could not resolve host",
+                "network is unreachable",
+                "dial tcp",
+                "no such host",
+                "connection refused",
+                "i/o timeout",
+                "unable to connect",
+                "failed to connect"
+            ]
+
+            let lowercaseMessage = errorMessage.lowercased()
+            for pattern in networkErrorPatterns {
+                if lowercaseMessage.contains(pattern) {
+                    throw ShellError.networkError(errorMessage)
+                }
+            }
+
             throw ShellError.executionFailed(errorMessage)
         }
 
@@ -94,6 +123,35 @@ actor ShellExecutor {
         do {
             let output = try await execute(command: "gh", arguments: ["auth", "status"])
             return output.contains("Logged in")
+        } catch let ShellError.networkError(message) {
+            // Re-throw network errors so they can be handled properly upstream
+            // Important: Don't confuse network errors with authentication failures
+            throw ShellError.networkError(message)
+        } catch let ShellError.executionFailed(message) {
+            // Backup check for network errors that weren't caught by execute()
+            // Note: When offline, `gh auth status` may report "token is invalid"
+            // but actual API calls like `gh search prs` give proper "error connecting" messages
+            let networkErrorPatterns = [
+                "error connecting",
+                "check your internet connection",
+                "could not resolve host",
+                "network is unreachable",
+                "dial tcp",
+                "no such host",
+                "connection refused",
+                "i/o timeout",
+                "unable to connect"
+            ]
+
+            let lowercaseMessage = message.lowercased()
+            for pattern in networkErrorPatterns {
+                if lowercaseMessage.contains(pattern) {
+                    throw ShellError.networkError(message)
+                }
+            }
+
+            // If not a network error, this is likely an auth issue
+            return false
         } catch {
             return false
         }

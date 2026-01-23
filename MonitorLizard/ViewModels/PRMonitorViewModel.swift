@@ -88,11 +88,11 @@ class PRMonitorViewModel: ObservableObject {
         }
 
         // Initial fetch
+        // Note: We skip checkGHAvailability() here because gh auth status can give misleading
+        // errors when offline (reports "token is invalid" instead of network error).
+        // Instead, we let the actual PR fetch determine if there's a network or auth issue.
         Task {
-            await checkGHAvailability()
-            if isGHAvailable {
-                await refresh()
-            }
+            await refresh()
         }
     }
 
@@ -142,18 +142,23 @@ class PRMonitorViewModel: ObservableObject {
         } catch let error as GitHubError {
             print("GitHubError: \(error)")
             errorMessage = error.localizedDescription
+            // Only mark as unavailable for installation/auth issues, not network errors
             if error == .notInstalled || error == .notAuthenticated {
                 isGHAvailable = false
             }
+            // Preserve existing PR list when errors occur (don't clear it)
         } catch let error as ShellError {
             print("ShellError: \(error)")
             errorMessage = error.localizedDescription
+            // Preserve existing PR list when errors occur (don't clear it)
         } catch let error as DecodingError {
             print("DecodingError: \(error)")
             errorMessage = "Failed to parse GitHub data. Please try again."
+            // Preserve existing PR list when errors occur (don't clear it)
         } catch {
             print("Unknown error: \(error)")
             errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
+            // Preserve existing PR list when errors occur (don't clear it)
         }
 
         isLoading = false
@@ -234,7 +239,10 @@ class PRMonitorViewModel: ObservableObject {
             isGHAvailable = true
             errorMessage = nil
         } catch let error as GitHubError {
-            isGHAvailable = false
+            // Only mark as unavailable for installation/auth issues, not network errors
+            if error == .notInstalled || error == .notAuthenticated {
+                isGHAvailable = false
+            }
             errorMessage = error.localizedDescription
         } catch {
             isGHAvailable = false

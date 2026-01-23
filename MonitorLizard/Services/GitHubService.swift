@@ -1,6 +1,31 @@
 import Foundation
 import Combine
 
+/// Service for interacting with GitHub via the `gh` CLI tool
+///
+/// ## Error Handling Strategy
+/// This service distinguishes between three types of errors:
+///
+/// 1. **Network Errors** (`GitHubError.networkError`):
+///    - Occurs when the device has no internet connection
+///    - Identified by error messages like "error connecting to api.github.com"
+///    - The app preserves cached PR data and shows a network error message
+///    - GitHub CLI remains marked as "available" since it's properly installed
+///
+/// 2. **Authentication Errors** (`GitHubError.notAuthenticated`):
+///    - Occurs when GitHub CLI is not authenticated or token is expired
+///    - Shows instructions to run `gh auth login`
+///    - Marks GitHub CLI as "unavailable" until re-authenticated
+///
+/// 3. **Installation Errors** (`GitHubError.notInstalled`):
+///    - Occurs when GitHub CLI is not installed on the system
+///    - Shows installation instructions with link to cli.github.com
+///    - Marks GitHub CLI as "unavailable" until installed
+///
+/// ## Important Notes
+/// - `gh auth status` can report misleading errors when offline (says "token is invalid")
+/// - Actual API calls like `gh search prs` give proper "error connecting" messages
+/// - We skip upfront auth checks at startup and let PR fetches determine the error type
 @MainActor
 class GitHubService: ObservableObject {
     private let shellExecutor = ShellExecutor()
@@ -21,9 +46,19 @@ class GitHubService: ObservableObject {
             throw GitHubError.notInstalled
         }
 
-        let isAuthenticated = try await shellExecutor.checkGHAuthenticated()
-        guard isAuthenticated else {
-            throw GitHubError.notAuthenticated
+        do {
+            let isAuthenticated = try await shellExecutor.checkGHAuthenticated()
+            guard isAuthenticated else {
+                throw GitHubError.notAuthenticated
+            }
+        } catch let error as ShellError {
+            // Convert ShellError.networkError to GitHubError.networkError
+            if case .networkError = error {
+                throw GitHubError.networkError
+            }
+            throw error
+        } catch {
+            throw error
         }
     }
 
@@ -34,30 +69,47 @@ class GitHubService: ObservableObject {
         }
 
         // Fetch both authored and review PRs in parallel with independent error handling
+        // This allows one type to fail (e.g., no review PRs) without affecting the other
         async let authoredTask = fetchAuthoredPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
         async let reviewTask = fetchReviewPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
 
-        let authored = await authoredTask
-        let review = await reviewTask
+        let authoredResult = await authoredTask
+        let reviewResult = await reviewTask
+
+        // If both fetches failed, throw an error instead of returning empty array
+        // This distinguishes between "no PRs found" (success with empty array) and
+        // "couldn't fetch PRs" (network/auth error that should be shown to user)
+        if case .failure(let authoredError) = authoredResult,
+           case .failure(let reviewError) = reviewResult {
+            print("Both PR fetches failed - authored: \(authoredError), review: \(reviewError)")
+            // Throw the authored error as it's likely the same root cause
+            throw authoredError
+        }
+
+        // Extract successful results (empty arrays for failures)
+        let authored = authoredResult.success ?? []
+        let review = reviewResult.success ?? []
 
         return review + authored  // Review PRs first to prioritize unblocking teammates
     }
 
-    private func fetchAuthoredPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> [PullRequest] {
+    private func fetchAuthoredPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> Result<[PullRequest], Error> {
         do {
-            return try await fetchAuthoredPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+            let prs = try await fetchAuthoredPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+            return .success(prs)
         } catch {
             print("Error fetching authored PRs: \(error)")
-            return []
+            return .failure(error)
         }
     }
 
-    private func fetchReviewPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> [PullRequest] {
+    private func fetchReviewPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> Result<[PullRequest], Error> {
         do {
-            return try await fetchReviewPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+            let prs = try await fetchReviewPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+            return .success(prs)
         } catch {
             print("Error fetching review PRs: \(error)")
-            return []
+            return .failure(error)
         }
     }
 
@@ -424,7 +476,17 @@ enum GitHubError: Error {
         case .invalidResponse:
             return "Received invalid response from GitHub"
         case .networkError:
-            return "Network error occurred"
+            return "Network connection unavailable. Please check your internet connection."
         }
+    }
+}
+
+// Helper extension for Result
+private extension Result {
+    var success: Success? {
+        if case .success(let value) = self {
+            return value
+        }
+        return nil
     }
 }
