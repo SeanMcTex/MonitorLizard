@@ -142,16 +142,18 @@ struct PRRowView: View {
 
             // Action buttons - always present but only visible on hover or if watched
             HStack(spacing: 8) {
-                // Watch button
-                Button(action: {
-                    viewModel.toggleWatch(for: pr)
-                }) {
-                    Image(systemName: pr.isWatched ? "eye.fill" : "eye")
-                        .foregroundColor(pr.isWatched ? .blue : .gray)
+                // Watch button - only show if PR has status checks
+                if pr.hasStatusChecks {
+                    Button(action: {
+                        viewModel.toggleWatch(for: pr)
+                    }) {
+                        Image(systemName: pr.isWatched ? "eye.fill" : "eye")
+                            .foregroundColor(pr.isWatched ? .blue : .gray)
+                    }
+                    .buttonStyle(.plain)
+                    .help(pr.isWatched ? "Stop watching this PR" : "Watch this PR for completion")
+                    .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
                 }
-                .buttonStyle(.plain)
-                .help(pr.isWatched ? "Stop watching this PR" : "Watch this PR for completion")
-                .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
 
                 // Open in browser button
                 Button(action: openPRURL) {

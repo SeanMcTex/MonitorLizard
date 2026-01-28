@@ -221,15 +221,11 @@ class PRMonitorViewModel: ObservableObject {
     func clearAllWatched() {
         watchlistService.clearAll()
         // Update all PRs to unwatched state in both arrays
-        unsortedPullRequests = unsortedPullRequests.map { pr in
-            var updated = pr
-            updated.isWatched = false
-            return updated
+        for index in unsortedPullRequests.indices {
+            unsortedPullRequests[index].isWatched = false
         }
-        pullRequests = pullRequests.map { pr in
-            var updated = pr
-            updated.isWatched = false
-            return updated
+        for index in pullRequests.indices {
+            pullRequests[index].isWatched = false
         }
     }
 

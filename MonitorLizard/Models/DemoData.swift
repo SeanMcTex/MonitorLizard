@@ -22,7 +22,8 @@ enum DemoData {
                 PullRequest.Label(id: "1", name: "documentation", color: "0075ca")
             ],
             type: .reviewing,
-            isDraft: false
+            isDraft: false,
+            hasStatusChecks: true
         ),
 
         // 2. PENDING - Reviewing PR
@@ -43,7 +44,8 @@ enum DemoData {
                 PullRequest.Label(id: "2", name: "refactoring", color: "fbca04")
             ],
             type: .reviewing,
-            isDraft: false
+            isDraft: false,
+            hasStatusChecks: true
         ),
 
         // AUTHORED PRs (6 total)
@@ -66,7 +68,8 @@ enum DemoData {
                 PullRequest.Label(id: "3", name: "enhancement", color: "a2eeef")
             ],
             type: .authored,
-            isDraft: false
+            isDraft: false,
+            hasStatusChecks: true
         ),
 
         // 4. FAILURE - Authored PR
@@ -88,7 +91,8 @@ enum DemoData {
                 PullRequest.Label(id: "5", name: "machine-learning", color: "0e8a16")
             ],
             type: .authored,
-            isDraft: false
+            isDraft: false,
+            hasStatusChecks: true
         ),
 
         // 5. PENDING - Authored PR
@@ -107,7 +111,8 @@ enum DemoData {
             isWatched: true,
             labels: [],
             type: .authored,
-            isDraft: false
+            isDraft: false,
+            hasStatusChecks: true
         ),
 
         // 6. CONFLICT - Authored PR
@@ -128,7 +133,8 @@ enum DemoData {
                 PullRequest.Label(id: "6", name: "needs-rebase", color: "d93f0b")
             ],
             type: .authored,
-            isDraft: false
+            isDraft: false,
+            hasStatusChecks: true
         ),
 
         // 7. INACTIVE - Authored PR (Draft)
@@ -150,7 +156,8 @@ enum DemoData {
                 PullRequest.Label(id: "8", name: "draft", color: "6f42c1")
             ],
             type: .authored,
-            isDraft: true
+            isDraft: true,
+            hasStatusChecks: true
         ),
 
         // 8. PENDING - Authored PR (Draft)
@@ -171,7 +178,8 @@ enum DemoData {
                 PullRequest.Label(id: "9", name: "work-in-progress", color: "d4c5f9")
             ],
             type: .authored,
-            isDraft: true
+            isDraft: true,
+            hasStatusChecks: true
         )
     ]
 }

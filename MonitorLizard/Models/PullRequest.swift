@@ -18,6 +18,7 @@ struct PullRequest: Identifiable, Hashable {
     let labels: [Label]
     let type: PRType
     let isDraft: Bool
+    let hasStatusChecks: Bool
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"

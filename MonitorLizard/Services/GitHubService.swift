@@ -198,7 +198,8 @@ class GitHubService: ObservableObject {
                     PullRequest.Label(id: label.id, name: label.name, color: label.color)
                 },
                 type: .authored,
-                isDraft: result.isDraft
+                isDraft: result.isDraft,
+                hasStatusChecks: statusInfo.hasStatusChecks
             )
 
             pullRequests.append(pr)
@@ -292,7 +293,8 @@ class GitHubService: ObservableObject {
                     PullRequest.Label(id: label.id, name: label.name, color: label.color)
                 },
                 type: .reviewing,
-                isDraft: result.isDraft
+                isDraft: result.isDraft,
+                hasStatusChecks: statusInfo.hasStatusChecks
             )
 
             pullRequests.append(pr)
@@ -301,7 +303,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String) {
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String, hasStatusChecks: Bool) {
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -318,6 +320,8 @@ class GitHubService: ObservableObject {
         let decoder = JSONDecoder()
         let detail = try decoder.decode(GHPRDetailResponse.self, from: jsonData)
 
+        let hasStatusChecks = detail.statusCheckRollup != nil && !detail.statusCheckRollup!.isEmpty
+
         let status = parseOverallStatus(
             from: detail.statusCheckRollup,
             mergeable: detail.mergeable,
@@ -328,7 +332,7 @@ class GitHubService: ObservableObject {
             inactiveThresholdDays: inactiveThresholdDays
         )
 
-        return (status, detail.headRefName)
+        return (status, detail.headRefName, hasStatusChecks)
     }
 
     private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, reviewDecision: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
@@ -342,7 +346,7 @@ class GitHubService: ObservableObject {
         }
 
         guard let checks = checks, !checks.isEmpty else {
-            return .unknown
+            return .success
         }
 
         // Priority: conflict > failure > error > pending > success
@@ -424,7 +428,7 @@ class GitHubService: ObservableObject {
             return .success
         }
 
-        return .unknown
+        return .success
     }
 
     private func parseDate(_ dateString: String) throws -> Date {
