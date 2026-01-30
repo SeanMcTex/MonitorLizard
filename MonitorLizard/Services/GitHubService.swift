@@ -199,7 +199,7 @@ class GitHubService: ObservableObject {
                 },
                 type: .authored,
                 isDraft: result.isDraft,
-                hasStatusChecks: statusInfo.hasStatusChecks
+                statusChecks: statusInfo.statusChecks
             )
 
             pullRequests.append(pr)
@@ -294,7 +294,7 @@ class GitHubService: ObservableObject {
                 },
                 type: .reviewing,
                 isDraft: result.isDraft,
-                hasStatusChecks: statusInfo.hasStatusChecks
+                statusChecks: statusInfo.statusChecks
             )
 
             pullRequests.append(pr)
@@ -303,7 +303,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String, hasStatusChecks: Bool) {
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck]) {
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -320,7 +320,7 @@ class GitHubService: ObservableObject {
         let decoder = JSONDecoder()
         let detail = try decoder.decode(GHPRDetailResponse.self, from: jsonData)
 
-        let hasStatusChecks = detail.statusCheckRollup != nil && !detail.statusCheckRollup!.isEmpty
+        let statusChecks = parseStatusChecks(from: detail.statusCheckRollup)
 
         let status = parseOverallStatus(
             from: detail.statusCheckRollup,
@@ -332,7 +332,7 @@ class GitHubService: ObservableObject {
             inactiveThresholdDays: inactiveThresholdDays
         )
 
-        return (status, detail.headRefName, hasStatusChecks)
+        return (status, detail.headRefName, statusChecks)
     }
 
     private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, reviewDecision: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
@@ -429,6 +429,73 @@ class GitHubService: ObservableObject {
         }
 
         return .success
+    }
+
+    private func parseStatusChecks(from checks: [GHPRDetailResponse.StatusCheck]?) -> [StatusCheck] {
+        guard let checks = checks else {
+            return []
+        }
+
+        return checks.compactMap { check in
+            // Extract check name from either name (CheckRun) or context (StatusContext)
+            guard let checkName = check.name ?? check.context else {
+                return nil
+            }
+
+            // Map status/state/conclusion to simplified CheckStatus enum
+            let checkStatus: CheckStatus
+            if let conclusion = check.conclusion?.uppercased() {
+                switch conclusion {
+                case "FAILURE", "CANCELLED", "TIMED_OUT":
+                    checkStatus = .failure
+                case "ACTION_REQUIRED", "STALE", "STARTUP_FAILURE":
+                    checkStatus = .error
+                case "SUCCESS":
+                    checkStatus = .success
+                case "SKIPPED", "NEUTRAL":
+                    checkStatus = .skipped
+                default:
+                    checkStatus = .pending
+                }
+            } else if let state = check.state?.uppercased() {
+                switch state {
+                case "FAILURE", "ERROR":
+                    checkStatus = .failure
+                case "PENDING", "EXPECTED":
+                    checkStatus = .pending
+                case "SUCCESS":
+                    checkStatus = .success
+                default:
+                    checkStatus = .pending
+                }
+            } else if let status = check.status?.uppercased() {
+                switch status {
+                case "IN_PROGRESS", "QUEUED", "WAITING", "PENDING":
+                    checkStatus = .pending
+                case "COMPLETED":
+                    // If completed but no conclusion, assume success
+                    checkStatus = .success
+                default:
+                    checkStatus = .pending
+                }
+            } else {
+                // No status information available
+                checkStatus = .pending
+            }
+
+            // Use detailsUrl or targetUrl as the link
+            let detailsUrl = check.detailsUrl ?? check.targetUrl
+
+            // Generate stable ID
+            let id = "\(check.__typename)-\(checkName)"
+
+            return StatusCheck(
+                id: id,
+                name: checkName,
+                status: checkStatus,
+                detailsUrl: detailsUrl
+            )
+        }
     }
 
     private func parseDate(_ dateString: String) throws -> Date {

@@ -23,7 +23,10 @@ enum DemoData {
             ],
             type: .reviewing,
             isDraft: false,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "CI Tests", status: .success, detailsUrl: "https://github.com/example/check/1"),
+                StatusCheck(id: "2", name: "Lint", status: .success, detailsUrl: "https://github.com/example/check/2")
+            ]
         ),
 
         // 2. PENDING - Reviewing PR
@@ -45,7 +48,10 @@ enum DemoData {
             ],
             type: .reviewing,
             isDraft: false,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "CI Tests", status: .pending, detailsUrl: "https://github.com/example/check/1"),
+                StatusCheck(id: "2", name: "Lint", status: .success, detailsUrl: "https://github.com/example/check/2")
+            ]
         ),
 
         // AUTHORED PRs (6 total)
@@ -69,7 +75,11 @@ enum DemoData {
             ],
             type: .authored,
             isDraft: false,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "Build", status: .success, detailsUrl: "https://github.com/example/check/1"),
+                StatusCheck(id: "2", name: "Unit Tests", status: .success, detailsUrl: "https://github.com/example/check/2"),
+                StatusCheck(id: "3", name: "Integration Tests", status: .success, detailsUrl: "https://github.com/example/check/3")
+            ]
         ),
 
         // 4. FAILURE - Authored PR
@@ -92,7 +102,11 @@ enum DemoData {
             ],
             type: .authored,
             isDraft: false,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "CI Tests", status: .failure, detailsUrl: "https://github.com/example/check/1"),
+                StatusCheck(id: "2", name: "Lint", status: .failure, detailsUrl: "https://github.com/example/check/2"),
+                StatusCheck(id: "3", name: "Security Scan", status: .success, detailsUrl: "https://github.com/example/check/3")
+            ]
         ),
 
         // 5. PENDING - Authored PR
@@ -112,7 +126,10 @@ enum DemoData {
             labels: [],
             type: .authored,
             isDraft: false,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "Build", status: .pending, detailsUrl: "https://github.com/example/check/1"),
+                StatusCheck(id: "2", name: "Tests", status: .pending, detailsUrl: "https://github.com/example/check/2")
+            ]
         ),
 
         // 6. CONFLICT - Authored PR
@@ -134,7 +151,9 @@ enum DemoData {
             ],
             type: .authored,
             isDraft: false,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "Merge Conflict Check", status: .failure, detailsUrl: "https://github.com/example/check/1")
+            ]
         ),
 
         // 7. INACTIVE - Authored PR (Draft)
@@ -157,7 +176,9 @@ enum DemoData {
             ],
             type: .authored,
             isDraft: true,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "Draft PR Check", status: .skipped, detailsUrl: "https://github.com/example/check/1")
+            ]
         ),
 
         // 8. PENDING - Authored PR (Draft)
@@ -179,7 +200,9 @@ enum DemoData {
             ],
             type: .authored,
             isDraft: true,
-            hasStatusChecks: true
+            statusChecks: [
+                StatusCheck(id: "1", name: "Code Quality", status: .pending, detailsUrl: "https://github.com/example/check/1")
+            ]
         )
     ]
 }

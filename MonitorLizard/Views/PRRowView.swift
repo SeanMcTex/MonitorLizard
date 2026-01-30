@@ -35,6 +35,28 @@ struct PRRowView: View {
         }
     }
 
+    private var failingChecks: [StatusCheck] {
+        pr.statusChecks.filter { check in
+            check.status == .failure || check.status == .error
+        }
+    }
+
+    private func openCheckURL(_ urlString: String?) {
+        guard let urlString = urlString,
+              let url = URL(string: urlString) else {
+            return
+        }
+
+        // Close menu bar panels
+        NSApp.windows.forEach { window in
+            if window is NSPanel {
+                window.orderOut(nil)
+            }
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Review indicator (for PRs awaiting review)
@@ -135,6 +157,28 @@ struct PRRowView: View {
                                 .cornerRadius(3)
                         }
                     }
+                }
+
+                // Failing checks (only shown when checks fail)
+                if !failingChecks.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(failingChecks) { check in
+                            Button(action: {
+                                openCheckURL(check.detailsUrl)
+                            }) {
+                                HStack(spacing: 4) {
+                                    Text(check.status.icon)
+                                        .font(.caption)
+                                    Text(check.name)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .help("Open \(check.name) details")
+                        }
+                    }
+                    .padding(.top, 4)
                 }
             }
 

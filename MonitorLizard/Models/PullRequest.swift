@@ -18,10 +18,14 @@ struct PullRequest: Identifiable, Hashable {
     let labels: [Label]
     let type: PRType
     let isDraft: Bool
-    let hasStatusChecks: Bool
+    let statusChecks: [StatusCheck]
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"
+    }
+
+    var hasStatusChecks: Bool {
+        !statusChecks.isEmpty
     }
 
     struct RepositoryInfo: Hashable {
@@ -81,9 +85,11 @@ struct GHPRDetailResponse: Codable {
         let state: String?
         let conclusion: String?
         let __typename: String
+        let detailsUrl: String?
+        let targetUrl: String?
 
         private enum CodingKeys: String, CodingKey {
-            case name, context, status, state, conclusion, __typename
+            case name, context, status, state, conclusion, __typename, detailsUrl, targetUrl
         }
     }
 }
