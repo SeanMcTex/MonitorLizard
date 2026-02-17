@@ -10,6 +10,7 @@ class PRMonitorViewModel: ObservableObject {
     @Published var lastRefreshTime: Date?
     @Published var isGHAvailable = true
     @Published var showWarningIcon = false
+    @AppStorage("selectedRepository") var selectedRepository: String = "All Repositories"
 
     private let githubService: GitHubService
     private let isDemoMode: Bool
@@ -27,14 +28,22 @@ class PRMonitorViewModel: ObservableObject {
     @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays: Int = Constants.defaultInactiveBranchThreshold
     @AppStorage("showReviewPRs") private var showReviewPRs: Bool = true
 
-    // Computed properties for filtering PRs by type
+    // Computed property for available repositories
+    var availableRepositories: [String] {
+        let repos = Set(unsortedPullRequests.map { $0.repository.nameWithOwner })
+        return repos.sorted()
+    }
+
+    // Computed properties for filtering PRs by type and repository
     var authoredPRs: [PullRequest] {
         pullRequests.filter { $0.type == .authored }
+            .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
     }
 
     var reviewPRs: [PullRequest] {
         guard showReviewPRs else { return [] }
         return pullRequests.filter { $0.type == .reviewing }
+            .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
     }
 
     init(isDemoMode: Bool = false) {
@@ -136,6 +145,12 @@ class PRMonitorViewModel: ObservableObject {
             // Apply sorting (also updates warning icon)
             applySorting()
 
+            // Reset filter if the selected repo no longer exists
+            if selectedRepository != "All Repositories" &&
+                !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
+                selectedRepository = "All Repositories"
+            }
+
             lastRefreshTime = Date()
             isGHAvailable = true
 
@@ -174,13 +189,19 @@ class PRMonitorViewModel: ObservableObject {
         let sortedReview = sortNonSuccessFirst ? sort(review) : review
 
         // Concatenate with review PRs first (prioritize unblocking teammates)
-        pullRequests = sortedReview + sortedAuthored
+        let newPullRequests = sortedReview + sortedAuthored
+
+        // Only update the @Published property if data actually changed, to avoid
+        // unnecessary SwiftUI re-renders (which can freeze mid-scroll)
+        if newPullRequests != pullRequests {
+            pullRequests = newPullRequests
+        }
 
         // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
-        let hasBadStatus = pullRequests.contains { pr in
+        let hasBadStatus = newPullRequests.contains { pr in
             pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .changesRequested || pr.buildStatus == .inactive
         }
-        let hasReviewPRs = pullRequests.contains { pr in
+        let hasReviewPRs = newPullRequests.contains { pr in
             pr.type == .reviewing
         }
         showWarningIcon = hasBadStatus || hasReviewPRs

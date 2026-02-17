@@ -33,8 +33,19 @@ struct MenuBarView: View {
 
     private var headerView: some View {
         HStack {
-            Text("Pull Requests")
+            Text("Pull Requests for")
                 .font(.headline)
+
+            Picker("", selection: $viewModel.selectedRepository) {
+                Text("All Repositories").tag("All Repositories")
+                Divider()
+                ForEach(viewModel.availableRepositories, id: \.self) { repo in
+                    Text(repo.split(separator: "/").last.map(String.init) ?? repo).tag(repo)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
 
             Spacer()
 
@@ -179,6 +190,7 @@ struct MenuBarView: View {
                 }
             }
             .frame(height: targetHeight)
+            .id(viewModel.selectedRepository)
             .onAppear {
                 proxy.scrollTo("top", anchor: .top)
             }
