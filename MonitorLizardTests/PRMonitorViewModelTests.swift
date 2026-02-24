@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import MonitorLizard
 
 @MainActor
@@ -28,6 +29,7 @@ struct PRMonitorViewModelTests {
 
     @Test func filterByRepository() async {
         let vm = await createLoadedViewModel()
+        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         vm.selectedRepository = "fromagerie/cheese-cellar-manager"
 
@@ -41,6 +43,7 @@ struct PRMonitorViewModelTests {
 
     @Test func filterByRepositoryShowsReviewPRs() async {
         let vm = await createLoadedViewModel()
+        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         vm.selectedRepository = "feline-federation/cat-show-tracker"
 
@@ -75,5 +78,23 @@ struct PRMonitorViewModelTests {
         // After refresh, it should reset to "All Repositories"
         await vm.refresh()
         #expect(vm.selectedRepository == "All Repositories")
+    }
+
+    @Test func sortPutsChangesRequestedFirst() async {
+        // Demo PR #421 has buildStatus: .success and reviewDecision: .changesRequested
+        // It should sort before pure-success PRs (e.g., no reviewDecision) when sorting is on.
+        UserDefaults.standard.set(true, forKey: "sortNonSuccessFirst")
+        defer { UserDefaults.standard.removeObject(forKey: "sortNonSuccessFirst") }
+
+        let vm = await createLoadedViewModel()
+
+        let authored = vm.authoredPRs
+        // changesRequested PR (#421) should appear before any pure-success PR with no review issues
+        let changesRequestedIndex = authored.firstIndex(where: { $0.reviewDecision == .changesRequested })
+        let pureSuccessIndex = authored.firstIndex(where: { $0.buildStatus == .success && $0.reviewDecision == nil })
+
+        if let crIdx = changesRequestedIndex, let psIdx = pureSuccessIndex {
+            #expect(crIdx < psIdx)
+        }
     }
 }

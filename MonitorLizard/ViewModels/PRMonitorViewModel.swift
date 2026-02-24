@@ -199,7 +199,9 @@ class PRMonitorViewModel: ObservableObject {
 
         // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
         let hasBadStatus = newPullRequests.contains { pr in
-            pr.buildStatus == .failure || pr.buildStatus == .error || pr.buildStatus == .conflict || pr.buildStatus == .changesRequested || pr.buildStatus == .inactive
+            let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
+                || pr.buildStatus == .conflict || pr.buildStatus == .inactive
+            return badBuild || pr.reviewDecision == .changesRequested
         }
         let hasReviewPRs = newPullRequests.contains { pr in
             pr.type == .reviewing
@@ -209,9 +211,9 @@ class PRMonitorViewModel: ObservableObject {
 
     private func sort(_ prs: [PullRequest]) -> [PullRequest] {
         prs.sorted { pr1, pr2 in
-            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .changesRequested, .pending, .inactive]
-            let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus)
-            let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus)
+            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .pending, .inactive]
+            let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus) || pr1.reviewDecision == .changesRequested
+            let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus) || pr2.reviewDecision == .changesRequested
 
             // If one is non-success and other isn't, non-success comes first
             if pr1NonSuccess != pr2NonSuccess {

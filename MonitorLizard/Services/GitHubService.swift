@@ -199,7 +199,8 @@ class GitHubService: ObservableObject {
                 },
                 type: .authored,
                 isDraft: result.isDraft,
-                statusChecks: statusInfo.statusChecks
+                statusChecks: statusInfo.statusChecks,
+                reviewDecision: statusInfo.reviewDecision
             )
 
             pullRequests.append(pr)
@@ -294,7 +295,8 @@ class GitHubService: ObservableObject {
                 },
                 type: .reviewing,
                 isDraft: result.isDraft,
-                statusChecks: statusInfo.statusChecks
+                statusChecks: statusInfo.statusChecks,
+                reviewDecision: statusInfo.reviewDecision
             )
 
             pullRequests.append(pr)
@@ -303,7 +305,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck]) {
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?) {
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -326,16 +328,17 @@ class GitHubService: ObservableObject {
             from: detail.statusCheckRollup,
             mergeable: detail.mergeable,
             mergeStateStatus: detail.mergeStateStatus,
-            reviewDecision: detail.reviewDecision,
             updatedAt: updatedAt,
             enableInactiveDetection: enableInactiveDetection,
             inactiveThresholdDays: inactiveThresholdDays
         )
 
-        return (status, detail.headRefName, statusChecks)
+        let reviewDecision = ReviewDecision(rawValue: detail.reviewDecision?.uppercased() ?? "")
+
+        return (status, detail.headRefName, statusChecks, reviewDecision)
     }
 
-    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, reviewDecision: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
+    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
         // Check for merge conflicts first (highest priority)
         if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
             return .conflict
@@ -404,11 +407,6 @@ class GitHubService: ObservableObject {
         }
         if hasError {
             return .error
-        }
-
-        // Check for changes requested (after errors, before pending)
-        if let reviewDecision = reviewDecision?.uppercased(), reviewDecision == "CHANGES_REQUESTED" {
-            return .changesRequested
         }
 
         if hasPending {

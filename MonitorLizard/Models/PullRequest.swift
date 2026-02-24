@@ -1,4 +1,35 @@
 import Foundation
+import SwiftUI
+
+enum ReviewDecision: String, Codable, Hashable {
+    case approved = "APPROVED"
+    case changesRequested = "CHANGES_REQUESTED"
+    case reviewRequired = "REVIEW_REQUIRED"
+
+    var systemImageName: String {
+        switch self {
+        case .approved:         return "person.fill.checkmark"
+        case .changesRequested: return "person.fill.xmark"
+        case .reviewRequired:   return "person.fill.questionmark"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .approved:         return .green
+        case .changesRequested: return .red
+        case .reviewRequired:   return .secondary
+        }
+    }
+
+    var helpText: String {
+        switch self {
+        case .approved:         return "Approved"
+        case .changesRequested: return "Changes requested"
+        case .reviewRequired:   return "Review required"
+        }
+    }
+}
 
 enum PRType: String, Codable, Hashable {
     case authored    // PRs created by user
@@ -19,6 +50,7 @@ struct PullRequest: Identifiable, Hashable {
     let type: PRType
     let isDraft: Bool
     let statusChecks: [StatusCheck]
+    var reviewDecision: ReviewDecision?
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"

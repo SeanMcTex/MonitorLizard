@@ -4,7 +4,7 @@ enum DemoData {
     static let samplePullRequests: [PullRequest] = [
         // REVIEWING PRs (2 total)
 
-        // 1. SUCCESS - Reviewing PR
+        // 1. SUCCESS - Reviewing PR (with approved review)
         PullRequest(
             number: 267,
             title: "Update cat ear tufts measurement guidelines",
@@ -26,10 +26,11 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "CI Tests", status: .success, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Lint", status: .success, detailsUrl: "https://github.com/example/check/2")
-            ]
+            ],
+            reviewDecision: .approved
         ),
 
-        // 2. PENDING - Reviewing PR
+        // 2. PENDING - Reviewing PR (with review required)
         PullRequest(
             number: 203,
             title: "Refactor Persian cat coat quality scoring system",
@@ -51,12 +52,13 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "CI Tests", status: .pending, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Lint", status: .success, detailsUrl: "https://github.com/example/check/2")
-            ]
+            ],
+            reviewDecision: .reviewRequired
         ),
 
         // AUTHORED PRs (6 total)
 
-        // 3. SUCCESS - Authored PR
+        // 3. SUCCESS + CHANGES REQUESTED - Authored PR
         PullRequest(
             number: 421,
             title: "Add temperature monitoring for cave aging rooms",
@@ -79,7 +81,8 @@ enum DemoData {
                 StatusCheck(id: "1", name: "Build", status: .success, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Unit Tests", status: .success, detailsUrl: "https://github.com/example/check/2"),
                 StatusCheck(id: "3", name: "Integration Tests", status: .success, detailsUrl: "https://github.com/example/check/3")
-            ]
+            ],
+            reviewDecision: .changesRequested
         ),
 
         // 4. FAILURE - Authored PR
@@ -106,7 +109,8 @@ enum DemoData {
                 StatusCheck(id: "1", name: "CI Tests", status: .failure, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Lint", status: .failure, detailsUrl: "https://github.com/example/check/2"),
                 StatusCheck(id: "3", name: "Security Scan", status: .success, detailsUrl: "https://github.com/example/check/3")
-            ]
+            ],
+            reviewDecision: nil
         ),
 
         // 5. PENDING - Authored PR
@@ -129,7 +133,8 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "Build", status: .pending, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Tests", status: .pending, detailsUrl: "https://github.com/example/check/2")
-            ]
+            ],
+            reviewDecision: nil
         ),
 
         // 6. CONFLICT - Authored PR
@@ -153,7 +158,8 @@ enum DemoData {
             isDraft: false,
             statusChecks: [
                 StatusCheck(id: "1", name: "Merge Conflict Check", status: .failure, detailsUrl: "https://github.com/example/check/1")
-            ]
+            ],
+            reviewDecision: nil
         ),
 
         // 7. INACTIVE - Authored PR (Draft)
@@ -178,7 +184,8 @@ enum DemoData {
             isDraft: true,
             statusChecks: [
                 StatusCheck(id: "1", name: "Draft PR Check", status: .skipped, detailsUrl: "https://github.com/example/check/1")
-            ]
+            ],
+            reviewDecision: nil
         ),
 
         // 8. PENDING - Authored PR (Draft)
@@ -202,7 +209,8 @@ enum DemoData {
             isDraft: true,
             statusChecks: [
                 StatusCheck(id: "1", name: "Code Quality", status: .pending, detailsUrl: "https://github.com/example/check/1")
-            ]
+            ],
+            reviewDecision: nil
         )
     ]
 }

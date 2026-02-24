@@ -68,14 +68,24 @@ struct PRRowView: View {
                     .frame(width: 24)
             }
 
-            // Status icon
-            Group {
-                if pr.buildStatus == .pending {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else {
-                    Text(pr.buildStatus.icon)
+            // Status icon + review decision
+            VStack(spacing: 8) {
+                Group {
+                    if pr.buildStatus == .pending {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    } else {
+                        Text(pr.buildStatus.icon)
+                            .font(.title2)
+                    }
+                }
+                .frame(width: 30)
+
+                if let decision = pr.reviewDecision {
+                    Image(systemName: decision.systemImageName)
+                        .foregroundColor(decision.color)
                         .font(.title2)
+                        .help(decision.helpText)
                 }
             }
             .frame(width: 30)
