@@ -85,6 +85,10 @@ struct PRRowView: View {
                         Image(systemName: "gear.badge.checkmark")
                             .foregroundColor(.green)
                             .font(.title2)
+                    } else if pr.buildStatus == .failure || pr.buildStatus == .error {
+                        Image(systemName: "gear.badge.xmark")
+                            .foregroundColor(.red)
+                            .font(.title2)
                     } else {
                         Text(pr.buildStatus.icon)
                             .font(.title2)
