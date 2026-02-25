@@ -122,3 +122,6 @@ Temporary Items
 *.swp
 *.swo
 *~
+
+# Local issue tracker (not committed)
+.beads/

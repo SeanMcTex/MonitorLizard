@@ -72,8 +72,19 @@ struct PRRowView: View {
             VStack(spacing: 8) {
                 Group {
                     if pr.buildStatus == .pending {
-                        ProgressView()
-                            .scaleEffect(0.8)
+                        if #available(macOS 15.0, *) {
+                            Image(systemName: "gear")
+                                .foregroundColor(.gray)
+                                .font(.title2)
+                                .symbolEffect(.rotate.byLayer, options: .repeat(.continuous))
+                        } else {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    } else if pr.buildStatus == .success {
+                        Image(systemName: "gear.badge.checkmark")
+                            .foregroundColor(.green)
+                            .font(.title2)
                     } else {
                         Text(pr.buildStatus.icon)
                             .font(.title2)
