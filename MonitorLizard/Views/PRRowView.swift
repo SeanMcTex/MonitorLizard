@@ -239,8 +239,19 @@ struct PRRowView: View {
         .padding(.vertical, 10)
         .background(isHovering ? Color.gray.opacity(0.1) : Color.clear)
         .contentShape(Rectangle())
-        .onHover { hovering in
-            isHovering = hovering
+        // Use onContinuousHover instead of onHover to avoid an infinite
+        // SwiftUI update loop. During scrolling, LazyVStack recycles views,
+        // which can rapid-fire .onHover events. Each event sets @State,
+        // triggering a view update that causes more recycling and more hover
+        // events, freezing the app in AG::Graph::UpdateStack::update.
+        // The guards prevent redundant state writes from triggering updates.
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                if !isHovering { isHovering = true }
+            case .ended:
+                if isHovering { isHovering = false }
+            }
         }
         .onTapGesture {
             openPRURL()

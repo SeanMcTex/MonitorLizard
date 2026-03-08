@@ -1,6 +1,15 @@
 import Foundation
 import Combine
 
+/// Result of fetching PRs, including whether the results may be incomplete.
+/// When one fetch (authored or review) fails while the other succeeds,
+/// `isPartial` is true, signaling that the repo filter should not be reset
+/// since the selected repo's PRs may have come from the failed fetch.
+struct PRFetchResult {
+    let pullRequests: [PullRequest]
+    let isPartial: Bool
+}
+
 /// Service for interacting with GitHub via the `gh` CLI tool
 ///
 /// ## Error Handling Strategy
@@ -62,10 +71,10 @@ class GitHubService: ObservableObject {
         }
     }
 
-    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool = false) async throws -> [PullRequest] {
+    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool = false) async throws -> PRFetchResult {
         // Return demo data if in demo mode
         if isDemoMode {
-            return DemoData.samplePullRequests
+            return PRFetchResult(pullRequests: DemoData.samplePullRequests, isPartial: false)
         }
 
         // Fetch both authored and review PRs in parallel with independent error handling
@@ -90,7 +99,10 @@ class GitHubService: ObservableObject {
         let authored = authoredResult.success ?? []
         let review = reviewResult.success ?? []
 
-        return review + authored  // Review PRs first to prioritize unblocking teammates
+        // Mark as partial if either fetch failed (results may be incomplete)
+        let isPartial = authoredResult.success == nil || reviewResult.success == nil
+
+        return PRFetchResult(pullRequests: review + authored, isPartial: isPartial)  // Review PRs first to prioritize unblocking teammates
     }
 
     private func fetchAuthoredPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> Result<[PullRequest], Error> {

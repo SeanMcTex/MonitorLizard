@@ -121,11 +121,12 @@ class PRMonitorViewModel: ObservableObject {
 
         do {
             // Fetch all open PRs with their statuses
-            let fetchedPRs = try await githubService.fetchAllOpenPRs(
+            let fetchResult = try await githubService.fetchAllOpenPRs(
                 enableInactiveDetection: enableInactiveBranchDetection,
                 inactiveThresholdDays: inactiveBranchThresholdDays,
                 isDemoMode: isDemoMode
             )
+            let fetchedPRs = fetchResult.pullRequests
 
             // Check for watched PR completions
             let completed = watchlistService.checkForCompletions(currentPRs: fetchedPRs)
@@ -145,8 +146,11 @@ class PRMonitorViewModel: ObservableObject {
             // Apply sorting (also updates warning icon)
             applySorting()
 
-            // Reset filter if the selected repo no longer exists
-            if selectedRepository != "All Repositories" &&
+            // Reset filter if the selected repo no longer exists, but only when
+            // we have a complete result set. Partial results (one fetch failed)
+            // may be missing repos that still have open PRs.
+            if !fetchResult.isPartial &&
+                selectedRepository != "All Repositories" &&
                 !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
                 selectedRepository = "All Repositories"
             }
