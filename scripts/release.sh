@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # MonitorLizard Release Script
-# Builds, signs, creates a GitHub release, and updates the appcast.
+# Builds, signs, notarizes, creates a GitHub release, and updates the appcast.
 
 # --- Configuration ---
 APP_NAME="MonitorLizard"
@@ -12,6 +12,8 @@ PROJECT="$PROJECT_DIR/MonitorLizard/MonitorLizard.xcodeproj"
 APPCAST_FILE="$PROJECT_DIR/docs/appcast.xml"
 BUILD_DIR="$PROJECT_DIR/build/release"
 SPARKLE_BIN="$(find ~/Library/Developer/Xcode/DerivedData/MonitorLizard-*/SourcePackages/artifacts/sparkle/Sparkle/bin -maxdepth 0 2>/dev/null | head -1)"
+SIGNING_IDENTITY="Developer ID Application: Sean Mc Mains (4U7FD3V45R)"
+NOTARY_PROFILE="MonitorLizard-notary"
 
 # --- Preflight checks ---
 if [ -z "$SPARKLE_BIN" ]; then
@@ -81,12 +83,12 @@ fi
 
 # --- Step 1: Update version numbers in Info.plist ---
 echo ""
-echo "[1/7] Updating version to $NEW_VERSION (build $NEW_BUILD)..."
+echo "[1/9] Updating version to $NEW_VERSION (build $NEW_BUILD)..."
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEW_VERSION" "$INFO_PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD" "$INFO_PLIST"
 
 # --- Step 2: Build Release archive ---
-echo "[2/7] Building Release archive..."
+echo "[2/9] Building Release archive..."
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
@@ -97,11 +99,10 @@ xcodebuild -project "$PROJECT" \
     -archivePath "$BUILD_DIR/$APP_NAME.xcarchive" \
     archive \
     SKIP_INSTALL=NO \
-    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
     2>&1 | tail -5
 
 # --- Step 3: Export the .app from the archive ---
-echo "[3/7] Exporting app from archive..."
+echo "[3/9] Exporting app from archive..."
 APP_PATH="$BUILD_DIR/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app"
 
 if [ ! -d "$APP_PATH" ]; then
@@ -109,9 +110,31 @@ if [ ! -d "$APP_PATH" ]; then
     exit 1
 fi
 
-# --- Step 4: Create zip for distribution ---
-echo "[4/7] Creating distribution zip..."
+# Re-sign the app and all nested frameworks/bundles with Developer ID
+codesign --deep --force --options runtime \
+    --sign "$SIGNING_IDENTITY" \
+    "$APP_PATH"
+echo "    App signed with: $SIGNING_IDENTITY"
+
+# --- Step 4: Create zip for notarization ---
+echo "[4/9] Creating zip for notarization..."
 ZIP_PATH="$BUILD_DIR/$APP_NAME.zip"
+cd "$BUILD_DIR/$APP_NAME.xcarchive/Products/Applications"
+zip -r -y "$ZIP_PATH" "$APP_NAME.app"
+cd "$PROJECT_DIR"
+
+# --- Step 5: Notarize ---
+echo "[5/9] Submitting to Apple for notarization (this may take a few minutes)..."
+xcrun notarytool submit "$ZIP_PATH" \
+    --keychain-profile "$NOTARY_PROFILE" \
+    --wait
+
+# --- Step 6: Staple the notarization ticket ---
+echo "[6/9] Stapling notarization ticket..."
+xcrun stapler staple "$APP_PATH"
+
+# Re-zip after stapling so the distributed zip includes the ticket
+rm "$ZIP_PATH"
 cd "$BUILD_DIR/$APP_NAME.xcarchive/Products/Applications"
 zip -r -y "$ZIP_PATH" "$APP_NAME.app"
 cd "$PROJECT_DIR"
@@ -119,8 +142,8 @@ cd "$PROJECT_DIR"
 ZIP_SIZE=$(stat -f%z "$ZIP_PATH")
 echo "    Zip created: $ZIP_PATH ($ZIP_SIZE bytes)"
 
-# --- Step 5: Sign the zip with Sparkle ---
-echo "[5/7] Signing with Sparkle EdDSA key..."
+# --- Step 7: Sign the zip with Sparkle ---
+echo "[7/9] Signing with Sparkle EdDSA key..."
 SIGNATURE=$("$SPARKLE_BIN/sign_update" "$ZIP_PATH" 2>&1)
 # sign_update outputs: sparkle:edSignature="..." length="..."
 ED_SIGNATURE=$(echo "$SIGNATURE" | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"//')
@@ -132,8 +155,8 @@ if [ -z "$ED_SIGNATURE" ]; then
 fi
 echo "    Signature: ${ED_SIGNATURE:0:20}..."
 
-# --- Step 6: Create GitHub release ---
-echo "[6/7] Creating GitHub release $TAG..."
+# --- Step 8: Create GitHub release ---
+echo "[8/9] Creating GitHub release $TAG..."
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$APP_NAME.zip"
@@ -144,19 +167,21 @@ gh release create "$TAG" "$ZIP_PATH" \
 
 echo "    Release created: https://github.com/$REPO/releases/tag/$TAG"
 
-# --- Step 7: Update appcast.xml ---
-echo "[7/7] Updating appcast.xml..."
+# --- Step 9: Update appcast.xml ---
+echo "[9/9] Updating appcast.xml..."
 
 # Format release notes as HTML list items
 HTML_NOTES=""
 while IFS= read -r line; do
-    HTML_NOTES+="                    <li>$line</li>"$'\n'
+    HTML_NOTES+="                    <li>$line</li>"
 done <<< "$RELEASE_NOTES"
-HTML_NOTES="${HTML_NOTES%$'\n'}"  # trim trailing newline
 
 PUB_DATE=$(date -R)
 
-NEW_ITEM="        <item>
+# Write new item to a temp file, then use Python to insert it
+ITEM_FILE=$(mktemp)
+cat > "$ITEM_FILE" <<ITEMEOF
+        <item>
             <title>Version $NEW_VERSION</title>
             <pubDate>$PUB_DATE</pubDate>
             <sparkle:version>$NEW_BUILD</sparkle:version>
@@ -168,17 +193,30 @@ $HTML_NOTES
                 </ul>
             ]]></description>
             <enclosure
-                url=\"$DOWNLOAD_URL\"
-                length=\"$ZIP_SIZE\"
-                type=\"application/octet-stream\"
-                sparkle:edSignature=\"$ED_SIGNATURE\"
+                url="$DOWNLOAD_URL"
+                length="$ZIP_SIZE"
+                type="application/octet-stream"
+                sparkle:edSignature="$ED_SIGNATURE"
             />
-        </item>"
+        </item>
+ITEMEOF
 
-# Insert new item at the top of the channel (after <language> line)
-sed -i '' "/<language>en<\/language>/a\\
-$NEW_ITEM
-" "$APPCAST_FILE"
+# Insert new item after the <language> line
+python3 -c "
+import sys
+appcast = open(sys.argv[1]).read()
+item = open(sys.argv[2]).read()
+marker = '<language>en</language>'
+idx = appcast.find(marker)
+if idx == -1:
+    print('Error: could not find <language> marker in appcast.xml', file=sys.stderr)
+    sys.exit(1)
+insert_at = appcast.index('\n', idx) + 1
+result = appcast[:insert_at] + item + appcast[insert_at:]
+open(sys.argv[1], 'w').write(result)
+" "$APPCAST_FILE" "$ITEM_FILE"
+
+rm "$ITEM_FILE"
 
 echo ""
 echo "=== Release $NEW_VERSION complete! ==="
