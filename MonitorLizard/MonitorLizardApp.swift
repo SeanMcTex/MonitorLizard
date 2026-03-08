@@ -6,6 +6,7 @@ struct MonitorLizardApp: App {
         let isDemoMode = CommandLine.arguments.contains("--demo-mode")
         return PRMonitorViewModel(isDemoMode: isDemoMode)
     }()
+    private let updateService = UpdateService.shared
 
     var body: some Scene {
         MenuBarExtra {

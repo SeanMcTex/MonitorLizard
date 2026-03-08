@@ -241,6 +241,13 @@ struct MenuBarView: View {
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
 
+            Button("Check for Updates...") {
+                UpdateService.shared.checkForUpdates()
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.secondary)
+            .disabled(!UpdateService.shared.canCheckForUpdates)
+
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }

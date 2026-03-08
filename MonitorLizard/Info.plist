@@ -26,5 +26,9 @@
     <string>Copyright © 2026. All rights reserved.</string>
     <key>NSUserNotificationAlertStyle</key>
     <string>alert</string>
+    <key>SUFeedURL</key>
+    <string>https://SeanMcTex.github.io/MonitorLizard/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>KPm3lJw3Xl+rHRumThWoI/FHkR5KeEAQD1hUlNfWyew=</string>
 </dict>
 </plist>

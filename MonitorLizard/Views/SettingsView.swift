@@ -204,7 +204,7 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
-                Text("Version 1.0.0")
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"))")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -231,6 +231,11 @@ struct SettingsView: View {
                             NSWorkspace.shared.open(url)
                         }
                     }
+
+                    Button("Check for Updates...") {
+                        UpdateService.shared.checkForUpdates()
+                    }
+                    .disabled(!UpdateService.shared.canCheckForUpdates)
                 }
             }
 
