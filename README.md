@@ -22,15 +22,17 @@ Thanks to my team at Doximity for encouragement, support, and some tokens.
 - **Draft PR Support**: Clearly identifies draft pull requests with a DRAFT badge
 - **Native Notifications**: macOS notifications with sound and voice announcements
 - **Multi-Repository**: Monitors PRs across all repositories you have access to
-- **Build Status Icons**:
+- **Build Status Icons** (SF Symbols):
+  - ⚙️✓ Success — gear with checkmark (green)
+  - ⚙️✗ Failure/Error — gear with xmark (red)
+  - ⚙️ Pending — animated spinning gear (gray)
   - ❗ Merge Conflict (purple)
-  - ❌ Failure (red)
-  - ⚠️ Error (orange)
-  - 🔄 Changes Requested (orange)
   - ⏳ Inactive (orange)
-  - ✅ Success (green)
   - ❓ Unknown (gray)
-  - 🔵 Pending (animated spinner)
+- **Review Decision Icons**:
+  - 👤✓ Approved (green)
+  - 👤✗ Changes Requested (red)
+  - 👤? Review Required (gray)
 
   Here's what it looks like in action:
 
@@ -39,13 +41,14 @@ Thanks to my team at Doximity for encouragement, support, and some tokens.
 
 ## Requirements
 
-- macOS 13.0 (Ventura) or later
-- Xcode 15.0 or later
+- macOS 14.0 (Sonoma) or later
 - [GitHub CLI (gh)](https://cli.github.com) installed and authenticated
 
-## Setup
+## Prerequisites
 
 ### 1. Install GitHub CLI
+
+MonitorLizard uses `gh` under the covers to fetch PR data.
 
 ```bash
 brew install gh
@@ -59,12 +62,24 @@ gh auth login
 
 Follow the prompts to authenticate with your GitHub account.
 
-### 3. Build and Run
+## Installation
+
+### Option A: Download a Release
+
+1. Download the latest `.zip` from the [Releases page](https://github.com/SeanMcTex/MonitorLizard/releases)
+2. Unzip and drag `MonitorLizard.app` to your Applications folder
+3. Launch the app — it's notarized, so no Gatekeeper warnings
+4. The app will appear in your menu bar with a lizard icon
+5. Grant notification permissions when prompted
+
+The app checks for updates automatically and will notify you when a new version is available. You can also check manually via **Check for Updates...** in the menu bar.
+
+### Option B: Build from Source
 
 1. Open `MonitorLizard/MonitorLizard.xcodeproj` in Xcode
 2. Select your development team under **Signing & Capabilities** if needed
 3. Press **⌘R** to build and run
-4. The app will appear in your menu bar with a lizard icon 🦎
+4. The app will appear in your menu bar with a lizard icon
 5. Grant notification permissions when prompted
 
 **Note:** The app runs as a menu bar-only application (no Dock icon). Look for the lizard icon in your menu bar.
@@ -115,6 +130,7 @@ MonitorLizard/
 │   ├── GitHubService.swift       # gh CLI wrapper
 │   ├── ShellExecutor.swift       # Process execution
 │   ├── NotificationService.swift # Notifications
+│   ├── UpdateService.swift       # Sparkle auto-updates
 │   ├── WatchlistService.swift    # Persistent storage
 │   └── WindowManager.swift       # Settings window
 ├── ViewModels/          # State management
@@ -211,86 +227,38 @@ The codebase is structured for easy extension:
 - **New settings**: Add to `Constants.swift`, create `@AppStorage` properties in `SettingsView`, and wire through to services
 - **Time-based features**: Use `Constants.secondsPerDay` for date calculations
 
-## Distribution & Notarization
+## Releasing a New Version
 
-To distribute MonitorLizard outside of the App Store, you'll need to notarize it with Apple.
+The `scripts/release.sh` script automates the full release process:
 
-### Prerequisites
-
-- Apple Developer account
-- Valid Developer ID Application certificate
-- App-specific password for notarization
-
-### Build Archive
-
-1. In Xcode, select **Product > Archive**
-2. Select your development team in **Signing & Capabilities**
-3. Wait for the archive to complete
-4. In the Organizer window, select the archive and click **Distribute App**
-
-### Export for Distribution
-
-1. Choose **Developer ID** distribution method
-2. Select **Upload** or **Export** based on your workflow
-3. Xcode will automatically code sign with Hardened Runtime enabled
-4. Export the .app bundle
-
-### Notarization
-
-Apple requires notarization for apps distributed outside the App Store on macOS 10.15+.
-
-**Using Xcode (Automatic):**
-1. During export, choose **Upload** to automatically submit for notarization
-2. Xcode will handle the notarization process
-3. Once complete, download the notarized app
-
-**Using Command Line:**
 ```bash
-# Create a zip of the app
-cd /path/to/exported/app
-ditto -c -k --keepParent MonitorLizard.app MonitorLizard.zip
-
-# Submit for notarization (requires app-specific password)
-xcrun notarytool submit MonitorLizard.zip \
-  --apple-id "your-apple-id@example.com" \
-  --team-id "YOUR_TEAM_ID" \
-  --password "your-app-specific-password" \
-  --wait
-
-# Check status
-xcrun notarytool log <submission-id> \
-  --apple-id "your-apple-id@example.com" \
-  --team-id "YOUR_TEAM_ID" \
-  --password "your-app-specific-password"
-
-# Staple the notarization ticket (optional but recommended)
-xcrun stapler staple MonitorLizard.app
+./scripts/release.sh
 ```
 
-**Creating an App-Specific Password:**
-1. Go to [appleid.apple.com](https://appleid.apple.com)
-2. Sign in with your Apple ID
-3. In the Security section, select **App-Specific Passwords**
-4. Click **+** to generate a new password
-5. Use this password for notarization (not your Apple ID password)
+It handles:
+1. Updating version numbers in Info.plist
+2. Building a Release archive
+3. Signing with Developer ID Application certificate
+4. Submitting to Apple for notarization
+5. Stapling the notarization ticket
+6. Signing the zip with Sparkle's EdDSA key
+7. Creating a GitHub release with the zip attached
+8. Updating `docs/appcast.xml` for Sparkle auto-updates
 
-### Hardened Runtime
+After the script completes, commit and push so GitHub Pages serves the updated appcast:
+```bash
+git add MonitorLizard/Info.plist docs/appcast.xml
+git commit -m "Release <version>"
+git push
+```
 
-The project is configured with Hardened Runtime enabled, which is required for notarization. The entitlements file (`MonitorLizard.entitlements`) includes:
+### Prerequisites for Releasing
 
-- App Sandbox disabled (required for shell command execution)
-- Get Task Allow enabled (for debugging)
-
-If you need additional entitlements, edit `MonitorLizard/MonitorLizard.entitlements`.
-
-### Distribution Checklist
-
-- [ ] Valid Developer ID certificate installed
-- [ ] Hardened Runtime enabled (already configured)
-- [ ] App signed with Developer ID
-- [ ] App notarized by Apple
-- [ ] Notarization ticket stapled to app (optional)
-- [ ] Test on a different Mac to verify Gatekeeper acceptance
+- Apple Developer account with Developer ID Application certificate
+- Notarization credentials stored via `xcrun notarytool store-credentials`
+- Sparkle EdDSA signing key in Keychain (generated by `generate_keys`)
+- GitHub CLI (`gh`) installed and authenticated
+- GitHub Pages enabled on the repo, serving from `docs/` on `main`
 
 ## Credits
 
