@@ -57,53 +57,65 @@ struct PRRowView: View {
         NSWorkspace.shared.open(url)
     }
 
-    var body: some View {
-        HStack(spacing: 12) {
+    private let iconColumnWidth: CGFloat = 30
+
+    private var buildStatusIcon: some View {
+        Group {
+            if pr.buildStatus == .pending {
+                if #available(macOS 15.0, *) {
+                    Image(systemName: "gear")
+                        .foregroundColor(.gray)
+                        .font(.title2)
+                        .symbolEffect(.rotate.byLayer, options: .repeat(.continuous))
+                } else {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            } else if pr.buildStatus == .success {
+                Image(systemName: "gear.badge.checkmark")
+                    .foregroundColor(.green)
+                    .font(.title2)
+            } else if pr.buildStatus == .failure || pr.buildStatus == .error {
+                Image(systemName: "gear.badge.xmark")
+                    .foregroundColor(.red)
+                    .font(.title2)
+            } else {
+                Text(pr.buildStatus.icon)
+                    .font(.title2)
+            }
+        }
+    }
+
+    private var statusIconsColumn: some View {
+        VStack(spacing: 8) {
             // Review indicator (for PRs awaiting review)
             if pr.type == .reviewing {
                 Image(systemName: "person.crop.circle.badge.checkmark")
                     .foregroundColor(.blue)
-                    .font(.body)
+                    .font(.title2)
                     .help("Awaiting your review")
-                    .frame(width: 24)
+                    .frame(width: iconColumnWidth, height: 24)
             }
 
-            // Status icon + review decision
-            VStack(spacing: 8) {
-                Group {
-                    if pr.buildStatus == .pending {
-                        if #available(macOS 15.0, *) {
-                            Image(systemName: "gear")
-                                .foregroundColor(.gray)
-                                .font(.title2)
-                                .symbolEffect(.rotate.byLayer, options: .repeat(.continuous))
-                        } else {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                        }
-                    } else if pr.buildStatus == .success {
-                        Image(systemName: "gear.badge.checkmark")
-                            .foregroundColor(.green)
-                            .font(.title2)
-                    } else if pr.buildStatus == .failure || pr.buildStatus == .error {
-                        Image(systemName: "gear.badge.xmark")
-                            .foregroundColor(.red)
-                            .font(.title2)
-                    } else {
-                        Text(pr.buildStatus.icon)
-                            .font(.title2)
-                    }
-                }
-                .frame(width: 30)
+            // Build status icon
+            buildStatusIcon
+                .frame(width: iconColumnWidth, height: 24)
 
-                if let decision = pr.reviewDecision {
-                    Image(systemName: decision.systemImageName)
-                        .foregroundColor(decision.color)
-                        .font(.title2)
-                        .help(decision.helpText)
-                }
+            if let decision = pr.reviewDecision {
+                Image(systemName: decision.systemImageName)
+                    .foregroundColor(decision.color)
+                    .font(.title2)
+                    .help(decision.helpText)
+                    .offset(x: 2)
+                    .frame(width: iconColumnWidth, height: 24)
             }
-            .frame(width: 30)
+        }
+        .frame(width: iconColumnWidth)
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            statusIconsColumn
 
             VStack(alignment: .leading, spacing: 4) {
                 // PR Title
