@@ -21,7 +21,7 @@ enum ShellError: Error {
 }
 
 actor ShellExecutor {
-    func execute(command: String, arguments: [String] = [], timeout: TimeInterval = 30) async throws -> String {
+    func execute(command: String, arguments: [String] = [], timeout: TimeInterval = 30, host: String? = nil) async throws -> String {
         let process = Process()
 
         // Set up the process
@@ -39,6 +39,12 @@ actor ShellExecutor {
         let existingPath = environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin"
         let newPath = (homebrewPaths + [existingPath]).joined(separator: ":")
         environment["PATH"] = newPath
+
+        // Set GH_HOST to target a specific GitHub host (e.g. enterprise)
+        if let host = host {
+            environment["GH_HOST"] = host
+        }
+
         process.environment = environment
 
         // Set up pipes for output and error
@@ -108,6 +114,38 @@ actor ShellExecutor {
         }
 
         return output.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Returns all GitHub hosts the user is authenticated with (e.g. ["github.com", "github.enterprise.com"])
+    func getAuthenticatedHosts() async throws -> [String] {
+        do {
+            let output = try await execute(command: "gh", arguments: ["auth", "status"])
+            return parseHosts(from: output)
+        } catch let ShellError.executionFailed(message) {
+            // gh auth status exits with non-zero if any host has issues,
+            // but still prints host info to stderr/stdout
+            return parseHosts(from: message)
+        } catch {
+            return ["github.com"]  // Fallback to default
+        }
+    }
+
+    private func parseHosts(from output: String) -> [String] {
+        // gh auth status output has hostnames at the start of lines (no leading whitespace)
+        // e.g.:
+        // github.com
+        //   ✓ Logged in to github.com account user (keyring)
+        // enterprise.example.com
+        //   ✓ Logged in to enterprise.example.com account user (keyring)
+        var hosts: [String] = []
+        for line in output.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            // Host lines start at column 0 (no leading whitespace) and contain a dot
+            if !trimmed.isEmpty && !line.hasPrefix(" ") && !line.hasPrefix("\t") && trimmed.contains(".") && !trimmed.contains(" ") {
+                hosts.append(trimmed)
+            }
+        }
+        return hosts.isEmpty ? ["github.com"] : hosts
     }
 
     func checkGHInstalled() async throws -> Bool {

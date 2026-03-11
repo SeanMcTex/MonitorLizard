@@ -77,55 +77,66 @@ class GitHubService: ObservableObject {
             return PRFetchResult(pullRequests: DemoData.samplePullRequests, isPartial: false)
         }
 
-        // Fetch both authored and review PRs in parallel with independent error handling
-        // This allows one type to fail (e.g., no review PRs) without affecting the other
-        async let authoredTask = fetchAuthoredPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
-        async let reviewTask = fetchReviewPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+        // Detect all authenticated GitHub hosts (github.com + any enterprise instances)
+        let hosts = try await shellExecutor.getAuthenticatedHosts()
 
-        let authoredResult = await authoredTask
-        let reviewResult = await reviewTask
+        var allAuthored: [PullRequest] = []
+        var allReview: [PullRequest] = []
+        var anyPartial = false
+        var allFailed = true
 
-        // If both fetches failed, throw an error instead of returning empty array
-        // This distinguishes between "no PRs found" (success with empty array) and
-        // "couldn't fetch PRs" (network/auth error that should be shown to user)
-        if case .failure(let authoredError) = authoredResult,
-           case .failure(let reviewError) = reviewResult {
-            print("Both PR fetches failed - authored: \(authoredError), review: \(reviewError)")
-            // Throw the authored error as it's likely the same root cause
-            throw authoredError
+        for host in hosts {
+            // Fetch both authored and review PRs in parallel with independent error handling
+            async let authoredTask = fetchAuthoredPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays, host: host)
+            async let reviewTask = fetchReviewPRsSafely(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays, host: host)
+
+            let authoredResult = await authoredTask
+            let reviewResult = await reviewTask
+
+            if let authored = authoredResult.success {
+                allAuthored.append(contentsOf: authored)
+                allFailed = false
+            } else {
+                anyPartial = true
+            }
+
+            if let review = reviewResult.success {
+                allReview.append(contentsOf: review)
+                allFailed = false
+            } else {
+                anyPartial = true
+            }
         }
 
-        // Extract successful results (empty arrays for failures)
-        let authored = authoredResult.success ?? []
-        let review = reviewResult.success ?? []
+        // If all fetches across all hosts failed, throw an error
+        if allFailed {
+            throw GitHubError.networkError
+        }
 
-        // Mark as partial if either fetch failed (results may be incomplete)
-        let isPartial = authoredResult.success == nil || reviewResult.success == nil
-
-        return PRFetchResult(pullRequests: review + authored, isPartial: isPartial)  // Review PRs first to prioritize unblocking teammates
+        return PRFetchResult(pullRequests: allReview + allAuthored, isPartial: anyPartial)  // Review PRs first to prioritize unblocking teammates
     }
 
-    private func fetchAuthoredPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> Result<[PullRequest], Error> {
+    private func fetchAuthoredPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async -> Result<[PullRequest], Error> {
         do {
-            let prs = try await fetchAuthoredPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+            let prs = try await fetchAuthoredPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays, host: host)
             return .success(prs)
         } catch {
-            print("Error fetching authored PRs: \(error)")
+            print("Error fetching authored PRs from \(host): \(error)")
             return .failure(error)
         }
     }
 
-    private func fetchReviewPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> Result<[PullRequest], Error> {
+    private func fetchReviewPRsSafely(enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async -> Result<[PullRequest], Error> {
         do {
-            let prs = try await fetchReviewPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays)
+            let prs = try await fetchReviewPRs(enableInactiveDetection: enableInactiveDetection, inactiveThresholdDays: inactiveThresholdDays, host: host)
             return .success(prs)
         } catch {
-            print("Error fetching review PRs: \(error)")
+            print("Error fetching review PRs from \(host): \(error)")
             return .failure(error)
         }
     }
 
-    private func fetchAuthoredPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
+    private func fetchAuthoredPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async throws -> [PullRequest] {
         // Fetch all open PRs authored by the current user, excluding archived repositories
         let json = try await shellExecutor.execute(
             command: "gh",
@@ -136,7 +147,8 @@ class GitHubService: ObservableObject {
                 "--archived=false",
                 "--json", "number,title,repository,url,author,updatedAt,labels,isDraft",
                 "--limit", "100"
-            ]
+            ],
+            host: host
         )
 
         // Parse the JSON response
@@ -190,7 +202,8 @@ class GitHubService: ObservableObject {
                 number: result.number,
                 updatedAt: updatedAt,
                 enableInactiveDetection: enableInactiveDetection,
-                inactiveThresholdDays: inactiveThresholdDays
+                inactiveThresholdDays: inactiveThresholdDays,
+                host: host
             )
 
             let pr = PullRequest(
@@ -212,7 +225,8 @@ class GitHubService: ObservableObject {
                 type: .authored,
                 isDraft: result.isDraft,
                 statusChecks: statusInfo.statusChecks,
-                reviewDecision: statusInfo.reviewDecision
+                reviewDecision: statusInfo.reviewDecision,
+                host: host
             )
 
             pullRequests.append(pr)
@@ -221,7 +235,7 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    private func fetchReviewPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> [PullRequest] {
+    private func fetchReviewPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async throws -> [PullRequest] {
         // Fetch all open PRs where the current user is a requested reviewer, excluding archived repositories
         let json = try await shellExecutor.execute(
             command: "gh",
@@ -232,7 +246,8 @@ class GitHubService: ObservableObject {
                 "--archived=false",
                 "--json", "number,title,repository,url,author,updatedAt,labels,isDraft",
                 "--limit", "100"
-            ]
+            ],
+            host: host
         )
 
         // Parse the JSON response
@@ -286,7 +301,8 @@ class GitHubService: ObservableObject {
                 number: result.number,
                 updatedAt: updatedAt,
                 enableInactiveDetection: enableInactiveDetection,
-                inactiveThresholdDays: inactiveThresholdDays
+                inactiveThresholdDays: inactiveThresholdDays,
+                host: host
             )
 
             let pr = PullRequest(
@@ -308,7 +324,8 @@ class GitHubService: ObservableObject {
                 type: .reviewing,
                 isDraft: result.isDraft,
                 statusChecks: statusInfo.statusChecks,
-                reviewDecision: statusInfo.reviewDecision
+                reviewDecision: statusInfo.reviewDecision,
+                host: host
             )
 
             pullRequests.append(pr)
@@ -317,14 +334,15 @@ class GitHubService: ObservableObject {
         return pullRequests
     }
 
-    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?) {
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String = "github.com") async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?) {
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
                 "pr", "view", "\(number)",
                 "--repo", "\(owner)/\(repo)",
                 "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision"
-            ]
+            ],
+            host: host
         )
 
         guard let jsonData = json.data(using: .utf8) else {
