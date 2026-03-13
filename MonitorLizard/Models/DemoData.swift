@@ -27,7 +27,8 @@ enum DemoData {
                 StatusCheck(id: "1", name: "CI Tests", status: .success, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Lint", status: .success, detailsUrl: "https://github.com/example/check/2")
             ],
-            reviewDecision: .approved
+            reviewDecision: .approved,
+            host: "github.com"
         ),
 
         // 2. PENDING - Reviewing PR (with review required)
@@ -53,7 +54,8 @@ enum DemoData {
                 StatusCheck(id: "1", name: "CI Tests", status: .pending, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Lint", status: .success, detailsUrl: "https://github.com/example/check/2")
             ],
-            reviewDecision: .reviewRequired
+            reviewDecision: .reviewRequired,
+            host: "github.com"
         ),
 
         // AUTHORED PRs (6 total)
@@ -82,7 +84,8 @@ enum DemoData {
                 StatusCheck(id: "2", name: "Unit Tests", status: .success, detailsUrl: "https://github.com/example/check/2"),
                 StatusCheck(id: "3", name: "Integration Tests", status: .success, detailsUrl: "https://github.com/example/check/3")
             ],
-            reviewDecision: .changesRequested
+            reviewDecision: .changesRequested,
+            host: "github.com"
         ),
 
         // 4. FAILURE - Authored PR
@@ -110,7 +113,8 @@ enum DemoData {
                 StatusCheck(id: "2", name: "Lint", status: .failure, detailsUrl: "https://github.com/example/check/2"),
                 StatusCheck(id: "3", name: "Security Scan", status: .success, detailsUrl: "https://github.com/example/check/3")
             ],
-            reviewDecision: nil
+            reviewDecision: nil,
+            host: "github.com"
         ),
 
         // 5. PENDING - Authored PR
@@ -134,7 +138,8 @@ enum DemoData {
                 StatusCheck(id: "1", name: "Build", status: .pending, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Tests", status: .pending, detailsUrl: "https://github.com/example/check/2")
             ],
-            reviewDecision: nil
+            reviewDecision: nil,
+            host: "github.com"
         ),
 
         // 6. CONFLICT - Authored PR
@@ -159,7 +164,8 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "Merge Conflict Check", status: .failure, detailsUrl: "https://github.com/example/check/1")
             ],
-            reviewDecision: nil
+            reviewDecision: nil,
+            host: "github.com"
         ),
 
         // 7. INACTIVE - Authored PR (Draft)
@@ -185,7 +191,8 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "Draft PR Check", status: .skipped, detailsUrl: "https://github.com/example/check/1")
             ],
-            reviewDecision: nil
+            reviewDecision: nil,
+            host: "github.com"
         ),
 
         // 8. PENDING - Authored PR (Draft)
@@ -210,7 +217,8 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "Code Quality", status: .pending, detailsUrl: "https://github.com/example/check/1")
             ],
-            reviewDecision: nil
+            reviewDecision: nil,
+            host: "github.com"
         )
     ]
 }

@@ -51,6 +51,7 @@ struct PullRequest: Identifiable, Hashable {
     let isDraft: Bool
     let statusChecks: [StatusCheck]
     var reviewDecision: ReviewDecision?
+    let host: String  // GitHub host (e.g. "github.com" or enterprise hostname)
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"
