@@ -52,15 +52,15 @@ struct ParsePRURLTests {
     }
 }
 
-struct PinnedPRsServiceTests {
+struct OtherPRsServiceTests {
 
-    private func makeService() -> PinnedPRsService {
+    private func makeService() -> OtherPRsService {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return PinnedPRsService(defaults: suite)
+        return OtherPRsService(defaults: suite)
     }
 
-    private func makeID(number: Int = 1) -> PinnedPRIdentifier {
-        PinnedPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: number)
+    private func makeID(number: Int = 1) -> OtherPRIdentifier {
+        OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: number)
     }
 
     @Test func startsEmpty() {

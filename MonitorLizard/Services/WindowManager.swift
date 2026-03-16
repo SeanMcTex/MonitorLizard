@@ -9,7 +9,7 @@ class WindowManager {
 
     private init() {}
 
-    func showPinPR(viewModel: PRMonitorViewModel) {
+    func showAddPR(viewModel: PRMonitorViewModel) {
         // Close the menu bar extra by ordering out all panels
         NSApp.windows.forEach { window in
             if window is NSPanel {
@@ -17,7 +17,7 @@ class WindowManager {
             }
         }
 
-        let pinView = PinPRView(viewModel: viewModel)
+        let pinView = AddPRView(viewModel: viewModel)
         let hostingController = NSHostingController(rootView: pinView)
 
         let window = NSWindow(contentViewController: hostingController)

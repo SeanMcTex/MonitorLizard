@@ -34,7 +34,7 @@ enum ReviewDecision: String, Codable, Hashable {
 enum PRType: String, Codable, Hashable {
     case authored    // PRs created by user
     case reviewing   // PRs awaiting user's review
-    case pinned      // PRs pinned by URL for monitoring teammates' work
+    case other       // PRs added by URL for monitoring teammates' work
 }
 
 struct PullRequest: Identifiable, Hashable {

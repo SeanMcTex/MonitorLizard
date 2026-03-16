@@ -15,9 +15,9 @@ struct MenuBarView: View {
                 errorView(error)
             } else if !viewModel.isGHAvailable {
                 ghUnavailableView
-            } else if viewModel.isLoading && viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.pinnedPullRequests.isEmpty {
+            } else if viewModel.isLoading && viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.otherPullRequests.isEmpty {
                 loadingView
-            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.pinnedPullRequests.isEmpty && !viewModel.isLoading {
+            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.otherPullRequests.isEmpty && !viewModel.isLoading {
                 emptyStateView
             } else {
                 prListView
@@ -153,12 +153,12 @@ struct MenuBarView: View {
     }
 
     private var prListView: some View {
-        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.pinnedPullRequests.count
+        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.otherPullRequests.count
         let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
         let sectionHeaderHeight: CGFloat = 40
         let numSections = (viewModel.reviewPRs.isEmpty ? 0 : 1)
             + (viewModel.authoredPRs.isEmpty ? 0 : 1)
-            + (viewModel.pinnedPullRequests.isEmpty ? 0 : 1)
+            + (viewModel.otherPullRequests.isEmpty ? 0 : 1)
         let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
         let maxHeight = calculateMaxHeight()
         let targetHeight = min(estimatedContentHeight, maxHeight)
@@ -182,11 +182,11 @@ struct MenuBarView: View {
                     }
 
                     // Other PRs Section (SECOND)
-                    if !viewModel.pinnedPullRequests.isEmpty {
-                        sectionHeader(title: "Other PRs", count: viewModel.pinnedPullRequests.count)
-                            .id("header-pinned")
+                    if !viewModel.otherPullRequests.isEmpty {
+                        sectionHeader(title: "Other PRs", count: viewModel.otherPullRequests.count)
+                            .id("header-other")
 
-                        ForEach(viewModel.pinnedPullRequests) { pr in
+                        ForEach(viewModel.otherPullRequests) { pr in
                             PRRowView(pr: pr)
                                 .environmentObject(viewModel)
                             Divider()
@@ -254,7 +254,7 @@ struct MenuBarView: View {
 
             Menu {
                 Button("Add PR...") {
-                    WindowManager.shared.showPinPR(viewModel: viewModel)
+                    WindowManager.shared.showAddPR(viewModel: viewModel)
                 }
 
                 Divider()

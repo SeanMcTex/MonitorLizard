@@ -550,8 +550,8 @@ class GitHubService: ObservableObject {
     }
 
     /// Parses a GitHub PR URL of the form `https://<host>/<owner>/<repo>/pull/<number>`
-    /// and returns a `PinnedPRIdentifier`, or `nil` if the URL is not a valid PR URL.
-    nonisolated static func parsePRURL(_ urlString: String) -> PinnedPRIdentifier? {
+    /// and returns a `OtherPRIdentifier`, or `nil` if the URL is not a valid PR URL.
+    nonisolated static func parsePRURL(_ urlString: String) -> OtherPRIdentifier? {
         guard let url = URL(string: urlString),
               let host = url.host,
               !host.isEmpty else { return nil }
@@ -566,12 +566,12 @@ class GitHubService: ObservableObject {
         let repo = components[2]
         guard !owner.isEmpty, !repo.isEmpty else { return nil }
 
-        return PinnedPRIdentifier(host: host, owner: owner, repo: repo, number: number)
+        return OtherPRIdentifier(host: host, owner: owner, repo: repo, number: number)
     }
 
-    /// Fetches a single PR by its pinned identifier.
+    /// Fetches a single Other PR by its identifier.
     /// Returns `nil` if the PR is closed/merged, not found, or inaccessible.
-    func fetchPinnedPR(_ id: PinnedPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> PullRequest? {
+    func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> PullRequest? {
         do {
             let json = try await shellExecutor.execute(
                 command: "gh",
@@ -618,14 +618,14 @@ class GitHubService: ObservableObject {
                 labels: response.labels.map { label in
                     PullRequest.Label(id: label.id ?? label.name, name: label.name, color: label.color)
                 },
-                type: .pinned,
+                type: .other,
                 isDraft: response.isDraft,
                 statusChecks: statusChecks,
                 reviewDecision: reviewDecision,
                 host: id.host
             )
         } catch {
-            print("Error fetching pinned PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
+            print("Error fetching Other PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
             return nil
         }
     }

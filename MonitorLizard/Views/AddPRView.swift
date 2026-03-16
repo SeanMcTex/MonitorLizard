@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct PinPRView: View {
+struct AddPRView: View {
     @ObservedObject var viewModel: PRMonitorViewModel
     @State private var urlText = ""
     @State private var isLoading = false
@@ -26,7 +26,7 @@ struct PinPRView: View {
                 .focused($isURLFieldFocused)
                 .onSubmit {
                     guard isValidURL && !isLoading else { return }
-                    Task { await pinPR() }
+                    Task { await addPR() }
                 }
 
             if let error = errorMessage {
@@ -45,7 +45,7 @@ struct PinPRView: View {
 
                 Button("Add") {
                     Task {
-                        await pinPR()
+                        await addPR()
                     }
                 }
                 .disabled(!isValidURL || isLoading)
@@ -65,11 +65,11 @@ struct PinPRView: View {
         }
     }
 
-    private func pinPR() async {
+    private func addPR() async {
         isLoading = true
         errorMessage = nil
         do {
-            try await viewModel.addPinnedPR(urlString: urlText)
+            try await viewModel.addOtherPR(urlString: urlText)
             NSApp.keyWindow?.close()
         } catch {
             errorMessage = error.localizedDescription

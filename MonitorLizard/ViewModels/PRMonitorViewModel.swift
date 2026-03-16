@@ -2,15 +2,15 @@ import Foundation
 import SwiftUI
 import Combine
 
-enum PinnedPRError: LocalizedError {
+enum OtherPRError: LocalizedError {
     case invalidURL
-    case alreadyPinned
+    case alreadyAdded
     case notFound
 
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "Invalid GitHub PR URL. Expected format: https://github.com/owner/repo/pull/123"
-        case .alreadyPinned: return "This PR is already in Other PRs"
+        case .alreadyAdded: return "This PR is already in Other PRs"
         case .notFound: return "PR not found or not accessible"
         }
     }
@@ -19,7 +19,7 @@ enum PinnedPRError: LocalizedError {
 @MainActor
 class PRMonitorViewModel: ObservableObject {
     @Published var pullRequests: [PullRequest] = []
-    @Published var pinnedPullRequests: [PullRequest] = []
+    @Published var otherPullRequests: [PullRequest] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var lastRefreshTime: Date?
@@ -31,7 +31,7 @@ class PRMonitorViewModel: ObservableObject {
     private let isDemoMode: Bool
     private let watchlistService = WatchlistService.shared
     private let notificationService = NotificationService.shared
-    private let pinnedPRsService = PinnedPRsService()
+    private let otherPRsService = OtherPRsService()
 
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
@@ -47,8 +47,8 @@ class PRMonitorViewModel: ObservableObject {
     // Computed property for available repositories
     var availableRepositories: [String] {
         let mainRepos = Set(unsortedPullRequests.map { $0.repository.nameWithOwner })
-        let pinnedRepos = Set(pinnedPullRequests.map { $0.repository.nameWithOwner })
-        return mainRepos.union(pinnedRepos).sorted()
+        let otherRepos = Set(otherPullRequests.map { $0.repository.nameWithOwner })
+        return mainRepos.union(otherRepos).sorted()
     }
 
     // Computed properties for filtering PRs by type and repository
@@ -142,19 +142,19 @@ class PRMonitorViewModel: ObservableObject {
             inactiveThresholdDays: inactiveBranchThresholdDays,
             isDemoMode: isDemoMode
         )
-        async let pinnedFetchTask = fetchAllPinnedPRs()
+        async let otherFetchTask = fetchAllOtherPRs()
 
         do {
             let fetchResult = try await mainFetchTask
-            let fetchedPinned = await pinnedFetchTask
+            let fetchedOther = await otherFetchTask
             let fetchedPRs = fetchResult.pullRequests
 
-            // Deduplicate: remove from main list any PR that's also pinned
-            let pinnedIDs = Set(fetchedPinned.map { $0.id })
-            let dedupedPRs = fetchedPRs.filter { !pinnedIDs.contains($0.id) }
+            // Deduplicate: remove from main list any PR that's also in Other PRs
+            let otherIDs = Set(fetchedOther.map { $0.id })
+            let dedupedPRs = fetchedPRs.filter { !otherIDs.contains($0.id) }
 
             // Check for watched PR completions across all PRs
-            let completed = watchlistService.checkForCompletions(currentPRs: dedupedPRs + fetchedPinned)
+            let completed = watchlistService.checkForCompletions(currentPRs: dedupedPRs + fetchedOther)
 
             // Send notifications for completed builds
             for pr in completed {
@@ -168,7 +168,7 @@ class PRMonitorViewModel: ObservableObject {
                 return updated
             }
 
-            pinnedPullRequests = fetchedPinned.map { pr in
+            otherPullRequests = fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
@@ -183,7 +183,7 @@ class PRMonitorViewModel: ObservableObject {
             if !fetchResult.isPartial &&
                 selectedRepository != "All Repositories" &&
                 !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) &&
-                !pinnedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
+                !otherPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
                 selectedRepository = "All Repositories"
             }
 
@@ -197,9 +197,9 @@ class PRMonitorViewModel: ObservableObject {
             if error == .notInstalled || error == .notAuthenticated {
                 isGHAvailable = false
             }
-            // Still update pinned PRs even if main fetch failed
-            let fetchedPinned = await pinnedFetchTask
-            pinnedPullRequests = fetchedPinned.map { pr in
+            // Still update Other PRs even if main fetch failed
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
@@ -207,8 +207,8 @@ class PRMonitorViewModel: ObservableObject {
         } catch let error as ShellError {
             print("ShellError: \(error)")
             errorMessage = error.localizedDescription
-            let fetchedPinned = await pinnedFetchTask
-            pinnedPullRequests = fetchedPinned.map { pr in
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
@@ -216,8 +216,8 @@ class PRMonitorViewModel: ObservableObject {
         } catch let error as DecodingError {
             print("DecodingError: \(error)")
             errorMessage = "Failed to parse GitHub data. Please try again."
-            let fetchedPinned = await pinnedFetchTask
-            pinnedPullRequests = fetchedPinned.map { pr in
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
@@ -225,8 +225,8 @@ class PRMonitorViewModel: ObservableObject {
         } catch {
             print("Unknown error: \(error)")
             errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-            let fetchedPinned = await pinnedFetchTask
-            pinnedPullRequests = fetchedPinned.map { pr in
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
@@ -236,11 +236,11 @@ class PRMonitorViewModel: ObservableObject {
         isLoading = false
     }
 
-    private func fetchAllPinnedPRs() async -> [PullRequest] {
-        let ids = pinnedPRsService.all()
+    private func fetchAllOtherPRs() async -> [PullRequest] {
+        let ids = otherPRsService.all()
         var results: [PullRequest] = []
         for id in ids {
-            if let pr = await githubService.fetchPinnedPR(
+            if let pr = await githubService.fetchOtherPR(
                 id,
                 enableInactiveDetection: enableInactiveBranchDetection,
                 inactiveThresholdDays: inactiveBranchThresholdDays
@@ -270,7 +270,7 @@ class PRMonitorViewModel: ObservableObject {
         }
 
         // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
-        let allDisplayed = newPullRequests + pinnedPullRequests
+        let allDisplayed = newPullRequests + otherPullRequests
         let hasBadStatus = allDisplayed.contains { pr in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
                 || pr.buildStatus == .conflict || pr.buildStatus == .inactive
@@ -282,41 +282,41 @@ class PRMonitorViewModel: ObservableObject {
         showWarningIcon = hasBadStatus || hasReviewPRs
     }
 
-    func addPinnedPR(urlString: String) async throws {
+    func addOtherPR(urlString: String) async throws {
         guard let id = GitHubService.parsePRURL(urlString) else {
-            throw PinnedPRError.invalidURL
+            throw OtherPRError.invalidURL
         }
-        guard !pinnedPRsService.contains(id) else {
-            throw PinnedPRError.alreadyPinned
+        guard !otherPRsService.contains(id) else {
+            throw OtherPRError.alreadyAdded
         }
-        guard let pr = await githubService.fetchPinnedPR(
+        guard let pr = await githubService.fetchOtherPR(
             id,
             enableInactiveDetection: enableInactiveBranchDetection,
             inactiveThresholdDays: inactiveBranchThresholdDays
         ) else {
-            throw PinnedPRError.notFound
+            throw OtherPRError.notFound
         }
-        pinnedPRsService.add(id)
+        otherPRsService.add(id)
         var updated = pr
         updated.isWatched = watchlistService.isWatched(pr)
-        pinnedPullRequests.append(updated)
+        otherPullRequests.append(updated)
         // Deduplicate from main list if this PR appeared there
         unsortedPullRequests.removeAll { $0.id == pr.id }
         pullRequests.removeAll { $0.id == pr.id }
         applySorting()
     }
 
-    func removePinnedPR(_ pr: PullRequest) {
+    func removeOtherPR(_ pr: PullRequest) {
         let parts = pr.repository.nameWithOwner.split(separator: "/")
         guard parts.count == 2 else { return }
-        let id = PinnedPRIdentifier(
+        let id = OtherPRIdentifier(
             host: pr.host,
             owner: String(parts[0]),
             repo: String(parts[1]),
             number: pr.number
         )
-        pinnedPRsService.remove(id)
-        pinnedPullRequests.removeAll { $0.id == pr.id }
+        otherPRsService.remove(id)
+        otherPullRequests.removeAll { $0.id == pr.id }
         applySorting()
     }
 
