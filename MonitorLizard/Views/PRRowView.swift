@@ -226,14 +226,19 @@ struct PRRowView: View {
                 // Remove button - only shown for Other PRs
                 if pr.type == .other {
                     Button(action: {
-                        let alert = NSAlert()
-                        alert.messageText = "Remove from Other PRs?"
-                        alert.informativeText = "\"\(pr.title)\" will be removed from Other PRs."
-                        alert.addButton(withTitle: "Remove")
-                        alert.addButton(withTitle: "Cancel")
-                        alert.alertStyle = .warning
-                        if alert.runModal() == .alertFirstButtonReturn {
-                            viewModel.removeOtherPR(pr)
+                        NSApp.windows.forEach { window in
+                            if window is NSPanel { window.orderOut(nil) }
+                        }
+                        DispatchQueue.main.async {
+                            let alert = NSAlert()
+                            alert.messageText = "Remove from Other PRs?"
+                            alert.informativeText = "\"\(pr.title)\" will be removed from Other PRs."
+                            alert.addButton(withTitle: "Remove")
+                            alert.addButton(withTitle: "Cancel")
+                            alert.alertStyle = .warning
+                            if alert.runModal() == .alertFirstButtonReturn {
+                                viewModel.removeOtherPR(pr)
+                            }
                         }
                     }) {
                         Image(systemName: "trash")

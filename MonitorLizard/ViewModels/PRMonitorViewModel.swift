@@ -5,12 +5,14 @@ import Combine
 enum OtherPRError: LocalizedError {
     case invalidURL
     case alreadyAdded
+    case alreadyTracked
     case notFound
 
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "Invalid GitHub PR URL. Expected format: https://github.com/owner/repo/pull/123"
         case .alreadyAdded: return "This PR is already in Other PRs"
+        case .alreadyTracked: return "This PR is already in your authored or review list"
         case .notFound: return "PR not found or not accessible"
         }
     }
@@ -288,6 +290,12 @@ class PRMonitorViewModel: ObservableObject {
         }
         guard !otherPRsService.contains(id) else {
             throw OtherPRError.alreadyAdded
+        }
+        let normalizedRepo = "\(id.owner)/\(id.repo)".lowercased()
+        guard !unsortedPullRequests.contains(where: { pr in
+            pr.number == id.number && pr.repository.nameWithOwner.lowercased() == normalizedRepo
+        }) else {
+            throw OtherPRError.alreadyTracked
         }
         guard let pr = await githubService.fetchOtherPR(
             id,
