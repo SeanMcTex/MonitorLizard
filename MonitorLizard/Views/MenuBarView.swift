@@ -181,9 +181,9 @@ struct MenuBarView: View {
                         }
                     }
 
-                    // Pinned PRs Section (SECOND)
+                    // Other PRs Section (SECOND)
                     if !viewModel.pinnedPullRequests.isEmpty {
-                        sectionHeader(title: "Pinned", count: viewModel.pinnedPullRequests.count)
+                        sectionHeader(title: "Other PRs", count: viewModel.pinnedPullRequests.count)
                             .id("header-pinned")
 
                         ForEach(viewModel.pinnedPullRequests) { pr in
@@ -253,7 +253,7 @@ struct MenuBarView: View {
             Spacer()
 
             Menu {
-                Button("Pin a PR...") {
+                Button("Add PR...") {
                     WindowManager.shared.showPinPR(viewModel: viewModel)
                 }
 

@@ -10,7 +10,7 @@ enum PinnedPRError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "Invalid GitHub PR URL. Expected format: https://github.com/owner/repo/pull/123"
-        case .alreadyPinned: return "This PR is already pinned"
+        case .alreadyPinned: return "This PR is already in Other PRs"
         case .notFound: return "PR not found or not accessible"
         }
     }

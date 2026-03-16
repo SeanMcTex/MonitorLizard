@@ -232,7 +232,7 @@ struct PRRowView: View {
                             .foregroundColor(.orange)
                     }
                     .buttonStyle(.plain)
-                    .help("Unpin this PR")
+                    .help("Remove from Other PRs")
                     .opacity(isHovering ? 1.0 : 0.0)
                 }
 

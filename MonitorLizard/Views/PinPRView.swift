@@ -13,7 +13,7 @@ struct PinPRView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Pin a Pull Request")
+            Text("Add PR")
                 .font(.headline)
 
             Text("Paste a GitHub PR URL to monitor it alongside your own PRs.")
@@ -43,7 +43,7 @@ struct PinPRView: View {
                 }
                 .disabled(isLoading)
 
-                Button("Pin") {
+                Button("Add") {
                     Task {
                         await pinPR()
                     }

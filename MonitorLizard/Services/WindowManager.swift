@@ -21,7 +21,7 @@ class WindowManager {
         let hostingController = NSHostingController(rootView: pinView)
 
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Pin a Pull Request"
+        window.title = "Add PR"
         window.styleMask = [.titled, .closable]
         window.level = .floating
         window.center()
