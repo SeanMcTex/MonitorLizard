@@ -65,6 +65,11 @@ class PRMonitorViewModel: ObservableObject {
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
     }
 
+    var filteredOtherPRs: [PullRequest] {
+        otherPullRequests
+            .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
+    }
+
     init(isDemoMode: Bool = false) {
         self.isDemoMode = isDemoMode
         self.githubService = GitHubService(isDemoMode: isDemoMode)
@@ -326,6 +331,11 @@ class PRMonitorViewModel: ObservableObject {
         otherPRsService.remove(id)
         otherPullRequests.removeAll { $0.id == pr.id }
         applySorting()
+        if selectedRepository != "All Repositories" &&
+            !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) &&
+            !otherPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
+            selectedRepository = "All Repositories"
+        }
     }
 
     private func sort(_ prs: [PullRequest]) -> [PullRequest] {

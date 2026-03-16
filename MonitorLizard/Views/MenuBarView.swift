@@ -153,12 +153,12 @@ struct MenuBarView: View {
     }
 
     private var prListView: some View {
-        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.otherPullRequests.count
+        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.filteredOtherPRs.count
         let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
         let sectionHeaderHeight: CGFloat = 40
         let numSections = (viewModel.reviewPRs.isEmpty ? 0 : 1)
             + (viewModel.authoredPRs.isEmpty ? 0 : 1)
-            + (viewModel.otherPullRequests.isEmpty ? 0 : 1)
+            + (viewModel.filteredOtherPRs.isEmpty ? 0 : 1)
         let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
         let maxHeight = calculateMaxHeight()
         let targetHeight = min(estimatedContentHeight, maxHeight)
@@ -177,18 +177,20 @@ struct MenuBarView: View {
                         ForEach(viewModel.reviewPRs) { pr in
                             PRRowView(pr: pr)
                                 .environmentObject(viewModel)
+                                .id("review-\(pr.id)")
                             Divider()
                         }
                     }
 
                     // Other PRs Section (SECOND)
-                    if !viewModel.otherPullRequests.isEmpty {
-                        sectionHeader(title: "Other PRs", count: viewModel.otherPullRequests.count)
+                    if !viewModel.filteredOtherPRs.isEmpty {
+                        sectionHeader(title: "Other PRs", count: viewModel.filteredOtherPRs.count)
                             .id("header-other")
 
-                        ForEach(viewModel.otherPullRequests) { pr in
+                        ForEach(viewModel.filteredOtherPRs) { pr in
                             PRRowView(pr: pr)
                                 .environmentObject(viewModel)
+                                .id("other-\(pr.id)")
                             Divider()
                         }
                     }
@@ -201,6 +203,7 @@ struct MenuBarView: View {
                         ForEach(viewModel.authoredPRs) { pr in
                             PRRowView(pr: pr)
                                 .environmentObject(viewModel)
+                                .id("authored-\(pr.id)")
                             Divider()
                         }
                     }
