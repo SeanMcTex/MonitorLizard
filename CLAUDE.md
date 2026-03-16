@@ -30,9 +30,9 @@ gh pr view <NUMBER> --repo <OWNER>/<REPO> --json headRefName,statusCheckRollup
 
 ### MVVM Pattern
 - **Models**: `BuildStatus`, `PullRequest` (domain models, no business logic)
-- **Services**: `GitHubService`, `ShellExecutor`, `NotificationService`, `WatchlistService`, `WindowManager`
+- **Services**: `GitHubService`, `ShellExecutor`, `NotificationService`, `WatchlistService`, `WindowManager`, `PinnedPRsService`
 - **ViewModels**: `PRMonitorViewModel` (single source of truth for PR state, polling logic)
-- **Views**: `MonitorLizardApp`, `MenuBarView`, `PRRowView`, `SettingsView`
+- **Views**: `MonitorLizardApp`, `MenuBarView`, `PRRowView`, `SettingsView`, `PinPRView`
 
 ### Critical Architectural Details
 
@@ -121,8 +121,9 @@ This means one failing check marks the entire PR as failed, even if other checks
 
 ### Service Layer Dependencies
 - `GitHubService` depends on `ShellExecutor` (actor for thread safety)
-- `PRMonitorViewModel` orchestrates: `GitHubService`, `WatchlistService`, `NotificationService`
+- `PRMonitorViewModel` orchestrates: `GitHubService`, `WatchlistService`, `NotificationService`, `PinnedPRsService`
 - `WatchlistService` is a singleton storing watched PR state in UserDefaults (manual dictionary serialization, not Codable)
+- `PinnedPRsService` stores `[PinnedPRIdentifier]` in UserDefaults as JSON (Codable); injectable `UserDefaults` for testability
 
 ### View Hierarchy
 ```
@@ -131,15 +132,15 @@ MonitorLizardApp (App)
 │  └─ MenuBarView (main content)
 │     ├─ Header (title + refresh button)
 │     ├─ ScrollView
-│     │  └─ LazyVStack of PRRowView
-│     └─ Footer (Settings button)
-└─ WindowManager (singleton for Settings NSWindow)
+│     │  └─ LazyVStack of PRRowView (3 sections: Awaiting My Review, Other PRs, My PRs)
+│     └─ Footer (Commands menu: Add PR…, Settings, Check for Updates | Quit)
+└─ WindowManager (singleton for Settings + Add PR NSWindows)
 ```
 
 ### Data Flow
 1. Timer in `PRMonitorViewModel.startPolling()` triggers refresh every N seconds
-2. `refresh()` fetches PRs, checks for completed watched builds, updates `pullRequests` array
-3. SwiftUI automatically re-renders when `@Published pullRequests` changes
+2. `refresh()` concurrently fetches authored/review PRs and Other PRs (pinned), deduplicates, updates `pullRequests` and `pinnedPullRequests` arrays
+3. SwiftUI automatically re-renders when `@Published pullRequests` / `@Published pinnedPullRequests` changes
 4. `applySorting()` can be called independently to re-sort without re-fetching
 
 ## Gotchas & Known Issues
@@ -147,6 +148,10 @@ MonitorLizardApp (App)
 ### MenuBarExtra Behavior
 - Using `.sheet()` or `.popover()` modifiers causes the entire menu to dismiss when interacted with
 - Must use standalone `NSWindow` for persistent dialogs (see `WindowManager`)
+- SwiftUI `@State` in menu bar views is **not reset** when the panel dismisses — views are kept alive in memory. Use imperative AppKit APIs (e.g. `NSAlert.runModal()`) for confirmations instead of SwiftUI `confirmationDialog`, which would re-appear on the next menu open.
+
+### LazyVStack Section Header Identity
+Section headers in a `LazyVStack` must have **stable, unique `.id()` values** (e.g. `"header-review"`, `"header-pinned"`, `"header-authored"`). If the same `.id()` (like `"top"`) is reassigned between different views as sections appear/disappear, SwiftUI recycles the wrong view and displays stale content (e.g. the wrong section title). Use a separate zero-height `Color.clear.id("top")` as the scroll anchor.
 
 ### ProgressView in Menu Bar Icons
 - Animated spinners work in PR rows but not in the MenuBarExtra label itself
