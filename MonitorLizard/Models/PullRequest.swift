@@ -34,6 +34,7 @@ enum ReviewDecision: String, Codable, Hashable {
 enum PRType: String, Codable, Hashable {
     case authored    // PRs created by user
     case reviewing   // PRs awaiting user's review
+    case pinned      // PRs pinned by URL for monitoring teammates' work
 }
 
 struct PullRequest: Identifiable, Hashable {
@@ -99,6 +100,33 @@ struct GHPRSearchResponse: Codable {
 
     struct Label: Codable {
         let id: String
+        let name: String
+        let color: String
+    }
+}
+
+/// Combined response for `gh pr view --json number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,state`
+struct GHPRViewResponse: Codable {
+    let number: Int
+    let title: String
+    let url: String
+    let author: Author
+    let updatedAt: String
+    let labels: [Label]
+    let isDraft: Bool
+    let headRefName: String
+    let statusCheckRollup: [GHPRDetailResponse.StatusCheck]?
+    let mergeable: String?
+    let mergeStateStatus: String?
+    let reviewDecision: String?
+    let state: String
+
+    struct Author: Codable {
+        let login: String
+    }
+
+    struct Label: Codable {
+        let id: String?
         let name: String
         let color: String
     }

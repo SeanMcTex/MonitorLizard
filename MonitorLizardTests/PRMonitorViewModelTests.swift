@@ -2,6 +2,120 @@ import Testing
 import Foundation
 @testable import MonitorLizard
 
+struct ParsePRURLTests {
+
+    @Test func validGitHubURL() {
+        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/123")
+        #expect(id?.host == "github.com")
+        #expect(id?.owner == "owner")
+        #expect(id?.repo == "repo")
+        #expect(id?.number == 123)
+    }
+
+    @Test func validGHEURL() {
+        let id = GitHubService.parsePRURL("https://github.example.com/myorg/myrepo/pull/42")
+        #expect(id?.host == "github.example.com")
+        #expect(id?.owner == "myorg")
+        #expect(id?.repo == "myrepo")
+        #expect(id?.number == 42)
+    }
+
+    @Test func invalidURLNotPullPath() {
+        let id = GitHubService.parsePRURL("https://github.com/owner/repo/issues/123")
+        #expect(id == nil)
+    }
+
+    @Test func invalidURLMissingNumber() {
+        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/")
+        #expect(id == nil)
+    }
+
+    @Test func invalidURLNonNumericNumber() {
+        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/abc")
+        #expect(id == nil)
+    }
+
+    @Test func invalidURLNoHost() {
+        let id = GitHubService.parsePRURL("not-a-url")
+        #expect(id == nil)
+    }
+
+    @Test func invalidURLEmpty() {
+        let id = GitHubService.parsePRURL("")
+        #expect(id == nil)
+    }
+
+    @Test func validURLWithTrailingSlash() {
+        // Extra path components — should not match
+        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/123/files")
+        #expect(id == nil)
+    }
+}
+
+struct PinnedPRsServiceTests {
+
+    private func makeService() -> PinnedPRsService {
+        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        return PinnedPRsService(defaults: suite)
+    }
+
+    private func makeID(number: Int = 1) -> PinnedPRIdentifier {
+        PinnedPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: number)
+    }
+
+    @Test func startsEmpty() {
+        let service = makeService()
+        #expect(service.all().isEmpty)
+    }
+
+    @Test func addAndContains() {
+        let service = makeService()
+        let id = makeID()
+        service.add(id)
+        #expect(service.contains(id))
+        #expect(service.all().count == 1)
+    }
+
+    @Test func addDuplicateIsIdempotent() {
+        let service = makeService()
+        let id = makeID()
+        service.add(id)
+        service.add(id)
+        #expect(service.all().count == 1)
+    }
+
+    @Test func removeExisting() {
+        let service = makeService()
+        let id = makeID()
+        service.add(id)
+        service.remove(id)
+        #expect(!service.contains(id))
+        #expect(service.all().isEmpty)
+    }
+
+    @Test func removeNonExistentIsNoop() {
+        let service = makeService()
+        service.remove(makeID())
+        #expect(service.all().isEmpty)
+    }
+
+    @Test func addMultiple() {
+        let service = makeService()
+        service.add(makeID(number: 1))
+        service.add(makeID(number: 2))
+        service.add(makeID(number: 3))
+        #expect(service.all().count == 3)
+    }
+
+    @Test func clearAll() {
+        let service = makeService()
+        service.add(makeID(number: 1))
+        service.add(makeID(number: 2))
+        service.clearAll()
+        #expect(service.all().isEmpty)
+    }
+}
+
 @MainActor
 struct PRMonitorViewModelTests {
 

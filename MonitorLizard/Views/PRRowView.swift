@@ -223,6 +223,19 @@ struct PRRowView: View {
 
             // Action buttons - always present but only visible on hover or if watched
             HStack(spacing: 8) {
+                // Unpin button - only shown for pinned PRs
+                if pr.type == .pinned {
+                    Button(action: {
+                        viewModel.removePinnedPR(pr)
+                    }) {
+                        Image(systemName: "pin.slash")
+                            .foregroundColor(.orange)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Unpin this PR")
+                    .opacity(isHovering ? 1.0 : 0.0)
+                }
+
                 // Watch button - only show if PR has status checks
                 if pr.hasStatusChecks {
                     Button(action: {
@@ -245,7 +258,7 @@ struct PRRowView: View {
                 .help("Open in GitHub")
                 .opacity(isHovering ? 1.0 : 0.0)
             }
-            .frame(width: 60) // Fixed width to prevent layout shift
+            .frame(width: 72) // Fixed width to prevent layout shift
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

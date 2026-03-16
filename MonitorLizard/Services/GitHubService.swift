@@ -549,6 +549,87 @@ class GitHubService: ObservableObject {
         throw GitHubError.invalidResponse
     }
 
+    /// Parses a GitHub PR URL of the form `https://<host>/<owner>/<repo>/pull/<number>`
+    /// and returns a `PinnedPRIdentifier`, or `nil` if the URL is not a valid PR URL.
+    nonisolated static func parsePRURL(_ urlString: String) -> PinnedPRIdentifier? {
+        guard let url = URL(string: urlString),
+              let host = url.host,
+              !host.isEmpty else { return nil }
+
+        let components = url.pathComponents
+        // Expected path components: ["", "<owner>", "<repo>", "pull", "<number>"]
+        guard components.count == 5,
+              components[3] == "pull",
+              let number = Int(components[4]) else { return nil }
+
+        let owner = components[1]
+        let repo = components[2]
+        guard !owner.isEmpty, !repo.isEmpty else { return nil }
+
+        return PinnedPRIdentifier(host: host, owner: owner, repo: repo, number: number)
+    }
+
+    /// Fetches a single PR by its pinned identifier.
+    /// Returns `nil` if the PR is closed/merged, not found, or inaccessible.
+    func fetchPinnedPR(_ id: PinnedPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> PullRequest? {
+        do {
+            let json = try await shellExecutor.execute(
+                command: "gh",
+                arguments: [
+                    "pr", "view", "\(id.number)",
+                    "--repo", "\(id.owner)/\(id.repo)",
+                    "--json", "number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,state"
+                ],
+                host: id.host
+            )
+
+            guard let jsonData = json.data(using: .utf8) else { return nil }
+
+            let decoder = JSONDecoder()
+            let response = try decoder.decode(GHPRViewResponse.self, from: jsonData)
+
+            guard response.state.uppercased() == "OPEN" else { return nil }
+
+            let updatedAt = try parseDate(response.updatedAt)
+            let statusChecks = parseStatusChecks(from: response.statusCheckRollup)
+            let status = parseOverallStatus(
+                from: response.statusCheckRollup,
+                mergeable: response.mergeable,
+                mergeStateStatus: response.mergeStateStatus,
+                updatedAt: updatedAt,
+                enableInactiveDetection: enableInactiveDetection,
+                inactiveThresholdDays: inactiveThresholdDays
+            )
+            let reviewDecision = ReviewDecision(rawValue: response.reviewDecision?.uppercased() ?? "")
+
+            return PullRequest(
+                number: response.number,
+                title: response.title,
+                repository: PullRequest.RepositoryInfo(
+                    name: id.repo,
+                    nameWithOwner: "\(id.owner)/\(id.repo)"
+                ),
+                url: response.url,
+                author: PullRequest.Author(login: response.author.login),
+                headRefName: response.headRefName,
+                updatedAt: updatedAt,
+                buildStatus: status,
+                isWatched: false,
+                labels: response.labels.map { label in
+                    PullRequest.Label(id: label.id ?? label.name, name: label.name, color: label.color)
+                },
+                type: .pinned,
+                isDraft: response.isDraft,
+                statusChecks: statusChecks,
+                reviewDecision: reviewDecision,
+                host: id.host
+            )
+        } catch {
+            print("Error fetching pinned PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
+            return nil
+        }
+    }
+
     private func extractOwner(from nameWithOwner: String) -> String {
         let components = nameWithOwner.split(separator: "/")
         return components.first.map(String.init) ?? ""

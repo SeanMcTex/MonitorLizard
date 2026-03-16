@@ -9,6 +9,28 @@ class WindowManager {
 
     private init() {}
 
+    func showPinPR(viewModel: PRMonitorViewModel) {
+        // Close the menu bar extra by ordering out all panels
+        NSApp.windows.forEach { window in
+            if window is NSPanel {
+                window.orderOut(nil)
+            }
+        }
+
+        let pinView = PinPRView(viewModel: viewModel)
+        let hostingController = NSHostingController(rootView: pinView)
+
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Pin a Pull Request"
+        window.styleMask = [.titled, .closable]
+        window.level = .floating
+        window.center()
+        window.isReleasedWhenClosed = false
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     func showSettings() {
         // Close the menu bar extra by ordering out all panels
         NSApp.windows.forEach { window in
