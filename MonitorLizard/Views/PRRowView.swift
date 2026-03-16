@@ -223,13 +223,21 @@ struct PRRowView: View {
 
             // Action buttons - always present but only visible on hover or if watched
             HStack(spacing: 8) {
-                // Unpin button - only shown for pinned PRs
+                // Remove button - only shown for Other PRs
                 if pr.type == .pinned {
                     Button(action: {
-                        viewModel.removePinnedPR(pr)
+                        let alert = NSAlert()
+                        alert.messageText = "Remove from Other PRs?"
+                        alert.informativeText = "\"\(pr.title)\" will be removed from Other PRs."
+                        alert.addButton(withTitle: "Remove")
+                        alert.addButton(withTitle: "Cancel")
+                        alert.alertStyle = .warning
+                        if alert.runModal() == .alertFirstButtonReturn {
+                            viewModel.removePinnedPR(pr)
+                        }
                     }) {
-                        Image(systemName: "pin.slash")
-                            .foregroundColor(.orange)
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
                     .help("Remove from Other PRs")
