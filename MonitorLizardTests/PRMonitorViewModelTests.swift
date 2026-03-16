@@ -117,6 +117,136 @@ struct OtherPRsServiceTests {
 }
 
 @MainActor
+struct OtherPRsViewModelTests {
+
+    private func makePR(number: Int, nameWithOwner: String, type: PRType = .other) -> PullRequest {
+        let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
+        return PullRequest(
+            number: number,
+            title: "Test PR #\(number)",
+            repository: PullRequest.RepositoryInfo(name: name, nameWithOwner: nameWithOwner),
+            url: "https://github.com/\(nameWithOwner)/pull/\(number)",
+            author: PullRequest.Author(login: "testuser"),
+            headRefName: "feature/test",
+            updatedAt: Date(),
+            buildStatus: .success,
+            isWatched: false,
+            labels: [],
+            type: type,
+            isDraft: false,
+            statusChecks: [],
+            reviewDecision: nil,
+            host: "github.com"
+        )
+    }
+
+    @Test func addOtherPRThrowsInvalidURL() async {
+        let vm = PRMonitorViewModel(isDemoMode: true)
+        vm.stopPolling()
+        do {
+            try await vm.addOtherPR(urlString: "not-a-valid-url")
+            Issue.record("Expected OtherPRError.invalidURL to be thrown")
+        } catch let error as OtherPRError {
+            #expect(error == .invalidURL)
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
+        let vm = PRMonitorViewModel(isDemoMode: true)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        guard let pr = vm.authoredPRs.first else {
+            Issue.record("No authored PRs in demo data")
+            return
+        }
+
+        let url = "https://\(pr.host)/\(pr.repository.nameWithOwner)/pull/\(pr.number)"
+        do {
+            try await vm.addOtherPR(urlString: url)
+            Issue.record("Expected OtherPRError.alreadyTracked to be thrown")
+        } catch let error as OtherPRError {
+            #expect(error == .alreadyTracked)
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
+        let vm = PRMonitorViewModel(isDemoMode: true)
+        try? await Task.sleep(for: .milliseconds(500))
+
+        guard let pr = vm.authoredPRs.first else {
+            Issue.record("No authored PRs in demo data")
+            return
+        }
+
+        let parts = pr.repository.nameWithOwner.split(separator: "/")
+        guard parts.count == 2 else {
+            Issue.record("Unexpected nameWithOwner format")
+            return
+        }
+        let url = "https://\(pr.host)/\(String(parts[0]).uppercased())/\(String(parts[1]))/pull/\(pr.number)"
+        do {
+            try await vm.addOtherPR(urlString: url)
+            Issue.record("Expected OtherPRError.alreadyTracked to be thrown")
+        } catch let error as OtherPRError {
+            #expect(error == .alreadyTracked)
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test func filteredOtherPRsRespectSelectedRepository() {
+        let vm = PRMonitorViewModel(isDemoMode: true)
+        vm.stopPolling()
+        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
+
+        vm.otherPullRequests = [
+            makePR(number: 1, nameWithOwner: "acme/widget"),
+            makePR(number: 2, nameWithOwner: "other/project")
+        ]
+
+        vm.selectedRepository = "acme/widget"
+        #expect(vm.filteredOtherPRs.count == 1)
+        #expect(vm.filteredOtherPRs[0].number == 1)
+
+        vm.selectedRepository = "All Repositories"
+        #expect(vm.filteredOtherPRs.count == 2)
+    }
+
+    @Test func removeOtherPRResetsRepoSelectionWhenLastRemoved() {
+        let vm = PRMonitorViewModel(isDemoMode: true)
+        vm.stopPolling()
+        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
+
+        let pr = makePR(number: 99, nameWithOwner: "acme/widget")
+        vm.otherPullRequests = [pr]
+        vm.selectedRepository = "acme/widget"
+
+        vm.removeOtherPR(pr)
+
+        #expect(vm.selectedRepository == "All Repositories")
+    }
+
+    @Test func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
+        let vm = PRMonitorViewModel(isDemoMode: true)
+        vm.stopPolling()
+        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
+
+        let pr1 = makePR(number: 1, nameWithOwner: "acme/widget")
+        let pr2 = makePR(number: 2, nameWithOwner: "acme/widget")
+        vm.otherPullRequests = [pr1, pr2]
+        vm.selectedRepository = "acme/widget"
+
+        vm.removeOtherPR(pr1)
+
+        #expect(vm.selectedRepository == "acme/widget")
+    }
+}
+
+@MainActor
 struct PRMonitorViewModelTests {
 
     private func createLoadedViewModel() async -> PRMonitorViewModel {
