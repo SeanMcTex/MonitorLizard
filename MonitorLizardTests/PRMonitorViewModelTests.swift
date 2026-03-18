@@ -119,6 +119,11 @@ struct OtherPRsServiceTests {
 @MainActor
 struct OtherPRsViewModelTests {
 
+    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService) {
+        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+    }
+
     private func makePR(number: Int, nameWithOwner: String, type: PRType = .other) -> PullRequest {
         let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
         return PullRequest(
@@ -141,7 +146,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRThrowsInvalidURL() async {
-        let vm = PRMonitorViewModel(isDemoMode: true)
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
         vm.stopPolling()
         do {
             try await vm.addOtherPR(urlString: "not-a-valid-url")
@@ -154,8 +160,12 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
-        let vm = PRMonitorViewModel(isDemoMode: true)
-        try? await Task.sleep(for: .milliseconds(500))
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        for _ in 0..<40 {
+            if !vm.authoredPRs.isEmpty { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         guard let pr = vm.authoredPRs.first else {
             Issue.record("No authored PRs in demo data")
@@ -174,8 +184,12 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
-        let vm = PRMonitorViewModel(isDemoMode: true)
-        try? await Task.sleep(for: .milliseconds(500))
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        for _ in 0..<40 {
+            if !vm.authoredPRs.isEmpty { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
 
         guard let pr = vm.authoredPRs.first else {
             Issue.record("No authored PRs in demo data")
@@ -199,7 +213,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func filteredOtherPRsRespectSelectedRepository() {
-        let vm = PRMonitorViewModel(isDemoMode: true)
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -217,7 +232,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func removeOtherPRResetsRepoSelectionWhenLastRemoved() {
-        let vm = PRMonitorViewModel(isDemoMode: true)
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -230,8 +246,39 @@ struct OtherPRsViewModelTests {
         #expect(vm.selectedRepository == "All Repositories")
     }
 
+    @Test func toggleWatchUpdatesOtherPullRequests() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        var pr = makePR(number: 1, nameWithOwner: "acme/widget")
+        pr.isWatched = false
+        vm.otherPullRequests = [pr]
+
+        vm.toggleWatch(for: pr)
+        #expect(vm.otherPullRequests[0].isWatched == true)
+
+        vm.toggleWatch(for: vm.otherPullRequests[0])
+        #expect(vm.otherPullRequests[0].isWatched == false)
+    }
+
+    @Test func clearAllWatchedResetsOtherPullRequests() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        var pr = makePR(number: 1, nameWithOwner: "acme/widget")
+        pr.isWatched = true
+        vm.otherPullRequests = [pr]
+
+        vm.clearAllWatched()
+
+        #expect(vm.otherPullRequests[0].isWatched == false)
+    }
+
     @Test func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
-        let vm = PRMonitorViewModel(isDemoMode: true)
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -249,11 +296,20 @@ struct OtherPRsViewModelTests {
 @MainActor
 struct PRMonitorViewModelTests {
 
+    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService) {
+        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+    }
+
     private func createLoadedViewModel() async -> PRMonitorViewModel {
-        let vm = PRMonitorViewModel(isDemoMode: true)
-        // Wait for the initial async refresh to complete
-        // Demo mode refresh is fast, but we need to give it time
-        try? await Task.sleep(for: .milliseconds(500))
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        // Poll until demo data is loaded rather than using a fixed sleep,
+        // so the test doesn't flake under parallel load.
+        for _ in 0..<40 {
+            if !vm.authoredPRs.isEmpty { break }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
         return vm
     }
 

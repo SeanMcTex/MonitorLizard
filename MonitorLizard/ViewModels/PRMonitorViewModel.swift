@@ -31,9 +31,9 @@ class PRMonitorViewModel: ObservableObject {
 
     private let githubService: GitHubService
     private let isDemoMode: Bool
-    private let watchlistService = WatchlistService.shared
+    private let watchlistService: WatchlistService
     private let notificationService = NotificationService.shared
-    private let otherPRsService = OtherPRsService()
+    private let otherPRsService: OtherPRsService
 
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
@@ -70,9 +70,13 @@ class PRMonitorViewModel: ObservableObject {
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
     }
 
-    init(isDemoMode: Bool = false) {
+    init(isDemoMode: Bool = false,
+         watchlistService: WatchlistService = .shared,
+         otherPRsService: OtherPRsService = OtherPRsService()) {
         self.isDemoMode = isDemoMode
         self.githubService = GitHubService(isDemoMode: isDemoMode)
+        self.watchlistService = watchlistService
+        self.otherPRsService = otherPRsService
         setupNotifications()
         startPolling()
         observeSortSetting()

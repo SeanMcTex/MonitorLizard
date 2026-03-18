@@ -3,7 +3,7 @@ import Foundation
 class WatchlistService {
     static let shared = WatchlistService()
 
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private let watchlistKey = "watchedPRs"
 
     private var watchedPRs: [String: WatchedPRInfo] = [:]
@@ -13,7 +13,8 @@ class WatchlistService {
         let timestamp: Date
     }
 
-    private init() {
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         load()
     }
 
