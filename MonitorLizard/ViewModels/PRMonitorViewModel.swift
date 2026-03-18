@@ -361,23 +361,28 @@ class PRMonitorViewModel: ObservableObject {
             watchlistService.watch(pr)
         }
 
-        // Update both arrays
+        // Update all arrays
         if let index = unsortedPullRequests.firstIndex(where: { $0.id == pr.id }) {
             unsortedPullRequests[index].isWatched.toggle()
         }
         if let index = pullRequests.firstIndex(where: { $0.id == pr.id }) {
             pullRequests[index].isWatched.toggle()
         }
+        if let index = otherPullRequests.firstIndex(where: { $0.id == pr.id }) {
+            otherPullRequests[index].isWatched.toggle()
+        }
     }
 
     func clearAllWatched() {
         watchlistService.clearAll()
-        // Update all PRs to unwatched state in both arrays
         for index in unsortedPullRequests.indices {
             unsortedPullRequests[index].isWatched = false
         }
         for index in pullRequests.indices {
             pullRequests[index].isWatched = false
+        }
+        for index in otherPullRequests.indices {
+            otherPullRequests[index].isWatched = false
         }
     }
 
