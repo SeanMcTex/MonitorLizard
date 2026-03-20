@@ -72,14 +72,14 @@ class PRMonitorViewModel: ObservableObject {
     }
 
     init(isDemoMode: Bool = false,
-         watchlistService: WatchlistService = .shared,
-         otherPRsService: OtherPRsService = OtherPRsService(),
-         customNamesService: CustomNamesService = CustomNamesService()) {
+         watchlistService: WatchlistService? = nil,
+         otherPRsService: OtherPRsService? = nil,
+         customNamesService: CustomNamesService? = nil) {
         self.isDemoMode = isDemoMode
         self.githubService = GitHubService(isDemoMode: isDemoMode)
-        self.watchlistService = watchlistService
-        self.otherPRsService = otherPRsService
-        self.customNamesService = customNamesService
+        self.watchlistService = watchlistService ?? .shared
+        self.otherPRsService = otherPRsService ?? OtherPRsService()
+        self.customNamesService = customNamesService ?? CustomNamesService()
         setupNotifications()
         startPolling()
         observeSortSetting()
