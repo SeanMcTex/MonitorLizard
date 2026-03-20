@@ -35,6 +35,25 @@ enum PRType: String, Codable, Hashable {
     case authored    // PRs created by user
     case reviewing   // PRs awaiting user's review
     case other       // PRs added by URL for monitoring teammates' work
+
+    var sectionTitle: String {
+        switch self {
+        case .reviewing: "Awaiting My Review"
+        case .other:     "Other PR"
+        case .authored:  "My PR"
+        }
+    }
+
+    var pluralizes: Bool {
+        switch self {
+        case .reviewing: false
+        case .other, .authored: true
+        }
+    }
+
+    func displayTitle(count: Int) -> String {
+        pluralizes && count != 1 ? sectionTitle + "s" : sectionTitle
+    }
 }
 
 struct PullRequest: Identifiable, Hashable {

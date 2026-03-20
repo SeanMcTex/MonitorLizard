@@ -116,6 +116,24 @@ struct OtherPRsServiceTests {
     }
 }
 
+struct PRTypeDisplayTitleTests {
+
+    @Test(arguments: [0, 1, 5])
+    func reviewingSectionNeverPluralized(count: Int) {
+        #expect(PRType.reviewing.displayTitle(count: count) == "Awaiting My Review")
+    }
+
+    @Test(arguments: [(1, "Other PR"), (0, "Other PRs"), (2, "Other PRs")] as [(Int, String)])
+    func otherSectionTitle(count: Int, expected: String) {
+        #expect(PRType.other.displayTitle(count: count) == expected)
+    }
+
+    @Test(arguments: [(1, "My PR"), (0, "My PRs"), (2, "My PRs")] as [(Int, String)])
+    func authoredSectionTitle(count: Int, expected: String) {
+        #expect(PRType.authored.displayTitle(count: count) == expected)
+    }
+}
+
 struct CustomNamesServiceTests {
 
     private func makeService() -> CustomNamesService {

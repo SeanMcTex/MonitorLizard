@@ -171,7 +171,7 @@ struct MenuBarView: View {
 
                     // Review PRs Section (FIRST - prioritize unblocking teammates)
                     if !viewModel.reviewPRs.isEmpty {
-                        sectionHeader(title: "Awaiting My Review", count: viewModel.reviewPRs.count)
+                        sectionHeader(type: .reviewing, count: viewModel.reviewPRs.count)
                             .id("header-review")
 
                         ForEach(viewModel.reviewPRs) { pr in
@@ -184,7 +184,7 @@ struct MenuBarView: View {
 
                     // Other PRs Section (SECOND)
                     if !viewModel.filteredOtherPRs.isEmpty {
-                        sectionHeader(title: "Other PRs", count: viewModel.filteredOtherPRs.count)
+                        sectionHeader(type: .other, count: viewModel.filteredOtherPRs.count)
                             .id("header-other")
 
                         ForEach(viewModel.filteredOtherPRs) { pr in
@@ -197,7 +197,7 @@ struct MenuBarView: View {
 
                     // Authored PRs Section (THIRD)
                     if !viewModel.authoredPRs.isEmpty {
-                        sectionHeader(title: "My PRs", count: viewModel.authoredPRs.count)
+                        sectionHeader(type: .authored, count: viewModel.authoredPRs.count)
                             .id("header-authored")
 
                         ForEach(viewModel.authoredPRs) { pr in
@@ -217,9 +217,9 @@ struct MenuBarView: View {
         }
     }
 
-    private func sectionHeader(title: String, count: Int) -> some View {
+    private func sectionHeader(type: PRType, count: Int) -> some View {
         HStack {
-            Text(title)
+            Text(type.displayTitle(count: count))
                 .font(.headline)
                 .foregroundColor(.primary)
 
