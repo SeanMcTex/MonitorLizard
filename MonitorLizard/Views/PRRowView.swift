@@ -41,6 +41,36 @@ struct PRRowView: View {
         }
     }
 
+    private func showRenameDialog() {
+        NSApp.windows.forEach { window in
+            if window is NSPanel { window.orderOut(nil) }
+        }
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Custom Display Name"
+            alert.informativeText = "Enter a name to override the GitHub title, or clear it to restore the original."
+            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+            field.stringValue = pr.customName ?? ""
+            field.placeholderString = pr.title
+            alert.accessoryView = field
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Cancel")
+            if pr.customName != nil {
+                alert.addButton(withTitle: "Reset to GitHub Title")
+            }
+            let response = alert.runModal()
+            switch response {
+            case .alertFirstButtonReturn:
+                let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                viewModel.renamePR(pr, to: name.isEmpty ? nil : name)
+            case .alertThirdButtonReturn:
+                viewModel.renamePR(pr, to: nil)
+            default:
+                break
+            }
+        }
+    }
+
     private func openCheckURL(_ urlString: String?) {
         guard let urlString = urlString,
               let url = URL(string: urlString) else {
@@ -119,7 +149,7 @@ struct PRRowView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 // PR Title
-                Text(pr.title)
+                Text(pr.displayTitle)
                     .font(.body)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -221,31 +251,81 @@ struct PRRowView: View {
 
             Spacer()
 
-            // Action buttons - always present but only visible on hover or if watched
-            HStack(spacing: 8) {
-                // Watch button - only show if PR has status checks
-                if pr.hasStatusChecks {
-                    Button(action: {
-                        viewModel.toggleWatch(for: pr)
-                    }) {
-                        Image(systemName: pr.isWatched ? "eye.fill" : "eye")
-                            .foregroundColor(pr.isWatched ? .blue : .gray)
-                    }
-                    .buttonStyle(.plain)
-                    .help(pr.isWatched ? "Stop watching this PR" : "Watch this PR for completion")
-                    .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
-                }
+            // Action buttons - 2x2 grid: [Watch, Open] / [Delete, Rename]
+            // Always occupies space; opacity controls visibility.
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                VStack(spacing: 6) {
+                    // Top row: Watch + Open
+                    HStack(spacing: 8) {
+                        // Watch - fixed cell; hidden when no status checks
+                        if pr.hasStatusChecks {
+                            Button(action: { viewModel.toggleWatch(for: pr) }) {
+                                Image(systemName: pr.isWatched ? "eye.fill" : "eye")
+                                    .foregroundColor(pr.isWatched ? .blue : .gray)
+                            }
+                            .buttonStyle(.plain)
+                            .help(pr.isWatched ? "Stop watching this PR" : "Watch this PR for completion")
+                            .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
+                            .frame(width: 16, height: 16)
+                        } else {
+                            Color.clear.frame(width: 16, height: 16)
+                        }
 
-                // Open in browser button
-                Button(action: openPRURL) {
-                    Image(systemName: "arrow.up.right.square")
-                        .foregroundColor(.gray)
+                        // Open in browser
+                        Button(action: openPRURL) {
+                            Image(systemName: "arrow.up.right.square")
+                                .foregroundColor(.gray)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open in GitHub")
+                        .opacity(isHovering ? 1.0 : 0.0)
+                        .frame(width: 16, height: 16)
+                    }
+
+                    // Bottom row: Delete (Other PRs only) + Rename
+                    HStack(spacing: 8) {
+                        if pr.type == .other {
+                            Button(action: {
+                                NSApp.windows.forEach { window in
+                                    if window is NSPanel { window.orderOut(nil) }
+                                }
+                                DispatchQueue.main.async {
+                                    let alert = NSAlert()
+                                    alert.messageText = "Remove from Other PRs?"
+                                    alert.informativeText = "\"\(pr.displayTitle)\" will be removed from Other PRs."
+                                    alert.addButton(withTitle: "Remove")
+                                    alert.addButton(withTitle: "Cancel")
+                                    alert.alertStyle = .warning
+                                    if alert.runModal() == .alertFirstButtonReturn {
+                                        viewModel.removeOtherPR(pr)
+                                    }
+                                }
+                            }) {
+                                Image(systemName: "trash")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove from Other PRs")
+                            .opacity(isHovering ? 1.0 : 0.0)
+                            .frame(width: 16, height: 16)
+                        } else {
+                            Color.clear.frame(width: 16, height: 16)
+                        }
+
+                        Button(action: showRenameDialog) {
+                            Image(systemName: "pencil")
+                                .foregroundColor(pr.customName != nil ? .blue : .gray)
+                        }
+                        .buttonStyle(.plain)
+                        .help(pr.customName != nil ? "Edit custom name" : "Set custom name")
+                        .opacity(isHovering ? 1.0 : 0.0)
+                        .frame(width: 16, height: 16)
+                    }
                 }
-                .buttonStyle(.plain)
-                .help("Open in GitHub")
-                .opacity(isHovering ? 1.0 : 0.0)
+                Spacer(minLength: 0)
             }
-            .frame(width: 60) // Fixed width to prevent layout shift
+            .frame(width: 44) // Fixed width to prevent layout shift
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

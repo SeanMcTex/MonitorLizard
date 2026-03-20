@@ -15,9 +15,9 @@ struct MenuBarView: View {
                 errorView(error)
             } else if !viewModel.isGHAvailable {
                 ghUnavailableView
-            } else if viewModel.isLoading && viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty {
+            } else if viewModel.isLoading && viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.otherPullRequests.isEmpty {
                 loadingView
-            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && !viewModel.isLoading {
+            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.otherPullRequests.isEmpty && !viewModel.isLoading {
                 emptyStateView
             } else {
                 prListView
@@ -153,10 +153,12 @@ struct MenuBarView: View {
     }
 
     private var prListView: some View {
-        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count
+        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.filteredOtherPRs.count
         let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
         let sectionHeaderHeight: CGFloat = 40
-        let numSections = (viewModel.authoredPRs.isEmpty ? 0 : 1) + (viewModel.reviewPRs.isEmpty ? 0 : 1)
+        let numSections = (viewModel.reviewPRs.isEmpty ? 0 : 1)
+            + (viewModel.authoredPRs.isEmpty ? 0 : 1)
+            + (viewModel.filteredOtherPRs.isEmpty ? 0 : 1)
         let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
         let maxHeight = calculateMaxHeight()
         let targetHeight = min(estimatedContentHeight, maxHeight)
@@ -164,26 +166,44 @@ struct MenuBarView: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    // Dedicated scroll anchor — stable ID never moves between views
+                    Color.clear.frame(height: 0).id("top")
+
                     // Review PRs Section (FIRST - prioritize unblocking teammates)
                     if !viewModel.reviewPRs.isEmpty {
-                        sectionHeader(title: "Awaiting My Review", count: viewModel.reviewPRs.count)
-                            .id("top")
+                        sectionHeader(type: .reviewing, count: viewModel.reviewPRs.count)
+                            .id("header-review")
 
                         ForEach(viewModel.reviewPRs) { pr in
                             PRRowView(pr: pr)
                                 .environmentObject(viewModel)
+                                .id("review-\(pr.id)")
                             Divider()
                         }
                     }
 
-                    // Authored PRs Section (SECOND)
+                    // Other PRs Section (SECOND)
+                    if !viewModel.filteredOtherPRs.isEmpty {
+                        sectionHeader(type: .other, count: viewModel.filteredOtherPRs.count)
+                            .id("header-other")
+
+                        ForEach(viewModel.filteredOtherPRs) { pr in
+                            PRRowView(pr: pr)
+                                .environmentObject(viewModel)
+                                .id("other-\(pr.id)")
+                            Divider()
+                        }
+                    }
+
+                    // Authored PRs Section (THIRD)
                     if !viewModel.authoredPRs.isEmpty {
-                        sectionHeader(title: "My PRs", count: viewModel.authoredPRs.count)
-                            .id(viewModel.reviewPRs.isEmpty ? "top" : nil)
+                        sectionHeader(type: .authored, count: viewModel.authoredPRs.count)
+                            .id("header-authored")
 
                         ForEach(viewModel.authoredPRs) { pr in
                             PRRowView(pr: pr)
                                 .environmentObject(viewModel)
+                                .id("authored-\(pr.id)")
                             Divider()
                         }
                     }
@@ -197,9 +217,9 @@ struct MenuBarView: View {
         }
     }
 
-    private func sectionHeader(title: String, count: Int) -> some View {
+    private func sectionHeader(type: PRType, count: Int) -> some View {
         HStack {
-            Text(title)
+            Text(type.displayTitle(count: count))
                 .font(.headline)
                 .foregroundColor(.primary)
 
@@ -235,18 +255,28 @@ struct MenuBarView: View {
 
             Spacer()
 
-            Button("Settings") {
-                WindowManager.shared.showSettings()
-            }
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+            Menu {
+                Button("Add PR...") {
+                    WindowManager.shared.showAddPR(viewModel: viewModel)
+                }
 
-            Button("Check for Updates...") {
-                UpdateService.shared.checkForUpdates()
+                Divider()
+
+                Button("Settings") {
+                    WindowManager.shared.showSettings()
+                }
+
+                Button("Check for Updates...") {
+                    UpdateService.shared.checkForUpdates()
+                }
+                .disabled(!UpdateService.shared.canCheckForUpdates)
+            } label: {
+                Label("Commands", systemImage: "gearshape")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
             }
-            .buttonStyle(.plain)
-            .foregroundColor(.secondary)
-            .disabled(!UpdateService.shared.canCheckForUpdates)
+            .menuStyle(.borderlessButton)
+            .fixedSize()
 
             Button("Quit") {
                 NSApplication.shared.terminate(nil)

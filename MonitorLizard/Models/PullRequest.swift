@@ -34,6 +34,26 @@ enum ReviewDecision: String, Codable, Hashable {
 enum PRType: String, Codable, Hashable {
     case authored    // PRs created by user
     case reviewing   // PRs awaiting user's review
+    case other       // PRs added by URL for monitoring teammates' work
+
+    var sectionTitle: String {
+        switch self {
+        case .reviewing: "Awaiting My Review"
+        case .other:     "Other PR"
+        case .authored:  "My PR"
+        }
+    }
+
+    var pluralizes: Bool {
+        switch self {
+        case .reviewing: false
+        case .other, .authored: true
+        }
+    }
+
+    func displayTitle(count: Int) -> String {
+        pluralizes && count != 1 ? sectionTitle + "s" : sectionTitle
+    }
 }
 
 struct PullRequest: Identifiable, Hashable {
@@ -52,6 +72,9 @@ struct PullRequest: Identifiable, Hashable {
     let statusChecks: [StatusCheck]
     var reviewDecision: ReviewDecision?
     let host: String  // GitHub host (e.g. "github.com" or enterprise hostname)
+    var customName: String?  // nil = use GitHub title
+
+    var displayTitle: String { customName ?? title }
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"
@@ -99,6 +122,33 @@ struct GHPRSearchResponse: Codable {
 
     struct Label: Codable {
         let id: String
+        let name: String
+        let color: String
+    }
+}
+
+/// Combined response for `gh pr view --json number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,state`
+struct GHPRViewResponse: Codable {
+    let number: Int
+    let title: String
+    let url: String
+    let author: Author
+    let updatedAt: String
+    let labels: [Label]
+    let isDraft: Bool
+    let headRefName: String
+    let statusCheckRollup: [GHPRDetailResponse.StatusCheck]?
+    let mergeable: String?
+    let mergeStateStatus: String?
+    let reviewDecision: String?
+    let state: String
+
+    struct Author: Codable {
+        let login: String
+    }
+
+    struct Label: Codable {
+        let id: String?
         let name: String
         let color: String
     }

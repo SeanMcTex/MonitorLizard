@@ -2,9 +2,26 @@ import Foundation
 import SwiftUI
 import Combine
 
+enum OtherPRError: LocalizedError {
+    case invalidURL
+    case alreadyAdded
+    case alreadyTracked
+    case notFound
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "Invalid GitHub PR URL. Expected format: https://github.com/owner/repo/pull/123"
+        case .alreadyAdded: return "This PR is already in Other PRs"
+        case .alreadyTracked: return "This PR is already in your authored or review list"
+        case .notFound: return "PR not found or not accessible"
+        }
+    }
+}
+
 @MainActor
 class PRMonitorViewModel: ObservableObject {
     @Published var pullRequests: [PullRequest] = []
+    @Published var otherPullRequests: [PullRequest] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var lastRefreshTime: Date?
@@ -14,8 +31,10 @@ class PRMonitorViewModel: ObservableObject {
 
     private let githubService: GitHubService
     private let isDemoMode: Bool
-    private let watchlistService = WatchlistService.shared
+    private let watchlistService: WatchlistService
     private let notificationService = NotificationService.shared
+    private let otherPRsService: OtherPRsService
+    private let customNamesService: CustomNamesService
 
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
@@ -30,8 +49,9 @@ class PRMonitorViewModel: ObservableObject {
 
     // Computed property for available repositories
     var availableRepositories: [String] {
-        let repos = Set(unsortedPullRequests.map { $0.repository.nameWithOwner })
-        return repos.sorted()
+        let mainRepos = Set(unsortedPullRequests.map { $0.repository.nameWithOwner })
+        let otherRepos = Set(otherPullRequests.map { $0.repository.nameWithOwner })
+        return mainRepos.union(otherRepos).sorted()
     }
 
     // Computed properties for filtering PRs by type and repository
@@ -46,9 +66,20 @@ class PRMonitorViewModel: ObservableObject {
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
     }
 
-    init(isDemoMode: Bool = false) {
+    var filteredOtherPRs: [PullRequest] {
+        otherPullRequests
+            .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
+    }
+
+    init(isDemoMode: Bool = false,
+         watchlistService: WatchlistService? = nil,
+         otherPRsService: OtherPRsService? = nil,
+         customNamesService: CustomNamesService? = nil) {
         self.isDemoMode = isDemoMode
         self.githubService = GitHubService(isDemoMode: isDemoMode)
+        self.watchlistService = watchlistService ?? .shared
+        self.otherPRsService = otherPRsService ?? OtherPRsService()
+        self.customNamesService = customNamesService ?? CustomNamesService()
         setupNotifications()
         startPolling()
         observeSortSetting()
@@ -119,29 +150,47 @@ class PRMonitorViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        // Start both fetches concurrently
+        async let mainFetchTask = githubService.fetchAllOpenPRs(
+            enableInactiveDetection: enableInactiveBranchDetection,
+            inactiveThresholdDays: inactiveBranchThresholdDays,
+            isDemoMode: isDemoMode
+        )
+        async let otherFetchTask = fetchAllOtherPRs()
+
         do {
-            // Fetch all open PRs with their statuses
-            let fetchResult = try await githubService.fetchAllOpenPRs(
-                enableInactiveDetection: enableInactiveBranchDetection,
-                inactiveThresholdDays: inactiveBranchThresholdDays,
-                isDemoMode: isDemoMode
-            )
+            let fetchResult = try await mainFetchTask
+            let fetchedOther = await otherFetchTask
             let fetchedPRs = fetchResult.pullRequests
 
-            // Check for watched PR completions
-            let completed = watchlistService.checkForCompletions(currentPRs: fetchedPRs)
+            // Deduplicate: remove from main list any PR that's also in Other PRs
+            let otherIDs = Set(fetchedOther.map { $0.id })
+            let dedupedPRs = fetchedPRs.filter { !otherIDs.contains($0.id) }
+
+            // Check for watched PR completions across all PRs
+            let completed = watchlistService.checkForCompletions(currentPRs: dedupedPRs + fetchedOther)
 
             // Send notifications for completed builds
             for pr in completed {
                 notificationService.notifyBuildComplete(pr: pr, status: pr.buildStatus)
             }
 
-            // Update PRs with watch status
-            unsortedPullRequests = fetchedPRs.map { pr in
+            // Update PRs with watch status and custom names
+            unsortedPullRequests = applyCustomNames(dedupedPRs.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
+
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
+                var updated = pr
+                updated.isWatched = watchlistService.isWatched(pr)
+                return updated
+            })
+
+            // Prune stale custom names for PRs no longer visible
+            let activeIDs = Set((dedupedPRs + fetchedOther).map { $0.id })
+            customNamesService.pruneStale(keeping: activeIDs)
 
             // Apply sorting (also updates warning icon)
             applySorting()
@@ -151,7 +200,8 @@ class PRMonitorViewModel: ObservableObject {
             // may be missing repos that still have open PRs.
             if !fetchResult.isPartial &&
                 selectedRepository != "All Repositories" &&
-                !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
+                !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) &&
+                !otherPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
                 selectedRepository = "All Repositories"
             }
 
@@ -165,22 +215,58 @@ class PRMonitorViewModel: ObservableObject {
             if error == .notInstalled || error == .notAuthenticated {
                 isGHAvailable = false
             }
-            // Preserve existing PR list when errors occur (don't clear it)
+            // Still update Other PRs even if main fetch failed
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
+                var updated = pr
+                updated.isWatched = watchlistService.isWatched(pr)
+                return updated
+            })
         } catch let error as ShellError {
             print("ShellError: \(error)")
             errorMessage = error.localizedDescription
-            // Preserve existing PR list when errors occur (don't clear it)
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
+                var updated = pr
+                updated.isWatched = watchlistService.isWatched(pr)
+                return updated
+            })
         } catch let error as DecodingError {
             print("DecodingError: \(error)")
             errorMessage = "Failed to parse GitHub data. Please try again."
-            // Preserve existing PR list when errors occur (don't clear it)
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
+                var updated = pr
+                updated.isWatched = watchlistService.isWatched(pr)
+                return updated
+            })
         } catch {
             print("Unknown error: \(error)")
             errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-            // Preserve existing PR list when errors occur (don't clear it)
+            let fetchedOther = await otherFetchTask
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
+                var updated = pr
+                updated.isWatched = watchlistService.isWatched(pr)
+                return updated
+            })
         }
 
         isLoading = false
+    }
+
+    private func fetchAllOtherPRs() async -> [PullRequest] {
+        let ids = otherPRsService.all()
+        var results: [PullRequest] = []
+        for id in ids {
+            if let pr = await githubService.fetchOtherPR(
+                id,
+                enableInactiveDetection: enableInactiveBranchDetection,
+                inactiveThresholdDays: inactiveBranchThresholdDays
+            ) {
+                results.append(pr)
+            }
+        }
+        return results
     }
 
     private func applySorting() {
@@ -202,7 +288,8 @@ class PRMonitorViewModel: ObservableObject {
         }
 
         // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
-        let hasBadStatus = newPullRequests.contains { pr in
+        let allDisplayed = newPullRequests + otherPullRequests
+        let hasBadStatus = allDisplayed.contains { pr in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
                 || pr.buildStatus == .conflict || pr.buildStatus == .inactive
             return badBuild || pr.reviewDecision == .changesRequested
@@ -211,6 +298,76 @@ class PRMonitorViewModel: ObservableObject {
             pr.type == .reviewing
         }
         showWarningIcon = hasBadStatus || hasReviewPRs
+    }
+
+    func addOtherPR(urlString: String) async throws {
+        guard let id = GitHubService.parsePRURL(urlString) else {
+            throw OtherPRError.invalidURL
+        }
+        guard !otherPRsService.contains(id) else {
+            throw OtherPRError.alreadyAdded
+        }
+        let normalizedRepo = "\(id.owner)/\(id.repo)".lowercased()
+        guard !unsortedPullRequests.contains(where: { pr in
+            pr.number == id.number && pr.repository.nameWithOwner.lowercased() == normalizedRepo
+        }) else {
+            throw OtherPRError.alreadyTracked
+        }
+        guard let pr = await githubService.fetchOtherPR(
+            id,
+            enableInactiveDetection: enableInactiveBranchDetection,
+            inactiveThresholdDays: inactiveBranchThresholdDays
+        ) else {
+            throw OtherPRError.notFound
+        }
+        otherPRsService.add(id)
+        var updated = pr
+        updated.isWatched = watchlistService.isWatched(pr)
+        updated.customName = customNamesService.name(for: pr.id)
+        otherPullRequests.append(updated)
+        // Deduplicate from main list if this PR appeared there
+        unsortedPullRequests.removeAll { $0.id == pr.id }
+        pullRequests.removeAll { $0.id == pr.id }
+        applySorting()
+    }
+
+    func removeOtherPR(_ pr: PullRequest) {
+        let parts = pr.repository.nameWithOwner.split(separator: "/")
+        guard parts.count == 2 else { return }
+        let id = OtherPRIdentifier(
+            host: pr.host,
+            owner: String(parts[0]),
+            repo: String(parts[1]),
+            number: pr.number
+        )
+        otherPRsService.remove(id)
+        customNamesService.removeName(for: pr.id)
+        otherPullRequests.removeAll { $0.id == pr.id }
+        applySorting()
+        if selectedRepository != "All Repositories" &&
+            !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) &&
+            !otherPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
+            selectedRepository = "All Repositories"
+        }
+    }
+
+    private func applyCustomNames(_ prs: [PullRequest]) -> [PullRequest] {
+        prs.map { pr in
+            var updated = pr
+            updated.customName = customNamesService.name(for: pr.id)
+            return updated
+        }
+    }
+
+    func renamePR(_ pr: PullRequest, to name: String?) {
+        if let name, !name.isEmpty {
+            customNamesService.setName(name, for: pr.id)
+        } else {
+            customNamesService.removeName(for: pr.id)
+        }
+        unsortedPullRequests = applyCustomNames(unsortedPullRequests)
+        pullRequests = applyCustomNames(pullRequests)
+        otherPullRequests = applyCustomNames(otherPullRequests)
     }
 
     private func sort(_ prs: [PullRequest]) -> [PullRequest] {
@@ -236,23 +393,28 @@ class PRMonitorViewModel: ObservableObject {
             watchlistService.watch(pr)
         }
 
-        // Update both arrays
+        // Update all arrays
         if let index = unsortedPullRequests.firstIndex(where: { $0.id == pr.id }) {
             unsortedPullRequests[index].isWatched.toggle()
         }
         if let index = pullRequests.firstIndex(where: { $0.id == pr.id }) {
             pullRequests[index].isWatched.toggle()
         }
+        if let index = otherPullRequests.firstIndex(where: { $0.id == pr.id }) {
+            otherPullRequests[index].isWatched.toggle()
+        }
     }
 
     func clearAllWatched() {
         watchlistService.clearAll()
-        // Update all PRs to unwatched state in both arrays
         for index in unsortedPullRequests.indices {
             unsortedPullRequests[index].isWatched = false
         }
         for index in pullRequests.indices {
             pullRequests[index].isWatched = false
+        }
+        for index in otherPullRequests.indices {
+            otherPullRequests[index].isWatched = false
         }
     }
 

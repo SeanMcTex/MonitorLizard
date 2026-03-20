@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		32364F9E2F1143E100493ED7 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32364F9D2F1143E100493ED7 /* Constants.swift */; };
 		324376112F5DB275009B7E2D /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 324376102F5DB275009B7E2D /* UpdateService.swift */; };
+		3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 324376122F5DB2A0009B7E2D /* Sparkle */; };
 		329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */; };
 		329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDF2F103E3200F0E6EA /* PullRequest.swift */; };
 		329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */; };
@@ -25,6 +26,9 @@
 		32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32DEMO9E2F103E3200F0E6EA /* DemoData.swift */; };
 		32TESTS012F4A000000000001 /* PRMonitorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */; };
 		A8C2D4E19F7B4A2D9E3B7C41 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7BF1FEEFD8924EFA85A1FE55 /* Assets.xcassets */; };
+		AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002222F103E3200F0ABCD /* OtherPRsService.swift */; };
+		AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004442F103E3200F0ABCD /* AddPRView.swift */; };
+		BB0001112F103E3200F0ABCD /* CustomNamesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002222F103E3200F0ABCD /* CustomNamesService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +71,9 @@
 		32DEMO9E2F103E3200F0E6EA /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRMonitorViewModelTests.swift; sourceTree = "<group>"; };
 		7BF1FEEFD8924EFA85A1FE55 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0002222F103E3200F0ABCD /* OtherPRsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherPRsService.swift; sourceTree = "<group>"; };
+		AA0004442F103E3200F0ABCD /* AddPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPRView.swift; sourceTree = "<group>"; };
+		BB0002222F103E3200F0ABCD /* CustomNamesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNamesService.swift; sourceTree = "<group>"; };
 		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -75,6 +82,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -150,6 +158,8 @@
 				329D9EE62F103E3200F0E6EA /* WatchlistService.swift */,
 				F1EE91F749D44258AE659F6C /* WindowManager.swift */,
 				324376102F5DB275009B7E2D /* UpdateService.swift */,
+				AA0002222F103E3200F0ABCD /* OtherPRsService.swift */,
+				BB0002222F103E3200F0ABCD /* CustomNamesService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -168,6 +178,7 @@
 				329D9EEA2F103E3200F0E6EA /* MenuBarView.swift */,
 				329D9EEB2F103E3200F0E6EA /* PRRowView.swift */,
 				329D9EEC2F103E3200F0E6EA /* SettingsView.swift */,
+				AA0004442F103E3200F0ABCD /* AddPRView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -337,6 +348,9 @@
 				329D9EF72F103E3200F0E6EA /* PRRowView.swift in Sources */,
 				32B67F282F2D4FA000F3968F /* StatusCheck.swift in Sources */,
 				329D9EF82F103E3200F0E6EA /* SettingsView.swift in Sources */,
+				AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */,
+				BB0001112F103E3200F0ABCD /* CustomNamesService.swift in Sources */,
+				AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -557,6 +571,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4U7FD3V45R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
@@ -577,6 +592,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4U7FD3V45R;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
