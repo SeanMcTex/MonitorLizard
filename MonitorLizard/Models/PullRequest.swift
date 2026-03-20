@@ -53,6 +53,9 @@ struct PullRequest: Identifiable, Hashable {
     let statusChecks: [StatusCheck]
     var reviewDecision: ReviewDecision?
     let host: String  // GitHub host (e.g. "github.com" or enterprise hostname)
+    var customName: String?  // nil = use GitHub title
+
+    var displayTitle: String { customName ?? title }
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"

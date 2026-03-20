@@ -34,6 +34,7 @@ class PRMonitorViewModel: ObservableObject {
     private let watchlistService: WatchlistService
     private let notificationService = NotificationService.shared
     private let otherPRsService: OtherPRsService
+    private let customNamesService: CustomNamesService
 
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
@@ -72,11 +73,13 @@ class PRMonitorViewModel: ObservableObject {
 
     init(isDemoMode: Bool = false,
          watchlistService: WatchlistService = .shared,
-         otherPRsService: OtherPRsService = OtherPRsService()) {
+         otherPRsService: OtherPRsService = OtherPRsService(),
+         customNamesService: CustomNamesService = CustomNamesService()) {
         self.isDemoMode = isDemoMode
         self.githubService = GitHubService(isDemoMode: isDemoMode)
         self.watchlistService = watchlistService
         self.otherPRsService = otherPRsService
+        self.customNamesService = customNamesService
         setupNotifications()
         startPolling()
         observeSortSetting()
@@ -172,18 +175,22 @@ class PRMonitorViewModel: ObservableObject {
                 notificationService.notifyBuildComplete(pr: pr, status: pr.buildStatus)
             }
 
-            // Update PRs with watch status
-            unsortedPullRequests = dedupedPRs.map { pr in
+            // Update PRs with watch status and custom names
+            unsortedPullRequests = applyCustomNames(dedupedPRs.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
 
-            otherPullRequests = fetchedOther.map { pr in
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
+
+            // Prune stale custom names for PRs no longer visible
+            let activeIDs = Set((dedupedPRs + fetchedOther).map { $0.id })
+            customNamesService.pruneStale(keeping: activeIDs)
 
             // Apply sorting (also updates warning icon)
             applySorting()
@@ -210,38 +217,38 @@ class PRMonitorViewModel: ObservableObject {
             }
             // Still update Other PRs even if main fetch failed
             let fetchedOther = await otherFetchTask
-            otherPullRequests = fetchedOther.map { pr in
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
         } catch let error as ShellError {
             print("ShellError: \(error)")
             errorMessage = error.localizedDescription
             let fetchedOther = await otherFetchTask
-            otherPullRequests = fetchedOther.map { pr in
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
         } catch let error as DecodingError {
             print("DecodingError: \(error)")
             errorMessage = "Failed to parse GitHub data. Please try again."
             let fetchedOther = await otherFetchTask
-            otherPullRequests = fetchedOther.map { pr in
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
         } catch {
             print("Unknown error: \(error)")
             errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
             let fetchedOther = await otherFetchTask
-            otherPullRequests = fetchedOther.map { pr in
+            otherPullRequests = applyCustomNames(fetchedOther.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
                 return updated
-            }
+            })
         }
 
         isLoading = false
@@ -316,6 +323,7 @@ class PRMonitorViewModel: ObservableObject {
         otherPRsService.add(id)
         var updated = pr
         updated.isWatched = watchlistService.isWatched(pr)
+        updated.customName = customNamesService.name(for: pr.id)
         otherPullRequests.append(updated)
         // Deduplicate from main list if this PR appeared there
         unsortedPullRequests.removeAll { $0.id == pr.id }
@@ -333,6 +341,7 @@ class PRMonitorViewModel: ObservableObject {
             number: pr.number
         )
         otherPRsService.remove(id)
+        customNamesService.removeName(for: pr.id)
         otherPullRequests.removeAll { $0.id == pr.id }
         applySorting()
         if selectedRepository != "All Repositories" &&
@@ -340,6 +349,25 @@ class PRMonitorViewModel: ObservableObject {
             !otherPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
             selectedRepository = "All Repositories"
         }
+    }
+
+    private func applyCustomNames(_ prs: [PullRequest]) -> [PullRequest] {
+        prs.map { pr in
+            var updated = pr
+            updated.customName = customNamesService.name(for: pr.id)
+            return updated
+        }
+    }
+
+    func renamePR(_ pr: PullRequest, to name: String?) {
+        if let name, !name.isEmpty {
+            customNamesService.setName(name, for: pr.id)
+        } else {
+            customNamesService.removeName(for: pr.id)
+        }
+        unsortedPullRequests = applyCustomNames(unsortedPullRequests)
+        pullRequests = applyCustomNames(pullRequests)
+        otherPullRequests = applyCustomNames(otherPullRequests)
     }
 
     private func sort(_ prs: [PullRequest]) -> [PullRequest] {

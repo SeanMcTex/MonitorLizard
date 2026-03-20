@@ -116,6 +116,62 @@ struct OtherPRsServiceTests {
     }
 }
 
+struct CustomNamesServiceTests {
+
+    private func makeService() -> CustomNamesService {
+        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        return CustomNamesService(defaults: suite)
+    }
+
+    @Test func startsEmpty() {
+        let service = makeService()
+        #expect(service.allNames().isEmpty)
+    }
+
+    @Test func setAndGet() {
+        let service = makeService()
+        service.setName("My PR", for: "owner/repo#1")
+        #expect(service.name(for: "owner/repo#1") == "My PR")
+    }
+
+    @Test func removeRestoresNil() {
+        let service = makeService()
+        service.setName("My PR", for: "owner/repo#1")
+        service.removeName(for: "owner/repo#1")
+        #expect(service.name(for: "owner/repo#1") == nil)
+    }
+
+    @Test func pruneStaleRemovesInactiveEntries() {
+        let service = makeService()
+        service.setName("Active PR", for: "owner/repo#1")
+        service.setName("Stale PR", for: "owner/repo#2")
+
+        service.pruneStale(keeping: ["owner/repo#1"])
+
+        #expect(service.name(for: "owner/repo#1") == "Active PR")
+        #expect(service.name(for: "owner/repo#2") == nil)
+    }
+
+    @Test func pruneStaleKeepsAllWhenAllActive() {
+        let service = makeService()
+        service.setName("PR One", for: "owner/repo#1")
+        service.setName("PR Two", for: "owner/repo#2")
+
+        service.pruneStale(keeping: ["owner/repo#1", "owner/repo#2"])
+
+        #expect(service.allNames().count == 2)
+    }
+
+    @Test func pruneStaleWithEmptySetClearsAll() {
+        let service = makeService()
+        service.setName("PR One", for: "owner/repo#1")
+
+        service.pruneStale(keeping: [])
+
+        #expect(service.allNames().isEmpty)
+    }
+}
+
 @MainActor
 struct OtherPRsViewModelTests {
 
@@ -276,6 +332,27 @@ struct OtherPRsViewModelTests {
         #expect(vm.otherPullRequests[0].isWatched == false)
     }
 
+    @Test func removeOtherPRClearsCustomName() {
+        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let customNames = CustomNamesService(defaults: suite)
+        let (watchlist, otherPRs) = (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+        let vm = PRMonitorViewModel(
+            isDemoMode: true,
+            watchlistService: watchlist,
+            otherPRsService: otherPRs,
+            customNamesService: customNames
+        )
+        vm.stopPolling()
+
+        let pr = makePR(number: 99, nameWithOwner: "acme/widget")
+        vm.otherPullRequests = [pr]
+        customNames.setName("Custom Name", for: pr.id)
+
+        vm.removeOtherPR(pr)
+
+        #expect(customNames.name(for: pr.id) == nil)
+    }
+
     @Test func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
         let (watchlist, otherPRs) = makeIsolatedServices()
         let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
@@ -378,6 +455,54 @@ struct PRMonitorViewModelTests {
         // After refresh, it should reset to "All Repositories"
         await vm.refresh()
         #expect(vm.selectedRepository == "All Repositories")
+    }
+
+    @Test func renamePRUpdatesDisplayTitleInMemory() async {
+        let vm = await createLoadedViewModel()
+
+        guard let pr = vm.authoredPRs.first else {
+            Issue.record("No authored PRs in demo data")
+            return
+        }
+
+        vm.renamePR(pr, to: "My Custom Name")
+
+        let updated = vm.authoredPRs.first { $0.id == pr.id }
+        #expect(updated?.customName == "My Custom Name")
+        #expect(updated?.displayTitle == "My Custom Name")
+        #expect(updated?.title == pr.title) // GitHub title unchanged
+    }
+
+    @Test func renamePRNilRestoresGitHubTitle() async {
+        let vm = await createLoadedViewModel()
+
+        guard let pr = vm.authoredPRs.first else {
+            Issue.record("No authored PRs in demo data")
+            return
+        }
+
+        vm.renamePR(pr, to: "Temporary Name")
+        vm.renamePR(pr, to: nil)
+
+        let updated = vm.authoredPRs.first { $0.id == pr.id }
+        #expect(updated?.customName == nil)
+        #expect(updated?.displayTitle == pr.title)
+    }
+
+    @Test func renamePREmptyStringActsAsNil() async {
+        let vm = await createLoadedViewModel()
+
+        guard let pr = vm.authoredPRs.first else {
+            Issue.record("No authored PRs in demo data")
+            return
+        }
+
+        vm.renamePR(pr, to: "Temporary Name")
+        vm.renamePR(pr, to: "")
+
+        let updated = vm.authoredPRs.first { $0.id == pr.id }
+        #expect(updated?.customName == nil)
+        #expect(updated?.displayTitle == pr.title)
     }
 
     @Test func sortPutsChangesRequestedFirst() async {
