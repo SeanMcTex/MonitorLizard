@@ -4,6 +4,25 @@
         <title>MonitorLizard</title>
         <language>en</language>
         <item>
+            <title>Version 1.2.0</title>
+            <pubDate>Fri, 20 Mar 2026 15:32:55 -0500</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <description><![CDATA[
+                <h2>What's New</h2>
+                <ul>
+                    <li>Add the ability to add another user's PR to watch</li>
+                    <li>Add the ability to locally change the display name of a PR you are watching</li>
+                </ul>
+            ]]></description>
+            <enclosure
+                url="https://github.com/SeanMcTex/MonitorLizard/releases/download/v1.2.0/MonitorLizard.zip"
+                length="4704819"
+                type="application/octet-stream"
+                sparkle:edSignature="pJY5uJ4p0lQ6Rea9J45rL9l7K7h5smRzu6iP+QAM4C/Zghf/i6RHhzfc0OdJjWrXLCVVSyYEMkCpSaJ4IWcLAw=="
+            />
+        </item>
+        <item>
             <title>Version 1.1.0</title>
             <pubDate>Fri, 13 Mar 2026 08:43:05 -0500</pubDate>
             <sparkle:version>6</sparkle:version>
