@@ -340,7 +340,7 @@ class GitHubService: ObservableObject {
             arguments: [
                 "pr", "view", "\(number)",
                 "--repo", "\(owner)/\(repo)",
-                "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision"
+                "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,latestReviews,reviewRequests"
             ],
             host: host
         )
@@ -363,9 +363,49 @@ class GitHubService: ObservableObject {
             inactiveThresholdDays: inactiveThresholdDays
         )
 
-        let reviewDecision = ReviewDecision(rawValue: detail.reviewDecision?.uppercased() ?? "")
+        let reviewDecision = Self.resolveReviewDecision(
+            rawValue: detail.reviewDecision,
+            latestReviews: detail.latestReviews,
+            reviewRequests: detail.reviewRequests
+        )
 
         return (status, detail.headRefName, statusChecks, reviewDecision)
+    }
+
+    /// Resolves the effective review decision, accounting for re-requested reviews.
+    ///
+    /// GitHub's `reviewDecision` field stays `CHANGES_REQUESTED` even after an author
+    /// re-requests a review. If every reviewer who requested changes has since been
+    /// re-requested, the effective state should be `REVIEW_REQUIRED` instead.
+    nonisolated static func resolveReviewDecision(
+        rawValue: String?,
+        latestReviews: [GHPRDetailResponse.Review]?,
+        reviewRequests: [GHPRDetailResponse.ReviewRequest]?
+    ) -> ReviewDecision? {
+        guard let rawValue, rawValue.uppercased() == "CHANGES_REQUESTED" else {
+            return ReviewDecision(rawValue: rawValue?.uppercased() ?? "")
+        }
+
+        let pendingLogins = Set((reviewRequests ?? []).compactMap { $0.login })
+        let changesRequestedLogins = (latestReviews ?? [])
+            .filter { $0.state.uppercased() == "CHANGES_REQUESTED" }
+            .compactMap { $0.author?.login }
+
+        // If every CHANGES_REQUESTED reviewer has a pending re-review request,
+        // the author has addressed the feedback and is awaiting a new review.
+        if !changesRequestedLogins.isEmpty {
+            let allReRequested = changesRequestedLogins.allSatisfy { pendingLogins.contains($0) }
+            return allReRequested ? .reviewRequired : .changesRequested
+        }
+
+        // GitHub sometimes returns latestReviews without the CHANGES_REQUESTED entry
+        // (e.g., older reviews fall off). If the API says CHANGES_REQUESTED but we can't
+        // find who requested changes, fall back to checking whether any re-review is pending.
+        if !pendingLogins.isEmpty {
+            return .reviewRequired
+        }
+
+        return .changesRequested
     }
 
     private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
@@ -578,7 +618,7 @@ class GitHubService: ObservableObject {
                 arguments: [
                     "pr", "view", "\(id.number)",
                     "--repo", "\(id.owner)/\(id.repo)",
-                    "--json", "number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,state"
+                    "--json", "number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,latestReviews,reviewRequests,state"
                 ],
                 host: id.host
             )
@@ -600,7 +640,11 @@ class GitHubService: ObservableObject {
                 enableInactiveDetection: enableInactiveDetection,
                 inactiveThresholdDays: inactiveThresholdDays
             )
-            let reviewDecision = ReviewDecision(rawValue: response.reviewDecision?.uppercased() ?? "")
+            let reviewDecision = Self.resolveReviewDecision(
+                rawValue: response.reviewDecision,
+                latestReviews: response.latestReviews,
+                reviewRequests: response.reviewRequests
+            )
 
             return PullRequest(
                 number: response.number,

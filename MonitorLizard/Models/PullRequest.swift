@@ -127,7 +127,7 @@ struct GHPRSearchResponse: Codable {
     }
 }
 
-/// Combined response for `gh pr view --json number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,state`
+/// Combined response for `gh pr view --json number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,latestReviews,reviewRequests,state`
 struct GHPRViewResponse: Codable {
     let number: Int
     let title: String
@@ -141,6 +141,8 @@ struct GHPRViewResponse: Codable {
     let mergeable: String?
     let mergeStateStatus: String?
     let reviewDecision: String?
+    let latestReviews: [GHPRDetailResponse.Review]?
+    let reviewRequests: [GHPRDetailResponse.ReviewRequest]?
     let state: String
 
     struct Author: Codable {
@@ -160,6 +162,21 @@ struct GHPRDetailResponse: Codable {
     let mergeable: String?
     let mergeStateStatus: String?
     let reviewDecision: String?
+    let latestReviews: [Review]?
+    let reviewRequests: [ReviewRequest]?
+
+    struct Review: Codable {
+        let author: ReviewAuthor?
+        let state: String
+
+        struct ReviewAuthor: Codable {
+            let login: String
+        }
+    }
+
+    struct ReviewRequest: Codable {
+        let login: String?  // nil for team review requests
+    }
 
     struct StatusCheck: Codable {
         let name: String?
