@@ -2,6 +2,157 @@ import Testing
 import Foundation
 @testable import MonitorLizard
 
+struct ResolveReviewDecisionTests {
+
+    private typealias Review = GHPRDetailResponse.Review
+    private typealias ReviewAuthor = GHPRDetailResponse.Review.ReviewAuthor
+    private typealias ReviewRequest = GHPRDetailResponse.ReviewRequest
+
+    private func review(_ login: String, state: String) -> Review {
+        Review(author: ReviewAuthor(login: login), state: state)
+    }
+
+    private func request(_ login: String) -> ReviewRequest {
+        ReviewRequest(login: login)
+    }
+
+    // MARK: Non-CHANGES_REQUESTED pass-throughs
+
+    @Test func approvedPassesThrough() {
+        let result = GitHubService.resolveReviewDecision(rawValue: "APPROVED", latestReviews: nil, reviewRequests: nil)
+        #expect(result == .approved)
+    }
+
+    @Test func reviewRequiredPassesThrough() {
+        let result = GitHubService.resolveReviewDecision(rawValue: "REVIEW_REQUIRED", latestReviews: nil, reviewRequests: nil)
+        #expect(result == .reviewRequired)
+    }
+
+    @Test func nilRawValueReturnsNil() {
+        let result = GitHubService.resolveReviewDecision(rawValue: nil, latestReviews: nil, reviewRequests: nil)
+        #expect(result == nil)
+    }
+
+    // MARK: CHANGES_REQUESTED with no re-request
+
+    @Test func changesRequestedWithNoReviewRequestsStaysChangesRequested() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
+            reviewRequests: []
+        )
+        #expect(result == .changesRequested)
+    }
+
+    @Test func changesRequestedWithNilReviewRequestsStaysChangesRequested() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
+            reviewRequests: nil
+        )
+        #expect(result == .changesRequested)
+    }
+
+    @Test func changesRequestedWhenDifferentReviewerReRequestedStaysChangesRequested() {
+        // alice requested changes, but only bob has a pending re-review
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
+            reviewRequests: [request("bob")]
+        )
+        #expect(result == .changesRequested)
+    }
+
+    @Test func changesRequestedWhenOnlyOneOfTwoReRequestedStaysChangesRequested() {
+        // Both alice and bob requested changes; only alice re-requested
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [
+                review("alice", state: "CHANGES_REQUESTED"),
+                review("bob", state: "CHANGES_REQUESTED")
+            ],
+            reviewRequests: [request("alice")]
+        )
+        #expect(result == .changesRequested)
+    }
+
+    // MARK: CHANGES_REQUESTED downgraded to REVIEW_REQUIRED
+
+    @Test func changesRequestedDowngradedWhenReviewerReRequested() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
+            reviewRequests: [request("alice")]
+        )
+        #expect(result == .reviewRequired)
+    }
+
+    @Test func changesRequestedDowngradedWhenAllReviewersReRequested() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [
+                review("alice", state: "CHANGES_REQUESTED"),
+                review("bob", state: "CHANGES_REQUESTED")
+            ],
+            reviewRequests: [request("alice"), request("bob")]
+        )
+        #expect(result == .reviewRequired)
+    }
+
+    @Test func changesRequestedDowngradedWhenMixedReviewsAndAllChangesReRequesters() {
+        // alice approved, bob requested changes and has been re-requested
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [
+                review("alice", state: "APPROVED"),
+                review("bob", state: "CHANGES_REQUESTED")
+            ],
+            reviewRequests: [request("bob")]
+        )
+        #expect(result == .reviewRequired)
+    }
+
+    // MARK: Edge cases
+
+    @Test func changesRequestedWithNoLatestReviewsStaysChangesRequested() {
+        // No latestReviews means we can't confirm who requested changes — stay conservative
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: nil,
+            reviewRequests: [request("alice")]
+        )
+        #expect(result == .changesRequested)
+    }
+
+    @Test func changesRequestedWithEmptyLatestReviewsStaysChangesRequested() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [],
+            reviewRequests: [request("alice")]
+        )
+        #expect(result == .changesRequested)
+    }
+
+    @Test func teamReviewRequestIgnoredGracefully() {
+        // Team review requests have nil login — should not crash or incorrectly downgrade
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
+            reviewRequests: [ReviewRequest(login: nil)]
+        )
+        #expect(result == .changesRequested)
+    }
+
+    @Test func caseInsensitiveRawValue() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "changes_requested",
+            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
+            reviewRequests: [request("alice")]
+        )
+        #expect(result == .reviewRequired)
+    }
+}
+
 struct ParsePRURLTests {
 
     @Test func validGitHubURL() {

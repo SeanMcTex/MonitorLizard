@@ -363,7 +363,7 @@ class GitHubService: ObservableObject {
             inactiveThresholdDays: inactiveThresholdDays
         )
 
-        let reviewDecision = resolveReviewDecision(
+        let reviewDecision = Self.resolveReviewDecision(
             rawValue: detail.reviewDecision,
             latestReviews: detail.latestReviews,
             reviewRequests: detail.reviewRequests
@@ -377,7 +377,7 @@ class GitHubService: ObservableObject {
     /// GitHub's `reviewDecision` field stays `CHANGES_REQUESTED` even after an author
     /// re-requests a review. If every reviewer who requested changes has since been
     /// re-requested, the effective state should be `REVIEW_REQUIRED` instead.
-    private func resolveReviewDecision(
+    nonisolated static func resolveReviewDecision(
         rawValue: String?,
         latestReviews: [GHPRDetailResponse.Review]?,
         reviewRequests: [GHPRDetailResponse.ReviewRequest]?
@@ -631,7 +631,7 @@ class GitHubService: ObservableObject {
                 enableInactiveDetection: enableInactiveDetection,
                 inactiveThresholdDays: inactiveThresholdDays
             )
-            let reviewDecision = resolveReviewDecision(
+            let reviewDecision = Self.resolveReviewDecision(
                 rawValue: response.reviewDecision,
                 latestReviews: response.latestReviews,
                 reviewRequests: response.reviewRequests
