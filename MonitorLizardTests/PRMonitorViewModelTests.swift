@@ -114,21 +114,31 @@ struct ResolveReviewDecisionTests {
 
     // MARK: Edge cases
 
-    @Test func changesRequestedWithNoLatestReviewsStaysChangesRequested() {
-        // No latestReviews means we can't confirm who requested changes — stay conservative
+    @Test func changesRequestedWithNoLatestReviewsAndPendingRequestBecomesReviewRequired() {
+        // GitHub sometimes returns latestReviews empty even when reviewDecision is CHANGES_REQUESTED.
+        // If there's a pending re-review, treat it as reviewRequired.
         let result = GitHubService.resolveReviewDecision(
             rawValue: "CHANGES_REQUESTED",
             latestReviews: nil,
             reviewRequests: [request("alice")]
         )
-        #expect(result == .changesRequested)
+        #expect(result == .reviewRequired)
     }
 
-    @Test func changesRequestedWithEmptyLatestReviewsStaysChangesRequested() {
+    @Test func changesRequestedWithEmptyLatestReviewsAndPendingRequestBecomesReviewRequired() {
         let result = GitHubService.resolveReviewDecision(
             rawValue: "CHANGES_REQUESTED",
             latestReviews: [],
             reviewRequests: [request("alice")]
+        )
+        #expect(result == .reviewRequired)
+    }
+
+    @Test func changesRequestedWithEmptyLatestReviewsAndNoRequestsStaysChangesRequested() {
+        let result = GitHubService.resolveReviewDecision(
+            rawValue: "CHANGES_REQUESTED",
+            latestReviews: [],
+            reviewRequests: []
         )
         #expect(result == .changesRequested)
     }

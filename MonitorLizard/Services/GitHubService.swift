@@ -393,10 +393,19 @@ class GitHubService: ObservableObject {
 
         // If every CHANGES_REQUESTED reviewer has a pending re-review request,
         // the author has addressed the feedback and is awaiting a new review.
-        let allReRequested = !changesRequestedLogins.isEmpty &&
-            changesRequestedLogins.allSatisfy { pendingLogins.contains($0) }
+        if !changesRequestedLogins.isEmpty {
+            let allReRequested = changesRequestedLogins.allSatisfy { pendingLogins.contains($0) }
+            return allReRequested ? .reviewRequired : .changesRequested
+        }
 
-        return allReRequested ? .reviewRequired : .changesRequested
+        // GitHub sometimes returns latestReviews without the CHANGES_REQUESTED entry
+        // (e.g., older reviews fall off). If the API says CHANGES_REQUESTED but we can't
+        // find who requested changes, fall back to checking whether any re-review is pending.
+        if !pendingLogins.isEmpty {
+            return .reviewRequired
+        }
+
+        return .changesRequested
     }
 
     private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
