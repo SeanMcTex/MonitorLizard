@@ -30,13 +30,18 @@ final class UpdateService {
     func checkForUpdates() {
         updaterController.checkForUpdates(nil)
     }
+
+    /// Returns true for errors that Sparkle handles with its own UI and don't
+    /// represent a real failure. Exposed for testing.
+    nonisolated static func isInformationalError(_ error: NSError) -> Bool {
+        error.code == 1001 // SUNoUpdateAvailableError
+    }
 }
 
 private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
     func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
         let nsError = error as NSError
-        // SUNoUpdateAvailableError (1001) is informational — Sparkle already showed its own dialog
-        guard nsError.code != 1001 else { return }
+        guard !UpdateService.isInformationalError(nsError) else { return }
 
         print("[UpdateService] Updater aborted: \(nsError.domain) \(nsError.code) — \(nsError.localizedDescription)")
         if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {

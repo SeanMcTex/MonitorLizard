@@ -25,6 +25,8 @@
 		32B67F282F2D4FA000F3968F /* StatusCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B67F272F2D4FA000F3968F /* StatusCheck.swift */; };
 		32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32DEMO9E2F103E3200F0E6EA /* DemoData.swift */; };
 		32TESTS012F4A000000000001 /* PRMonitorViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */; };
+		32TESTS022F4A000000000001 /* UpdateServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS022F4A000000000000 /* UpdateServiceTests.swift */; };
+		32TESTS032F4A000000000001 /* WindowOcclusionObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */; };
 		A8C2D4E19F7B4A2D9E3B7C41 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7BF1FEEFD8924EFA85A1FE55 /* Assets.xcassets */; };
 		AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002222F103E3200F0ABCD /* OtherPRsService.swift */; };
 		AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004442F103E3200F0ABCD /* AddPRView.swift */; };
@@ -70,6 +72,8 @@
 		32B67F272F2D4FA000F3968F /* StatusCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusCheck.swift; sourceTree = "<group>"; };
 		32DEMO9E2F103E3200F0E6EA /* DemoData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoData.swift; sourceTree = "<group>"; };
 		32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRMonitorViewModelTests.swift; sourceTree = "<group>"; };
+		32TESTS022F4A000000000000 /* UpdateServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateServiceTests.swift; sourceTree = "<group>"; };
+		32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowOcclusionObserverTests.swift; sourceTree = "<group>"; };
 		7BF1FEEFD8924EFA85A1FE55 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0002222F103E3200F0ABCD /* OtherPRsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherPRsService.swift; sourceTree = "<group>"; };
 		AA0004442F103E3200F0ABCD /* AddPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPRView.swift; sourceTree = "<group>"; };
@@ -187,6 +191,8 @@
 			isa = PBXGroup;
 			children = (
 				32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */,
+				32TESTS022F4A000000000000 /* UpdateServiceTests.swift */,
+				32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */,
 			);
 			name = MonitorLizardTests;
 			path = ../MonitorLizardTests;
@@ -359,6 +365,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				32TESTS012F4A000000000001 /* PRMonitorViewModelTests.swift in Sources */,
+				32TESTS022F4A000000000001 /* UpdateServiceTests.swift in Sources */,
+				32TESTS032F4A000000000001 /* WindowOcclusionObserverTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -2,8 +2,30 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var viewModel: PRMonitorViewModel
+    // MenuBarExtra(.window) keeps its content window registered as a display cycle
+    // observer, causing SwiftUI to run a full layout+render pass at 60-120 Hz even
+    // when the panel is hidden. Swapping in an empty placeholder when not visible
+    // reduces per-frame work to nearly nothing.
+    @State private var isWindowVisible = true
 
     var body: some View {
+        // WindowOcclusionObserver watches the specific NSWindow this view lives in
+        // via NSWindow.didChangeOcclusionStateNotification. This is more reliable than
+        // key-window notifications, which fire for any focus change (e.g. picker popups)
+        // and are not scoped to our window.
+        ZStack {
+            WindowOcclusionObserver { visible in
+                isWindowVisible = visible
+            }
+            .frame(width: 0, height: 0)
+
+            if isWindowVisible {
+                contentView
+            }
+        }
+    }
+
+    private var contentView: some View {
         VStack(spacing: 0) {
             // Header
             headerView
@@ -246,11 +268,9 @@ struct MenuBarView: View {
     private var footerView: some View {
         HStack(spacing: 12) {
             if let lastRefresh = viewModel.lastRefreshTime {
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    Text("Updated \(timeAgo(lastRefresh))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Text("Updated \(timeAgo(lastRefresh))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -301,6 +321,74 @@ struct MenuBarView: View {
         } else {
             let days = seconds / 86400
             return "\(days)d ago"
+        }
+    }
+}
+
+/// Watches the NSWindow this view is embedded in and calls `onChange` whenever
+/// the window's occlusion state changes (i.e. it becomes visible or is ordered out).
+/// Uses NSWindow.didChangeOcclusionStateNotification scoped to the specific window,
+/// so it is not affected by other windows gaining/losing focus.
+struct WindowOcclusionObserver: NSViewRepresentable {
+    let onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> TrackingView {
+        TrackingView(onChange: onChange)
+    }
+
+    func updateNSView(_ nsView: TrackingView, context: Context) {
+        nsView.onChange = onChange
+    }
+
+    class TrackingView: NSView {
+        var onChange: (Bool) -> Void
+        private var observer: NSObjectProtocol?
+        private var occlusionObserver: NSObjectProtocol?
+
+        init(onChange: @escaping (Bool) -> Void) {
+            self.onChange = onChange
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            observer.map { NotificationCenter.default.removeObserver($0) }
+            occlusionObserver.map { NotificationCenter.default.removeObserver($0) }
+            observer = nil
+            occlusionObserver = nil
+            guard let window else { return }
+
+            // Use key-window notification to detect show: fires even when the window
+        // is zero-sized (which occlusion state never reports as .visible).
+        let becomeKey = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in self?.onChange(true) }
+
+        // Use occlusion state to detect hide: more reliable than resign-key because
+        // it only fires when the window is actually ordered out, not when a picker
+        // popup temporarily steals focus.
+        let occlusion = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification,
+            object: window,
+            queue: .main
+        ) { [weak window, weak self] _ in
+            guard let window, let self else { return }
+            if !window.occlusionState.contains(.visible) {
+                self.onChange(false)
+            }
+        }
+
+        observer = becomeKey
+        occlusionObserver = occlusion
+        }
+
+        deinit {
+            observer.map { NotificationCenter.default.removeObserver($0) }
+            occlusionObserver.map { NotificationCenter.default.removeObserver($0) }
         }
     }
 }
