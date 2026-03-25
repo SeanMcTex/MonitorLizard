@@ -16,8 +16,12 @@ enum Constants {
 
     // UI constants
     static let menuMaxHeightMultiplier = 0.7
-    static let settingsWindowWidth = 450.0
-    static let settingsWindowHeight = 500.0
+    static let settingsWindowWidth = 580.0
+    static let settingsWindowHeight = 550.0
+
+    // Quiet hours defaults
+    static let defaultQuietHoursStart = 20  // 20:00
+    static let defaultQuietHoursEnd = 9     // 09:00
 
     // Voice announcement
     static let defaultVoiceAnnouncementText = "Build ready for Q A"

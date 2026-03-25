@@ -31,6 +31,10 @@
 		AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002222F103E3200F0ABCD /* OtherPRsService.swift */; };
 		AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004442F103E3200F0ABCD /* AddPRView.swift */; };
 		BB0001112F103E3200F0ABCD /* CustomNamesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002222F103E3200F0ABCD /* CustomNamesService.swift */; };
+		CC0001112F103E3200F0ABCD /* MonitoredUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0002222F103E3200F0ABCD /* MonitoredUser.swift */; };
+		CC0003332F103E3200F0ABCD /* MonitoredUsersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0004442F103E3200F0ABCD /* MonitoredUsersService.swift */; };
+		DD0001112F103E3200F0ABCD /* PRCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0002222F103E3200F0ABCD /* PRCacheService.swift */; };
+		EE0001112F103E3200F0ABCD /* RefreshLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0002222F103E3200F0ABCD /* RefreshLogger.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +82,10 @@
 		AA0002222F103E3200F0ABCD /* OtherPRsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherPRsService.swift; sourceTree = "<group>"; };
 		AA0004442F103E3200F0ABCD /* AddPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPRView.swift; sourceTree = "<group>"; };
 		BB0002222F103E3200F0ABCD /* CustomNamesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNamesService.swift; sourceTree = "<group>"; };
+		CC0002222F103E3200F0ABCD /* MonitoredUser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitoredUser.swift; sourceTree = "<group>"; };
+		CC0004442F103E3200F0ABCD /* MonitoredUsersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitoredUsersService.swift; sourceTree = "<group>"; };
+		DD0002222F103E3200F0ABCD /* PRCacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRCacheService.swift; sourceTree = "<group>"; };
+		EE0002222F103E3200F0ABCD /* RefreshLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshLogger.swift; sourceTree = "<group>"; };
 		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -141,6 +149,7 @@
 				329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */,
 				329D9EDF2F103E3200F0E6EA /* PullRequest.swift */,
 				32DEMO9E2F103E3200F0E6EA /* DemoData.swift */,
+				CC0002222F103E3200F0ABCD /* MonitoredUser.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -164,6 +173,9 @@
 				324376102F5DB275009B7E2D /* UpdateService.swift */,
 				AA0002222F103E3200F0ABCD /* OtherPRsService.swift */,
 				BB0002222F103E3200F0ABCD /* CustomNamesService.swift */,
+				CC0004442F103E3200F0ABCD /* MonitoredUsersService.swift */,
+				DD0002222F103E3200F0ABCD /* PRCacheService.swift */,
+				EE0002222F103E3200F0ABCD /* RefreshLogger.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -357,6 +369,10 @@
 				AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */,
 				BB0001112F103E3200F0ABCD /* CustomNamesService.swift in Sources */,
 				AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */,
+				CC0001112F103E3200F0ABCD /* MonitoredUser.swift in Sources */,
+				CC0003332F103E3200F0ABCD /* MonitoredUsersService.swift in Sources */,
+				DD0001112F103E3200F0ABCD /* PRCacheService.swift in Sources */,
+				EE0001112F103E3200F0ABCD /* RefreshLogger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
