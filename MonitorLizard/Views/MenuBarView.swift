@@ -2,17 +2,9 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var viewModel: PRMonitorViewModel
-    // MenuBarExtra(.window) keeps its content window registered as a display cycle
-    // observer, causing SwiftUI to run a full layout+render pass at 60-120 Hz even
-    // when the panel is hidden. Swapping in an empty placeholder when not visible
-    // reduces per-frame work to nearly nothing.
     @State private var isWindowVisible = true
 
     var body: some View {
-        // WindowOcclusionObserver watches the specific NSWindow this view lives in
-        // via NSWindow.didChangeOcclusionStateNotification. This is more reliable than
-        // key-window notifications, which fire for any focus change (e.g. picker popups)
-        // and are not scoped to our window.
         ZStack {
             WindowOcclusionObserver { visible in
                 isWindowVisible = visible
@@ -23,6 +15,10 @@ struct MenuBarView: View {
                 contentView
             }
         }
+    }
+
+    private var isFloating: Bool {
+        WindowManager.shared.isFloatingMode
     }
 
     private var contentView: some View {
@@ -39,7 +35,7 @@ struct MenuBarView: View {
                 ghUnavailableView
             } else if viewModel.isLoading && viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.otherPullRequests.isEmpty {
                 loadingView
-            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.otherPullRequests.isEmpty && !viewModel.isLoading {
+            } else if viewModel.authoredPRs.isEmpty && viewModel.reviewPRs.isEmpty && viewModel.filteredOtherPRs.isEmpty && !viewModel.isLoading {
                 emptyStateView
             } else {
                 prListView
@@ -50,45 +46,89 @@ struct MenuBarView: View {
             // Footer
             footerView
         }
-        .frame(minWidth: 400, maxWidth: 500)
+        .frame(
+            minWidth: 400,
+            maxWidth: isFloating ? .infinity : 500,
+            maxHeight: isFloating ? .infinity : nil
+        )
     }
 
     private var headerView: some View {
-        HStack {
-            Text("Pull Requests for")
-                .font(.headline)
-
-            Picker("", selection: $viewModel.selectedRepository) {
-                Text("All Repositories").tag("All Repositories")
-                Divider()
-                ForEach(viewModel.availableRepositories, id: \.self) { repo in
-                    Text(repo.split(separator: "/").last.map(String.init) ?? repo).tag(repo)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize()
-
-            Spacer()
-
-            if viewModel.isLoading {
-                ProgressView()
-                    .scaleEffect(0.7)
-                    .frame(width: 20, height: 20)
-            } else {
-                Button(action: {
-                    Task {
-                        await viewModel.refresh()
+        VStack(spacing: 8) {
+            // User segment control (only if multiple users)
+            if viewModel.monitoredUsers.count > 1 {
+                HStack(spacing: 2) {
+                    ForEach(viewModel.monitoredUsers) { user in
+                        Button(action: { viewModel.selectUser(id: user.id) }) {
+                            HStack(spacing: 4) {
+                                if let color = viewModel.userStatus(for: user.id) {
+                                    Circle()
+                                        .fill(color)
+                                        .frame(width: 6, height: 6)
+                                }
+                                Text(user.label)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(
+                                viewModel.selectedUser?.id == user.id
+                                    ? Color.accentColor.opacity(0.2)
+                                    : Color.clear
+                            )
+                            .cornerRadius(6)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                }) {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.secondary)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .help("Refresh now")
+                .padding(.horizontal)
+                .padding(.top, 8)
             }
+
+            // Repo picker row
+            HStack {
+                Text("Pull Requests for")
+                    .font(.headline)
+
+                Picker("", selection: $viewModel.selectedRepository) {
+                    Text("All Repositories").tag("All Repositories")
+                    Divider()
+                    ForEach(viewModel.availableRepositories, id: \.self) { repo in
+                        Text(repo.split(separator: "/").last.map(String.init) ?? repo).tag(repo)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+
+                Spacer()
+
+                if viewModel.isLoading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .frame(width: 20, height: 20)
+                } else {
+                    Button(action: {
+                        Task {
+                            await viewModel.refresh()
+                        }
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh now")
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, viewModel.monitoredUsers.count > 1 ? 4 : 0)
         }
-        .padding()
+        .padding(.top, viewModel.monitoredUsers.count > 1 ? 0 : 12)
+        .padding(.bottom, 8)
     }
 
     private func errorView(_ error: String) -> some View {
@@ -116,7 +156,7 @@ struct MenuBarView: View {
                 }
             }
         }
-        .frame(minHeight: 200, maxHeight: 300)
+        .frame(minHeight: 200, maxHeight: isFloating ? .infinity : 300)
         .frame(maxWidth: .infinity)
     }
 
@@ -141,7 +181,7 @@ struct MenuBarView: View {
                 }
             }
         }
-        .frame(minHeight: 200, maxHeight: 300)
+        .frame(minHeight: 200, maxHeight: isFloating ? .infinity : 300)
         .frame(maxWidth: .infinity)
     }
 
@@ -154,13 +194,13 @@ struct MenuBarView: View {
             Text("No Open PRs")
                 .font(.headline)
 
-            Text("You don't have any open pull requests at the moment.")
+            Text("No open pull requests found.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
         }
-        .frame(minHeight: 200, maxHeight: 300)
+        .frame(minHeight: 200, maxHeight: isFloating ? .infinity : 300)
         .frame(maxWidth: .infinity)
     }
 
@@ -168,32 +208,30 @@ struct MenuBarView: View {
         ContentUnavailableView {
             Label("Loading Pull Requests", systemImage: "arrow.circlepath")
         } description: {
-            Text("Fetching your open PRs from GitHub...")
+            Text("Fetching open PRs from GitHub...")
         }
-        .frame(minHeight: 200, maxHeight: 300)
+        .frame(minHeight: 200, maxHeight: isFloating ? .infinity : 300)
         .frame(maxWidth: .infinity)
     }
 
     private var prListView: some View {
         let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.filteredOtherPRs.count
-        let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
+        let estimatedRowHeight: CGFloat = 120
         let sectionHeaderHeight: CGFloat = 40
-        let numSections = (viewModel.reviewPRs.isEmpty ? 0 : 1)
+        let showReview = viewModel.selectedUser?.isMe == true && !viewModel.reviewPRs.isEmpty
+        let numSections = (showReview ? 1 : 0)
             + (viewModel.authoredPRs.isEmpty ? 0 : 1)
             + (viewModel.filteredOtherPRs.isEmpty ? 0 : 1)
         let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
         let maxHeight = calculateMaxHeight()
-        let targetHeight = min(estimatedContentHeight, maxHeight)
-
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    // Dedicated scroll anchor — stable ID never moves between views
                     Color.clear.frame(height: 0).id("top")
 
-                    // Review PRs Section (FIRST - prioritize unblocking teammates)
-                    if !viewModel.reviewPRs.isEmpty {
-                        sectionHeader(type: .reviewing, count: viewModel.reviewPRs.count)
+                    // Review PRs Section (only for @me)
+                    if showReview {
+                        sectionHeader(type: .reviewing, count: viewModel.reviewPRs.count, username: nil)
                             .id("header-review")
 
                         ForEach(viewModel.reviewPRs) { pr in
@@ -204,9 +242,9 @@ struct MenuBarView: View {
                         }
                     }
 
-                    // Other PRs Section (SECOND)
+                    // Other PRs Section
                     if !viewModel.filteredOtherPRs.isEmpty {
-                        sectionHeader(type: .other, count: viewModel.filteredOtherPRs.count)
+                        sectionHeader(type: .other, count: viewModel.filteredOtherPRs.count, username: nil)
                             .id("header-other")
 
                         ForEach(viewModel.filteredOtherPRs) { pr in
@@ -217,9 +255,9 @@ struct MenuBarView: View {
                         }
                     }
 
-                    // Authored PRs Section (THIRD)
+                    // Authored PRs Section
                     if !viewModel.authoredPRs.isEmpty {
-                        sectionHeader(type: .authored, count: viewModel.authoredPRs.count)
+                        sectionHeader(type: .authored, count: viewModel.authoredPRs.count, username: viewModel.selectedUser?.username)
                             .id("header-authored")
 
                         ForEach(viewModel.authoredPRs) { pr in
@@ -231,7 +269,8 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .frame(height: targetHeight)
+            .frame(height: isFloating ? nil : min(estimatedContentHeight, maxHeight))
+            .frame(maxHeight: isFloating ? .infinity : nil)
             .id(viewModel.selectedRepository)
             .onAppear {
                 proxy.scrollTo("top", anchor: .top)
@@ -239,9 +278,9 @@ struct MenuBarView: View {
         }
     }
 
-    private func sectionHeader(type: PRType, count: Int) -> some View {
+    private func sectionHeader(type: PRType, count: Int, username: String?) -> some View {
         HStack {
-            Text(type.displayTitle(count: count))
+            Text(type.displayTitle(count: count, username: username))
                 .font(.headline)
                 .foregroundColor(.primary)
 
@@ -257,12 +296,11 @@ struct MenuBarView: View {
     }
 
     private func calculateMaxHeight() -> CGFloat {
-        // Get screen height and use 70% of it, max 700px
         if let screen = NSScreen.main {
             let maxHeight = screen.visibleFrame.height * Constants.menuMaxHeightMultiplier
             return min(maxHeight, 700)
         }
-        return 600 // Fallback
+        return 600
     }
 
     private var footerView: some View {
@@ -278,6 +316,18 @@ struct MenuBarView: View {
             Menu {
                 Button("Add PR...") {
                     WindowManager.shared.showAddPR(viewModel: viewModel)
+                }
+
+                Divider()
+
+                if WindowManager.shared.isFloatingMode {
+                    Button("Attach to Menu Bar") {
+                        WindowManager.shared.destroyFloatingWindow()
+                    }
+                } else {
+                    Button("Detach as Floating Window") {
+                        WindowManager.shared.showFloatingWindow(viewModel: viewModel)
+                    }
                 }
 
                 Divider()
@@ -325,10 +375,6 @@ struct MenuBarView: View {
     }
 }
 
-/// Watches the NSWindow this view is embedded in and calls `onChange` whenever
-/// the window's occlusion state changes (i.e. it becomes visible or is ordered out).
-/// Uses NSWindow.didChangeOcclusionStateNotification scoped to the specific window,
-/// so it is not affected by other windows gaining/losing focus.
 struct WindowOcclusionObserver: NSViewRepresentable {
     let onChange: (Bool) -> Void
 
@@ -360,30 +406,25 @@ struct WindowOcclusionObserver: NSViewRepresentable {
             occlusionObserver = nil
             guard let window else { return }
 
-            // Use key-window notification to detect show: fires even when the window
-        // is zero-sized (which occlusion state never reports as .visible).
-        let becomeKey = NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeKeyNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in self?.onChange(true) }
+            let becomeKey = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification,
+                object: window,
+                queue: .main
+            ) { [weak self] _ in self?.onChange(true) }
 
-        // Use occlusion state to detect hide: more reliable than resign-key because
-        // it only fires when the window is actually ordered out, not when a picker
-        // popup temporarily steals focus.
-        let occlusion = NotificationCenter.default.addObserver(
-            forName: NSWindow.didChangeOcclusionStateNotification,
-            object: window,
-            queue: .main
-        ) { [weak window, weak self] _ in
-            guard let window, let self else { return }
-            if !window.occlusionState.contains(.visible) {
-                self.onChange(false)
+            let occlusion = NotificationCenter.default.addObserver(
+                forName: NSWindow.didChangeOcclusionStateNotification,
+                object: window,
+                queue: .main
+            ) { [weak window, weak self] _ in
+                guard let window, let self else { return }
+                if !window.occlusionState.contains(.visible) {
+                    self.onChange(false)
+                }
             }
-        }
 
-        observer = becomeKey
-        occlusionObserver = occlusion
+            observer = becomeKey
+            occlusionObserver = occlusion
         }
 
         deinit {

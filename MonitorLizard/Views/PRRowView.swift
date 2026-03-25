@@ -6,11 +6,6 @@ struct PRRowView: View {
 
     @State private var isHovering = false
 
-    private var daysSinceUpdate: Int {
-        let days = Int(Date().timeIntervalSince(pr.updatedAt) / Constants.secondsPerDay)
-        return days
-    }
-
     private func openPRURL() {
         // Close the menu bar extra by ordering out all panels
         NSApp.windows.forEach { window in
@@ -25,13 +20,40 @@ struct PRRowView: View {
         }
     }
 
-    private var daysSinceUpdateText: String {
-        if daysSinceUpdate == 0 {
-            return "updated today"
-        } else if daysSinceUpdate == 1 {
-            return "updated 1 day ago"
+    private var updatedAgoText: String {
+        let seconds = Int(Date().timeIntervalSince(pr.updatedAt))
+        if seconds < 60 {
+            return "just updated"
+        } else if seconds < 3600 {
+            let minutes = seconds / 60
+            return minutes == 1 ? "updated 1 minute ago" : "updated \(minutes) minutes ago"
+        } else if seconds < 86400 {
+            let hours = seconds / 3600
+            return hours == 1 ? "updated 1 hour ago" : "updated \(hours) hours ago"
         } else {
-            return "updated \(daysSinceUpdate) days ago"
+            let days = seconds / 86400
+            return days == 1 ? "updated 1 day ago" : "updated \(days) days ago"
+        }
+    }
+
+    private var buildStatusText: String {
+        if pr.buildStatus == .pending {
+            let pendingCount = pr.statusChecks.filter { $0.status == .pending }.count
+            return pendingCount > 0 ? "\(pendingCount) checks pending" : pr.buildStatus.displayName
+        }
+        if pr.buildStatus == .failure || pr.buildStatus == .error {
+            let pendingCount = pr.statusChecks.filter { $0.status == .pending }.count
+            return pendingCount > 0 ? "\(pr.buildStatus.displayName) (\(pendingCount) pending)" : pr.buildStatus.displayName
+        }
+        return pr.buildStatus.displayName
+    }
+
+    private var pendingChecksTooltipLines: [InstantTooltip.Line] {
+        guard pr.buildStatus == .pending || pr.buildStatus == .failure || pr.buildStatus == .error else { return [] }
+        return pr.statusChecks
+            .filter { $0.status == .pending }
+            .map { check in
+            InstantTooltip.Line(icon: check.status.icon, text: check.name)
         }
     }
 
@@ -154,13 +176,9 @@ struct PRRowView: View {
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // Repo and PR number
+                // Repo, PR number, branch
                 HStack(spacing: 4) {
                     Text(pr.repository.name)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Text("•")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -168,7 +186,6 @@ struct PRRowView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    // Draft badge
                     if pr.isDraft {
                         Text("DRAFT")
                             .font(.caption2)
@@ -179,11 +196,8 @@ struct PRRowView: View {
                             .background(Color.orange.opacity(0.8))
                             .cornerRadius(3)
                     }
-                }
 
-                // Branch name
-                if !pr.headRefName.isEmpty {
-                    HStack(spacing: 4) {
+                    if !pr.headRefName.isEmpty {
                         Image(systemName: "arrow.branch")
                             .font(.caption2)
                             .foregroundColor(.secondary)
@@ -195,24 +209,9 @@ struct PRRowView: View {
                     }
                 }
 
-                // Build status text with days since update
-                HStack(spacing: 4) {
-                    Text(pr.buildStatus.displayName)
-                        .font(.caption2)
-                        .foregroundColor(pr.buildStatus.color)
-
-                    Text("•")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-
-                    Text("(\(daysSinceUpdateText))")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-
                 // Labels
                 if !pr.labels.isEmpty {
-                    HStack(spacing: 4) {
+                    FlowLayout(spacing: 4) {
                         ForEach(pr.labels) { label in
                             let bgColor = Color(hex: label.color)
                             Text(label.name)
@@ -222,8 +221,35 @@ struct PRRowView: View {
                                 .padding(.vertical, 2)
                                 .background(bgColor)
                                 .cornerRadius(3)
+                                .fixedSize()
                         }
                     }
+                }
+
+                // Build status text with days since update
+                HStack(spacing: 4) {
+                    Text(buildStatusText)
+                        .font(.caption2)
+                        .foregroundColor(pr.buildStatus.color)
+                        .overlay {
+                            if !pendingChecksTooltipLines.isEmpty {
+                                InstantTooltip(lines: pendingChecksTooltipLines)
+                            }
+                        }
+
+                    if pr.ignoredCheckCount > 0 {
+                        Text("(\(pr.ignoredCheckCount) ignored)")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    Text(updatedAgoText)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
 
                 // Failing checks (only shown when checks fail)
@@ -249,83 +275,72 @@ struct PRRowView: View {
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Action buttons - 2x2 grid: [Watch, Open] / [Delete, Rename]
-            // Always occupies space; opacity controls visibility.
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                VStack(spacing: 6) {
-                    // Top row: Watch + Open
-                    HStack(spacing: 8) {
-                        // Watch - fixed cell; hidden when no status checks
-                        if pr.hasStatusChecks {
-                            Button(action: { viewModel.toggleWatch(for: pr) }) {
-                                Image(systemName: pr.isWatched ? "eye.fill" : "eye")
-                                    .foregroundColor(pr.isWatched ? .blue : .gray)
-                            }
-                            .buttonStyle(.plain)
-                            .help(pr.isWatched ? "Stop watching this PR" : "Watch this PR for completion")
-                            .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
-                            .frame(width: 16, height: 16)
-                        } else {
-                            Color.clear.frame(width: 16, height: 16)
-                        }
-
-                        // Open in browser
-                        Button(action: openPRURL) {
-                            Image(systemName: "arrow.up.right.square")
-                                .foregroundColor(.gray)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Open in GitHub")
-                        .opacity(isHovering ? 1.0 : 0.0)
-                        .frame(width: 16, height: 16)
+            // Action buttons - vertical strip at right edge.
+            // Always rendered with fixed width to reserve space and
+            // prevent layout shifts (title/tags rewrapping) on hover.
+            VStack(spacing: 4) {
+                if pr.hasStatusChecks {
+                    Button(action: { viewModel.toggleWatch(for: pr) }) {
+                        Image(systemName: pr.isWatched ? "eye.fill" : "eye")
+                            .foregroundColor(pr.isWatched ? .blue : .gray)
+                            .font(.caption)
                     }
-
-                    // Bottom row: Delete (Other PRs only) + Rename
-                    HStack(spacing: 8) {
-                        if pr.type == .other {
-                            Button(action: {
-                                NSApp.windows.forEach { window in
-                                    if window is NSPanel { window.orderOut(nil) }
-                                }
-                                DispatchQueue.main.async {
-                                    let alert = NSAlert()
-                                    alert.messageText = "Remove from Other PRs?"
-                                    alert.informativeText = "\"\(pr.displayTitle)\" will be removed from Other PRs."
-                                    alert.addButton(withTitle: "Remove")
-                                    alert.addButton(withTitle: "Cancel")
-                                    alert.alertStyle = .warning
-                                    if alert.runModal() == .alertFirstButtonReturn {
-                                        viewModel.removeOtherPR(pr)
-                                    }
-                                }
-                            }) {
-                                Image(systemName: "trash")
-                                    .foregroundColor(.red)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Remove from Other PRs")
-                            .opacity(isHovering ? 1.0 : 0.0)
-                            .frame(width: 16, height: 16)
-                        } else {
-                            Color.clear.frame(width: 16, height: 16)
-                        }
-
-                        Button(action: showRenameDialog) {
-                            Image(systemName: "pencil")
-                                .foregroundColor(pr.customName != nil ? .blue : .gray)
-                        }
-                        .buttonStyle(.plain)
-                        .help(pr.customName != nil ? "Edit custom name" : "Set custom name")
-                        .opacity(isHovering ? 1.0 : 0.0)
-                        .frame(width: 16, height: 16)
-                    }
+                    .buttonStyle(.plain)
+                    .help(pr.isWatched ? "Stop watching this PR" : "Watch this PR for completion")
+                    .opacity(isHovering || pr.isWatched ? 1.0 : 0.0)
+                    .frame(width: 16, height: 16)
                 }
-                Spacer(minLength: 0)
+
+                Button(action: openPRURL) {
+                    Image(systemName: "arrow.up.right.square")
+                        .foregroundColor(.gray)
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help("Open in GitHub")
+                .opacity(isHovering ? 1.0 : 0.0)
+                .frame(width: 16, height: 16)
+
+                if pr.type == .other {
+                    Button(action: {
+                        NSApp.windows.forEach { window in
+                            if window is NSPanel { window.orderOut(nil) }
+                        }
+                        DispatchQueue.main.async {
+                            let alert = NSAlert()
+                            alert.messageText = "Remove from Other PRs?"
+                            alert.informativeText = "\"\(pr.displayTitle)\" will be removed from Other PRs."
+                            alert.addButton(withTitle: "Remove")
+                            alert.addButton(withTitle: "Cancel")
+                            alert.alertStyle = .warning
+                            if alert.runModal() == .alertFirstButtonReturn {
+                                viewModel.removeOtherPR(pr)
+                            }
+                        }
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Remove from Other PRs")
+                    .opacity(isHovering ? 1.0 : 0.0)
+                    .frame(width: 16, height: 16)
+                }
+
+                Button(action: showRenameDialog) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(pr.customName != nil ? .blue : .gray)
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help(pr.customName != nil ? "Edit custom name" : "Set custom name")
+                .opacity(isHovering ? 1.0 : 0.0)
+                .frame(width: 16, height: 16)
             }
-            .frame(width: 44) // Fixed width to prevent layout shift
+            .frame(width: 16)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -347,6 +362,241 @@ struct PRRowView: View {
         }
         .onTapGesture {
             openPRURL()
+        }
+    }
+}
+
+/// An NSViewRepresentable that sets an instant tooltip on the parent view.
+/// Unlike SwiftUI's `.help()`, this shows immediately on hover and works
+/// even when the app is not focused (menu bar / floating window).
+struct InstantTooltip: NSViewRepresentable {
+    struct Line {
+        let icon: String
+        let text: String
+    }
+
+    let lines: [Line]
+
+    func makeNSView(context: Context) -> TooltipView {
+        TooltipView(lines: lines)
+    }
+
+    func updateNSView(_ nsView: TooltipView, context: Context) {
+        nsView.updateTooltip(lines)
+    }
+
+    class TooltipView: NSView {
+        private var lines: [Line]
+        private var trackingArea: NSTrackingArea?
+        private var tooltipWindow: NSWindow?
+        private var scrollObserver: NSObjectProtocol?
+
+        init(lines: [Line]) {
+            self.lines = lines
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError() }
+
+        func updateTooltip(_ lines: [Line]) {
+            self.lines = lines
+        }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let area = trackingArea {
+                removeTrackingArea(area)
+            }
+            let area = NSTrackingArea(
+                rect: bounds,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self,
+                userInfo: nil
+            )
+            addTrackingArea(area)
+            trackingArea = area
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            updateScrollObserver()
+        }
+
+        override func viewDidMoveToSuperview() {
+            super.viewDidMoveToSuperview()
+            updateScrollObserver()
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            showTooltip()
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            hideTooltip()
+        }
+
+        override func removeFromSuperview() {
+            removeScrollObserver()
+            hideTooltip()
+            super.removeFromSuperview()
+        }
+
+        deinit {
+            removeScrollObserver()
+        }
+
+        private func showTooltip() {
+            guard !lines.isEmpty else { return }
+            hideTooltip()
+
+            let padding: CGFloat = 6
+            let rowSpacing: CGFloat = 3
+            let iconFont = NSFont(name: "Apple Color Emoji", size: NSFont.smallSystemFontSize) ?? .systemFont(ofSize: NSFont.smallSystemFontSize)
+            let textFont = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+
+            let rows = lines.map { line -> NSView in
+                let iconLabel = NSTextField(labelWithString: line.icon)
+                iconLabel.font = iconFont
+                iconLabel.backgroundColor = .clear
+
+                let textLabel = NSTextField(labelWithString: line.text)
+                textLabel.font = textFont
+                textLabel.textColor = .labelColor
+                textLabel.backgroundColor = .clear
+
+                let row = NSStackView(views: [iconLabel, textLabel])
+                row.orientation = .horizontal
+                row.alignment = .firstBaseline
+                row.spacing = 6
+                return row
+            }
+
+            let stack = NSStackView(views: rows)
+            stack.orientation = .vertical
+            stack.alignment = .leading
+            stack.spacing = rowSpacing
+            stack.edgeInsets = NSEdgeInsets(top: padding, left: padding, bottom: padding, right: padding)
+            stack.layoutSubtreeIfNeeded()
+
+            let fittingSize = stack.fittingSize
+            let contentSize = NSSize(width: fittingSize.width, height: fittingSize.height)
+
+            let contentView = NSView(frame: NSRect(origin: .zero, size: contentSize))
+            contentView.wantsLayer = true
+            contentView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            contentView.layer?.borderColor = NSColor.separatorColor.cgColor
+            contentView.layer?.borderWidth = 0.5
+            contentView.layer?.cornerRadius = 4
+            stack.frame = contentView.bounds
+            stack.autoresizingMask = [.width, .height]
+            contentView.addSubview(stack)
+
+            let screenPoint = window?.convertPoint(toScreen: convert(NSPoint(x: bounds.midX, y: bounds.maxY), to: nil)) ?? .zero
+            let origin = NSPoint(
+                x: screenPoint.x - contentSize.width / 2,
+                y: screenPoint.y + 4
+            )
+
+            let tipWindow = NSWindow(
+                contentRect: NSRect(origin: origin, size: contentSize),
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            tipWindow.isOpaque = false
+            tipWindow.backgroundColor = .clear
+            tipWindow.level = .floating
+            tipWindow.contentView = contentView
+            tipWindow.orderFront(nil)
+            tooltipWindow = tipWindow
+        }
+
+        private func hideTooltip() {
+            tooltipWindow?.orderOut(nil)
+            tooltipWindow = nil
+        }
+
+        private func updateScrollObserver() {
+            removeScrollObserver()
+            guard let clipView = enclosingScrollView()?.contentView else { return }
+            clipView.postsBoundsChangedNotifications = true
+            scrollObserver = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: clipView,
+                queue: .main
+            ) { [weak self] _ in
+                self?.hideTooltipIfMouseLeftBounds()
+            }
+        }
+
+        private func removeScrollObserver() {
+            if let scrollObserver {
+                NotificationCenter.default.removeObserver(scrollObserver)
+                self.scrollObserver = nil
+            }
+        }
+
+        private func hideTooltipIfMouseLeftBounds() {
+            guard tooltipWindow != nil, let window else { return }
+            let mouseLocationInWindow = window.mouseLocationOutsideOfEventStream
+            let mouseLocationInView = convert(mouseLocationInWindow, from: nil)
+            if !bounds.contains(mouseLocationInView) {
+                hideTooltip()
+            }
+        }
+
+        private func enclosingScrollView() -> NSScrollView? {
+            var currentView = superview
+            while let view = currentView {
+                if let scrollView = view as? NSScrollView {
+                    return scrollView
+                }
+                currentView = view.superview
+            }
+            return nil
+        }
+    }
+}
+
+/// A simple wrapping flow layout that places children left-to-right,
+/// moving to the next row when a child would exceed the available width.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth && x > 0 {
+                y += rowHeight + spacing
+                x = 0
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        return CGSize(width: maxWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x: CGFloat = bounds.minX
+        var y: CGFloat = bounds.minY
+        var rowHeight: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX {
+                y += rowHeight + spacing
+                x = bounds.minX
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }
