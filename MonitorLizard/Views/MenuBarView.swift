@@ -62,7 +62,12 @@ struct MenuBarView: View {
                 Text("All Repositories").tag("All Repositories")
                 Divider()
                 ForEach(viewModel.availableRepositories, id: \.self) { repo in
-                    Text(repo.split(separator: "/").last.map(String.init) ?? repo).tag(repo)
+                    let shortName = repo.split(separator: "/").last.map(String.init) ?? repo
+                    if viewModel.reposWithIssues.contains(repo) {
+                        Label(shortName, systemImage: "exclamationmark.triangle.fill").tag(repo)
+                    } else {
+                        Text(shortName).tag(repo)
+                    }
                 }
             }
             .labelsHidden()

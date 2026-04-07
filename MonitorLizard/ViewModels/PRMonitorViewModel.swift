@@ -54,6 +54,16 @@ class PRMonitorViewModel: ObservableObject {
         return mainRepos.union(otherRepos).sorted()
     }
 
+    var reposWithIssues: Set<String> {
+        let allPRs = unsortedPullRequests + otherPullRequests
+        return Set(allPRs.compactMap { pr -> String? in
+            let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
+                || pr.buildStatus == .conflict || pr.buildStatus == .inactive
+            guard badBuild || pr.reviewDecision == .changesRequested else { return nil }
+            return pr.repository.nameWithOwner
+        })
+    }
+
     // Computed properties for filtering PRs by type and repository
     var authoredPRs: [PullRequest] {
         pullRequests.filter { $0.type == .authored }
