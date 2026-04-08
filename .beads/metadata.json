@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "monitorlizard",
+  "project_id": "20c4825c-bcc4-47bf-b40b-0f7577ee8e77"
+}
