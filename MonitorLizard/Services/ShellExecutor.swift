@@ -1,5 +1,20 @@
 import Foundation
 
+/// Abstraction over shell command execution. Enables test doubles to be injected into services.
+protocol ShellExecuting: Sendable {
+    func execute(command: String, arguments: [String], timeout: TimeInterval, host: String?) async throws -> String
+    func getAuthenticatedHosts() async throws -> [String]
+    func checkGHInstalled() async throws -> Bool
+    func checkGHAuthenticated() async throws -> Bool
+}
+
+extension ShellExecuting {
+    /// Convenience overload used by most call sites — omits timeout (defaults to 30 s).
+    func execute(command: String, arguments: [String] = [], host: String? = nil) async throws -> String {
+        try await execute(command: command, arguments: arguments, timeout: 30, host: host)
+    }
+}
+
 enum ShellError: Error {
     case executionFailed(String)
     case invalidOutput
@@ -20,7 +35,7 @@ enum ShellError: Error {
     }
 }
 
-actor ShellExecutor {
+actor ShellExecutor: ShellExecuting {
     func execute(command: String, arguments: [String] = [], timeout: TimeInterval = 30, host: String? = nil) async throws -> String {
         let process = Process()
 

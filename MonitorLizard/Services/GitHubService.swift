@@ -37,7 +37,7 @@ struct PRFetchResult {
 /// - We skip upfront auth checks at startup and let PR fetches determine the error type
 @MainActor
 class GitHubService: ObservableObject {
-    private let shellExecutor = ShellExecutor()
+    private let shellExecutor: any ShellExecuting
     private let isDemoMode: Bool
     private let dateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -45,8 +45,13 @@ class GitHubService: ObservableObject {
         return formatter
     }()
 
-    init(isDemoMode: Bool = false) {
+    // Authenticated hosts rarely change (only when adding/removing GitHub accounts).
+    // Cache for the session to avoid a redundant `gh auth status` call every 30 s.
+    private var cachedHosts: [String]?
+
+    init(isDemoMode: Bool = false, shellExecutor: (any ShellExecuting)? = nil) {
         self.isDemoMode = isDemoMode
+        self.shellExecutor = shellExecutor ?? ShellExecutor()
     }
 
     func checkGHAvailable() async throws {
@@ -71,19 +76,35 @@ class GitHubService: ObservableObject {
         }
     }
 
+    private func authenticatedHosts() async throws -> [String] {
+        if let cached = cachedHosts {
+            return cached
+        }
+        let hosts = try await shellExecutor.getAuthenticatedHosts()
+        cachedHosts = hosts
+        return hosts
+    }
+
+    /// Call this if the user adds or removes a GitHub account so the next refresh picks up the change.
+    func invalidateHostsCache() {
+        cachedHosts = nil
+    }
+
     func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool = false) async throws -> PRFetchResult {
         // Return demo data if in demo mode
         if isDemoMode {
             return PRFetchResult(pullRequests: DemoData.samplePullRequests, isPartial: false)
         }
 
-        // Detect all authenticated GitHub hosts (github.com + any enterprise instances)
-        let hosts = try await shellExecutor.getAuthenticatedHosts()
+        // Detect all authenticated GitHub hosts (github.com + any enterprise instances).
+        // Result is cached for the session; call invalidateHostsCache() if accounts change.
+        let hosts = try await authenticatedHosts()
 
         var allAuthored: [PullRequest] = []
         var allReview: [PullRequest] = []
         var anyPartial = false
         var allFailed = true
+        var lastError: Error?
 
         for host in hosts {
             // Fetch both authored and review PRs in parallel with independent error handling
@@ -98,6 +119,7 @@ class GitHubService: ObservableObject {
                 allFailed = false
             } else {
                 anyPartial = true
+                lastError = lastError ?? authoredResult.failure
             }
 
             if let review = reviewResult.success {
@@ -105,11 +127,27 @@ class GitHubService: ObservableObject {
                 allFailed = false
             } else {
                 anyPartial = true
+                lastError = lastError ?? reviewResult.failure
             }
         }
 
-        // If all fetches across all hosts failed, throw an error
+        // If all fetches across all hosts failed, rethrow the actual error so callers
+        // can distinguish network failures from auth/other issues.
         if allFailed {
+            if let error = lastError {
+                if let shellError = error as? ShellError {
+                    switch shellError {
+                    case .networkError:
+                        throw GitHubError.networkError
+                    case .commandNotFound:
+                        throw GitHubError.notInstalled
+                    default:
+                        // executionFailed, invalidOutput, etc. — preserve the original error
+                        throw error
+                    }
+                }
+                throw error
+            }
             throw GitHubError.networkError
         }
 
@@ -710,6 +748,13 @@ private extension Result {
     var success: Success? {
         if case .success(let value) = self {
             return value
+        }
+        return nil
+    }
+
+    var failure: Failure? {
+        if case .failure(let error) = self {
+            return error
         }
         return nil
     }
