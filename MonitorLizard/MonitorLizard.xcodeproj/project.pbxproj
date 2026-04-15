@@ -42,13 +42,6 @@
 			remoteGlobalIDString = 329D9EB22F103DF700F0E6EA;
 			remoteInfo = MonitorLizard;
 		};
-		329D9ECB2F103DF800F0E6EA /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 329D9EAB2F103DF700F0E6EA /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 329D9EB22F103DF700F0E6EA;
-			remoteInfo = MonitorLizard;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -56,7 +49,6 @@
 		324376102F5DB275009B7E2D /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		329D9EB32F103DF700F0E6EA /* MonitorLizard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MonitorLizard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		329D9EC02F103DF800F0E6EA /* MonitorLizardTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MonitorLizardTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		329D9ECA2F103DF800F0E6EA /* MonitorLizardUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MonitorLizardUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		329D9EDD2F103E3200F0E6EA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildStatus.swift; sourceTree = "<group>"; };
 		329D9EDF2F103E3200F0E6EA /* PullRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PullRequest.swift; sourceTree = "<group>"; };
@@ -99,13 +91,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		329D9EC72F103DF800F0E6EA /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -131,7 +116,6 @@
 			children = (
 				329D9EB32F103DF700F0E6EA /* MonitorLizard.app */,
 				329D9EC02F103DF800F0E6EA /* MonitorLizardTests.xctest */,
-				329D9ECA2F103DF800F0E6EA /* MonitorLizardUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -244,26 +228,6 @@
 			productReference = 329D9EC02F103DF800F0E6EA /* MonitorLizardTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		329D9EC92F103DF800F0E6EA /* MonitorLizardUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 329D9EDA2F103DF800F0E6EA /* Build configuration list for PBXNativeTarget "MonitorLizardUITests" */;
-			buildPhases = (
-				329D9EC62F103DF800F0E6EA /* Sources */,
-				329D9EC72F103DF800F0E6EA /* Frameworks */,
-				329D9EC82F103DF800F0E6EA /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				329D9ECC2F103DF800F0E6EA /* PBXTargetDependency */,
-			);
-			name = MonitorLizardUITests;
-			packageProductDependencies = (
-			);
-			productName = MonitorLizardUITests;
-			productReference = 329D9ECA2F103DF800F0E6EA /* MonitorLizardUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -278,10 +242,6 @@
 						CreatedOnToolsVersion = 26.2;
 					};
 					329D9EBF2F103DF800F0E6EA = {
-						CreatedOnToolsVersion = 26.2;
-						TestTargetID = 329D9EB22F103DF700F0E6EA;
-					};
-					329D9EC92F103DF800F0E6EA = {
 						CreatedOnToolsVersion = 26.2;
 						TestTargetID = 329D9EB22F103DF700F0E6EA;
 					};
@@ -306,7 +266,6 @@
 			targets = (
 				329D9EB22F103DF700F0E6EA /* MonitorLizard */,
 				329D9EBF2F103DF800F0E6EA /* MonitorLizardTests */,
-				329D9EC92F103DF800F0E6EA /* MonitorLizardUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -321,13 +280,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		329D9EBE2F103DF800F0E6EA /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		329D9EC82F103DF800F0E6EA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -374,13 +326,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		329D9EC62F103DF800F0E6EA /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -388,11 +333,6 @@
 			isa = PBXTargetDependency;
 			target = 329D9EB22F103DF700F0E6EA /* MonitorLizard */;
 			targetProxy = 329D9EC12F103DF800F0E6EA /* PBXContainerItemProxy */;
-		};
-		329D9ECC2F103DF800F0E6EA /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 329D9EB22F103DF700F0E6EA /* MonitorLizard */;
-			targetProxy = 329D9ECB2F103DF800F0E6EA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -619,42 +559,6 @@
 			};
 			name = Release;
 		};
-		329D9EDB2F103DF800F0E6EA /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.mcmains.MonitorLizardUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = MonitorLizard;
-			};
-			name = Debug;
-		};
-		329D9EDC2F103DF800F0E6EA /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.mcmains.MonitorLizardUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = MonitorLizard;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -681,15 +585,6 @@
 			buildConfigurations = (
 				329D9ED82F103DF800F0E6EA /* Debug */,
 				329D9ED92F103DF800F0E6EA /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		329D9EDA2F103DF800F0E6EA /* Build configuration list for PBXNativeTarget "MonitorLizardUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				329D9EDB2F103DF800F0E6EA /* Debug */,
-				329D9EDC2F103DF800F0E6EA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
