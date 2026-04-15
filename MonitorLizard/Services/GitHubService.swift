@@ -103,18 +103,22 @@ class GitHubService: ObservableObject {
               pullRequest(number: \(req.number)) {
                 headRefName
                 statusCheckRollup {
-                  ... on CheckRun {
-                    __typename
-                    name
-                    status
-                    conclusion
-                    detailsUrl
-                  }
-                  ... on StatusContext {
-                    __typename
-                    context
-                    state
-                    targetUrl
+                  contexts(last: 100) {
+                    nodes {
+                      ... on CheckRun {
+                        __typename
+                        name
+                        status
+                        conclusion
+                        detailsUrl
+                      }
+                      ... on StatusContext {
+                        __typename
+                        context
+                        state
+                        targetUrl
+                      }
+                    }
                   }
                 }
                 mergeable

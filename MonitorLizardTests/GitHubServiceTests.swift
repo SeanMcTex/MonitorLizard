@@ -244,9 +244,13 @@ struct GitHubServiceBatchResponseParsingTests {
             "pr0": {
               "pullRequest": {
                 "headRefName": "main",
-                "statusCheckRollup": [
-                  { "__typename": "CheckRun", "name": "CI", "status": "COMPLETED", "conclusion": "SUCCESS", "detailsUrl": "https://ci.example.com", "context": null, "state": null, "targetUrl": null }
-                ],
+                "statusCheckRollup": {
+                  "contexts": {
+                    "nodes": [
+                      { "__typename": "CheckRun", "name": "CI", "status": "COMPLETED", "conclusion": "SUCCESS", "detailsUrl": "https://ci.example.com", "context": null, "state": null, "targetUrl": null }
+                    ]
+                  }
+                },
                 "mergeable": "MERGEABLE",
                 "mergeStateStatus": "CLEAN",
                 "reviewDecision": null,

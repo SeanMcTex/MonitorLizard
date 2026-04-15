@@ -159,12 +159,21 @@ struct GHPRViewResponse: Codable {
 /// `{ nodes: [...] }` format as returned by the raw GraphQL API.
 struct BatchPRStatusResponse: Codable {
     let headRefName: String
-    let statusCheckRollup: [GHPRDetailResponse.StatusCheck]?
+    let statusCheckRollup: StatusCheckRollupWrapper?
     let mergeable: String?
     let mergeStateStatus: String?
     let reviewDecision: String?
     let latestReviews: ReviewConnection?
     let reviewRequests: ReviewRequestConnection?
+
+    /// Wraps the raw GraphQL `statusCheckRollup { contexts { nodes [...] } }` shape.
+    struct StatusCheckRollupWrapper: Codable {
+        let contexts: Contexts?
+
+        struct Contexts: Codable {
+            let nodes: [GHPRDetailResponse.StatusCheck]?
+        }
+    }
 
     struct ReviewConnection: Codable {
         let nodes: [GHPRDetailResponse.Review]?
@@ -189,7 +198,7 @@ struct BatchPRStatusResponse: Codable {
         }
         return GHPRDetailResponse(
             headRefName: headRefName,
-            statusCheckRollup: statusCheckRollup,
+            statusCheckRollup: statusCheckRollup?.contexts?.nodes,
             mergeable: mergeable,
             mergeStateStatus: mergeStateStatus,
             reviewDecision: reviewDecision,
