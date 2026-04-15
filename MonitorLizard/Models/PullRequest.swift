@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 enum ReviewDecision: String, Codable, Hashable {
     case approved = "APPROVED"
@@ -11,14 +10,6 @@ enum ReviewDecision: String, Codable, Hashable {
         case .approved:         return "person.fill.checkmark"
         case .changesRequested: return "person.fill.xmark"
         case .reviewRequired:   return "person.fill.questionmark"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .approved:         return .green
-        case .changesRequested: return .red
-        case .reviewRequired:   return .secondary
         }
     }
 
@@ -100,6 +91,13 @@ struct PullRequest: Identifiable, Hashable {
     }
 }
 
+/// Identifies a specific PR for use in batch status requests.
+struct PRStatusRequest: Hashable {
+    let owner: String
+    let repo: String
+    let number: Int
+}
+
 // Response structures for parsing gh CLI JSON output
 struct GHPRSearchResponse: Codable {
     let number: Int
@@ -153,6 +151,61 @@ struct GHPRViewResponse: Codable {
         let id: String?
         let name: String
         let color: String
+    }
+}
+
+/// Response structure for a single PR node inside a `gh api graphql` batch query.
+/// Unlike GHPRDetailResponse (used with `gh pr view --json`), review connections use
+/// `{ nodes: [...] }` format as returned by the raw GraphQL API.
+struct BatchPRStatusResponse: Codable {
+    let headRefName: String
+    let statusCheckRollup: [GHPRDetailResponse.StatusCheck]?
+    let mergeable: String?
+    let mergeStateStatus: String?
+    let reviewDecision: String?
+    let latestReviews: ReviewConnection?
+    let reviewRequests: ReviewRequestConnection?
+
+    struct ReviewConnection: Codable {
+        let nodes: [GHPRDetailResponse.Review]?
+    }
+
+    struct ReviewRequestConnection: Codable {
+        let nodes: [Node]?
+
+        struct Node: Codable {
+            let requestedReviewer: Reviewer?
+
+            struct Reviewer: Codable {
+                let login: String?  // nil for team reviewers
+            }
+        }
+    }
+
+    /// Converts to GHPRDetailResponse so existing status-parsing logic can be reused.
+    func toDetailResponse() -> GHPRDetailResponse {
+        let flatRequests = reviewRequests?.nodes?.map {
+            GHPRDetailResponse.ReviewRequest(login: $0.requestedReviewer?.login)
+        }
+        return GHPRDetailResponse(
+            headRefName: headRefName,
+            statusCheckRollup: statusCheckRollup,
+            mergeable: mergeable,
+            mergeStateStatus: mergeStateStatus,
+            reviewDecision: reviewDecision,
+            latestReviews: latestReviews?.nodes,
+            reviewRequests: flatRequests
+        )
+    }
+}
+
+/// Top-level response from `gh api graphql` for a batch status query.
+/// `data` is a dictionary keyed by alias (e.g. "pr0", "pr1").
+struct BatchGraphQLResponse: Codable {
+    let data: [String: RepositoryNode]
+
+    struct RepositoryNode: Codable {
+        let pullRequest: BatchPRStatusResponse?
     }
 }
 

@@ -90,6 +90,108 @@ class GitHubService: ObservableObject {
         cachedHosts = nil
     }
 
+    // MARK: - Batch GraphQL
+
+    /// Builds a single `gh api graphql` query that fetches status for all given PRs.
+    /// Each PR gets an alias `pr<index>` so the response can be mapped back by position.
+    nonisolated static func buildBatchQuery(for requests: [PRStatusRequest]) -> String {
+        guard !requests.isEmpty else { return "query {}" }
+
+        let fragments = requests.enumerated().map { index, req in
+            """
+            pr\(index): repository(owner: "\(req.owner)", name: "\(req.repo)") {
+              pullRequest(number: \(req.number)) {
+                headRefName
+                statusCheckRollup {
+                  ... on CheckRun {
+                    __typename
+                    name
+                    status
+                    conclusion
+                    detailsUrl
+                  }
+                  ... on StatusContext {
+                    __typename
+                    context
+                    state
+                    targetUrl
+                  }
+                }
+                mergeable
+                mergeStateStatus
+                reviewDecision
+                latestReviews(last: 20) {
+                  nodes {
+                    state
+                    author { login }
+                  }
+                }
+                reviewRequests(last: 20) {
+                  nodes {
+                    requestedReviewer {
+                      ... on User { login }
+                    }
+                  }
+                }
+              }
+            }
+            """
+        }
+
+        return "query {\n\(fragments.joined(separator: "\n"))}"
+    }
+
+    /// Parses a `gh api graphql` batch response and maps the per-alias results back to
+    /// the original `PRStatusRequest` values. PRs whose `pullRequest` field is null
+    /// (closed, deleted, or inaccessible) are omitted from the returned dictionary.
+    nonisolated static func parseBatchResponse(
+        _ json: String,
+        requests: [PRStatusRequest]
+    ) throws -> [PRStatusRequest: GHPRDetailResponse] {
+        guard let data = json.data(using: .utf8) else {
+            throw GitHubError.invalidResponse
+        }
+        let response = try JSONDecoder().decode(BatchGraphQLResponse.self, from: data)
+
+        var result: [PRStatusRequest: GHPRDetailResponse] = [:]
+        for (index, request) in requests.enumerated() {
+            if let prNode = response.data["pr\(index)"],
+               let prStatus = prNode.pullRequest {
+                result[request] = prStatus.toDetailResponse()
+            }
+        }
+        return result
+    }
+
+    /// Fetches PR status data for all given requests in as few `gh api graphql` calls as
+    /// possible, chunking into groups of `Constants.batchQueryChunkSize` to stay within
+    /// GitHub's GraphQL complexity limits.
+    private func batchFetchStatuses(
+        for requests: [PRStatusRequest],
+        host: String
+    ) async throws -> [PRStatusRequest: GHPRDetailResponse] {
+        guard !requests.isEmpty else { return [:] }
+
+        var result: [PRStatusRequest: GHPRDetailResponse] = [:]
+        let chunks = stride(from: 0, to: requests.count, by: Constants.batchQueryChunkSize)
+            .map { Array(requests[$0..<min($0 + Constants.batchQueryChunkSize, requests.count)]) }
+
+        for chunk in chunks {
+            let query = GitHubService.buildBatchQuery(for: chunk)
+            let json = try await shellExecutor.execute(
+                command: "gh",
+                arguments: ["api", "graphql", "-f", "query=\(query)"],
+                host: host
+            )
+            let chunkResult = try GitHubService.parseBatchResponse(json, requests: chunk)
+            result.merge(chunkResult) { _, new in new }
+        }
+
+        return result
+    }
+
+    // MARK: - Fetch
+
     func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool = false) async throws -> PRFetchResult {
         // Return demo data if in demo mode
         if isDemoMode {
@@ -175,7 +277,6 @@ class GitHubService: ObservableObject {
     }
 
     private func fetchAuthoredPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async throws -> [PullRequest] {
-        // Fetch all open PRs authored by the current user, excluding archived repositories
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -188,93 +289,14 @@ class GitHubService: ObservableObject {
             ],
             host: host
         )
-
-        // Parse the JSON response
-        guard let jsonData = json.data(using: .utf8) else {
-            throw GitHubError.invalidResponse
-        }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .custom { decoder in
-            let container = try decoder.singleValueContainer()
-            let dateString = try container.decode(String.self)
-
-            // Try different date formats
-            let formatters: [ISO8601DateFormatter] = [
-                {
-                    let f = ISO8601DateFormatter()
-                    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                    return f
-                }(),
-                {
-                    let f = ISO8601DateFormatter()
-                    f.formatOptions = [.withInternetDateTime]
-                    return f
-                }()
-            ]
-
-            for formatter in formatters {
-                if let date = formatter.date(from: dateString) {
-                    return date
-                }
-            }
-
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Cannot decode date string \(dateString)"
-            )
-        }
-
-        let searchResults = try decoder.decode([GHPRSearchResponse].self, from: jsonData)
-
-        // Convert to PullRequest objects and fetch status for each
-        var pullRequests: [PullRequest] = []
-
-        for result in searchResults {
-            let updatedAt = try parseDate(result.updatedAt)
-
-            // Fetch detailed PR info with status
-            let statusInfo = try await fetchPRStatus(
-                owner: extractOwner(from: result.repository.nameWithOwner),
-                repo: extractRepo(from: result.repository.nameWithOwner),
-                number: result.number,
-                updatedAt: updatedAt,
-                enableInactiveDetection: enableInactiveDetection,
-                inactiveThresholdDays: inactiveThresholdDays,
-                host: host
-            )
-
-            let pr = PullRequest(
-                number: result.number,
-                title: result.title,
-                repository: PullRequest.RepositoryInfo(
-                    name: result.repository.name,
-                    nameWithOwner: result.repository.nameWithOwner
-                ),
-                url: result.url,
-                author: PullRequest.Author(login: result.author.login),
-                headRefName: statusInfo.headRefName,
-                updatedAt: updatedAt,
-                buildStatus: statusInfo.status,
-                isWatched: false,
-                labels: result.labels.map { label in
-                    PullRequest.Label(id: label.id, name: label.name, color: label.color)
-                },
-                type: .authored,
-                isDraft: result.isDraft,
-                statusChecks: statusInfo.statusChecks,
-                reviewDecision: statusInfo.reviewDecision,
-                host: host
-            )
-
-            pullRequests.append(pr)
-        }
-
-        return pullRequests
+        guard let jsonData = json.data(using: .utf8) else { throw GitHubError.invalidResponse }
+        let searchResults = try decodeSearchResults(jsonData)
+        return try await buildPRs(from: searchResults, type: .authored,
+                                  enableInactiveDetection: enableInactiveDetection,
+                                  inactiveThresholdDays: inactiveThresholdDays, host: host)
     }
 
     private func fetchReviewPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async throws -> [PullRequest] {
-        // Fetch all open PRs where the current user is a requested reviewer, excluding archived repositories
         let json = try await shellExecutor.execute(
             command: "gh",
             arguments: [
@@ -287,63 +309,58 @@ class GitHubService: ObservableObject {
             ],
             host: host
         )
+        guard let jsonData = json.data(using: .utf8) else { throw GitHubError.invalidResponse }
+        let searchResults = try decodeSearchResults(jsonData)
+        return try await buildPRs(from: searchResults, type: .reviewing,
+                                  enableInactiveDetection: enableInactiveDetection,
+                                  inactiveThresholdDays: inactiveThresholdDays, host: host)
+    }
 
-        // Parse the JSON response
-        guard let jsonData = json.data(using: .utf8) else {
-            throw GitHubError.invalidResponse
-        }
-
+    /// Decodes search results using a custom ISO-8601 date strategy.
+    private func decodeSearchResults(_ jsonData: Data) throws -> [GHPRSearchResponse] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-
-            // Try different date formats
             let formatters: [ISO8601DateFormatter] = [
-                {
-                    let f = ISO8601DateFormatter()
-                    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                    return f
-                }(),
-                {
-                    let f = ISO8601DateFormatter()
-                    f.formatOptions = [.withInternetDateTime]
-                    return f
-                }()
+                { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]; return f }(),
+                { let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime]; return f }()
             ]
-
             for formatter in formatters {
-                if let date = formatter.date(from: dateString) {
-                    return date
-                }
+                if let date = formatter.date(from: dateString) { return date }
             }
-
             throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Cannot decode date string \(dateString)"
+                in: container, debugDescription: "Cannot decode date string \(dateString)")
+        }
+        return try decoder.decode([GHPRSearchResponse].self, from: jsonData)
+    }
+
+    /// Fetches status for all PRs in one batch GraphQL call, then assembles PullRequest objects.
+    private func buildPRs(
+        from searchResults: [GHPRSearchResponse],
+        type prType: PRType,
+        enableInactiveDetection: Bool,
+        inactiveThresholdDays: Int,
+        host: String
+    ) async throws -> [PullRequest] {
+        let statusRequests = searchResults.map {
+            PRStatusRequest(
+                owner: extractOwner(from: $0.repository.nameWithOwner),
+                repo: extractRepo(from: $0.repository.nameWithOwner),
+                number: $0.number
             )
         }
+        let statusMap = try await batchFetchStatuses(for: statusRequests, host: host)
 
-        let searchResults = try decoder.decode([GHPRSearchResponse].self, from: jsonData)
-
-        // Convert to PullRequest objects and fetch status for each
-        var pullRequests: [PullRequest] = []
-
-        for result in searchResults {
+        return try searchResults.map { result in
             let updatedAt = try parseDate(result.updatedAt)
-
-            // Fetch detailed PR info with status
-            let statusInfo = try await fetchPRStatus(
+            let request = PRStatusRequest(
                 owner: extractOwner(from: result.repository.nameWithOwner),
                 repo: extractRepo(from: result.repository.nameWithOwner),
-                number: result.number,
-                updatedAt: updatedAt,
-                enableInactiveDetection: enableInactiveDetection,
-                inactiveThresholdDays: inactiveThresholdDays,
-                host: host
+                number: result.number
             )
-
-            let pr = PullRequest(
+            let detail = statusMap[request]
+            return PullRequest(
                 number: result.number,
                 title: result.title,
                 repository: PullRequest.RepositoryInfo(
@@ -352,24 +369,29 @@ class GitHubService: ObservableObject {
                 ),
                 url: result.url,
                 author: PullRequest.Author(login: result.author.login),
-                headRefName: statusInfo.headRefName,
+                headRefName: detail?.headRefName ?? "",
                 updatedAt: updatedAt,
-                buildStatus: statusInfo.status,
+                buildStatus: parseOverallStatus(
+                    from: detail?.statusCheckRollup,
+                    mergeable: detail?.mergeable,
+                    mergeStateStatus: detail?.mergeStateStatus,
+                    updatedAt: updatedAt,
+                    enableInactiveDetection: enableInactiveDetection,
+                    inactiveThresholdDays: inactiveThresholdDays
+                ),
                 isWatched: false,
-                labels: result.labels.map { label in
-                    PullRequest.Label(id: label.id, name: label.name, color: label.color)
-                },
-                type: .reviewing,
+                labels: result.labels.map { PullRequest.Label(id: $0.id, name: $0.name, color: $0.color) },
+                type: prType,
                 isDraft: result.isDraft,
-                statusChecks: statusInfo.statusChecks,
-                reviewDecision: statusInfo.reviewDecision,
+                statusChecks: parseStatusChecks(from: detail?.statusCheckRollup),
+                reviewDecision: GitHubService.resolveReviewDecision(
+                    rawValue: detail?.reviewDecision,
+                    latestReviews: detail?.latestReviews,
+                    reviewRequests: detail?.reviewRequests
+                ),
                 host: host
             )
-
-            pullRequests.append(pr)
         }
-
-        return pullRequests
     }
 
     func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String = "github.com") async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?) {

@@ -1,5 +1,15 @@
 import SwiftUI
 
+extension ReviewDecision {
+    var color: Color {
+        switch self {
+        case .approved:         return .green
+        case .changesRequested: return .red
+        case .reviewRequired:   return .secondary
+        }
+    }
+}
+
 struct PRRowView: View {
     let pr: PullRequest
     @EnvironmentObject var viewModel: PRMonitorViewModel

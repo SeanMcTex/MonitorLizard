@@ -14,6 +14,9 @@ enum Constants {
     static let minInactiveBranchThreshold = 1
     static let maxInactiveBranchThreshold = 90
 
+    // GitHub API
+    static let batchQueryChunkSize = 50
+
     // UI constants
     static let menuMaxHeightMultiplier = 0.7
     static let settingsWindowWidth = 450.0
