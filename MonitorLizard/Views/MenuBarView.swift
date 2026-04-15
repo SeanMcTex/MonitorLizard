@@ -371,7 +371,9 @@ struct WindowOcclusionObserver: NSViewRepresentable {
             forName: NSWindow.didBecomeKeyNotification,
             object: window,
             queue: .main
-        ) { [weak self] _ in self?.onChange(true) }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.onChange(true) }
+        }
 
         // Use occlusion state to detect hide: more reliable than resign-key because
         // it only fires when the window is actually ordered out, not when a picker
@@ -381,9 +383,11 @@ struct WindowOcclusionObserver: NSViewRepresentable {
             object: window,
             queue: .main
         ) { [weak window, weak self] _ in
-            guard let window, let self else { return }
-            if !window.occlusionState.contains(.visible) {
-                self.onChange(false)
+            MainActor.assumeIsolated {
+                guard let window, let self else { return }
+                if !window.occlusionState.contains(.visible) {
+                    self.onChange(false)
+                }
             }
         }
 
@@ -392,8 +396,10 @@ struct WindowOcclusionObserver: NSViewRepresentable {
         }
 
         deinit {
-            observer.map { NotificationCenter.default.removeObserver($0) }
-            occlusionObserver.map { NotificationCenter.default.removeObserver($0) }
+            MainActor.assumeIsolated {
+                observer.map { NotificationCenter.default.removeObserver($0) }
+                occlusionObserver.map { NotificationCenter.default.removeObserver($0) }
+            }
         }
     }
 }

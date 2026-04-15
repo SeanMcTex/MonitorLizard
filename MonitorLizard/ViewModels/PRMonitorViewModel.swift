@@ -97,10 +97,11 @@ class PRMonitorViewModel: ObservableObject {
     }
 
     deinit {
-        // Timer invalidation is safe to call synchronously from deinit
-        refreshTimer?.invalidate()
-        sortSettingObserver?.cancel()
-        reviewPRsSettingObserver?.cancel()
+        MainActor.assumeIsolated {
+            refreshTimer?.invalidate()
+            sortSettingObserver?.cancel()
+            reviewPRsSettingObserver?.cancel()
+        }
     }
 
     private func observeSortSetting() {

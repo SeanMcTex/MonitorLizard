@@ -148,7 +148,7 @@ class GitHubService: ObservableObject {
     /// Parses a `gh api graphql` batch response and maps the per-alias results back to
     /// the original `PRStatusRequest` values. PRs whose `pullRequest` field is null
     /// (closed, deleted, or inaccessible) are omitted from the returned dictionary.
-    nonisolated static func parseBatchResponse(
+    static func parseBatchResponse(
         _ json: String,
         requests: [PRStatusRequest]
     ) throws -> [PRStatusRequest: GHPRDetailResponse] {

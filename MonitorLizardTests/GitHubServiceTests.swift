@@ -173,6 +173,7 @@ struct GitHubServiceBatchQueryTests {
 
 // MARK: - Batch Response Parsing Tests
 
+@MainActor
 struct GitHubServiceBatchResponseParsingTests {
 
     private static func makeResponse(headRefName: String = "main", reviewDecision: String? = nil) -> String {
