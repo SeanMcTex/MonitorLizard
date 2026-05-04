@@ -50,3 +50,50 @@ When testing Sparkle update behavior:
 - The release binary from `build/release/MonitorLizard.xcarchive` was also affected (confirms it's OS state, not a build artifact)
 - `codesign -vvv` showed valid signatures on all components including Sparkle XPC services
 - Launch Services re-registration (`lsregister`) did not fix it alone — the container deletion was necessary
+
+---
+
+## App Immediately Exits — Recurrence (April 2026, session 2)
+
+### Symptom
+After the fixes above resolved the issue in session 1, the app started exiting immediately again in session 2. This time:
+- **Zero output** when running the binary directly from the terminal — not even a print from `@main`
+- Exit code 0 (clean, not a crash)
+- `open MonitorLizard.app` fails with LaunchServices error -600
+- No `FBSceneErrorDomain` or similar error in the log
+
+### Observations So Far
+- `~/Library/Containers/net.mcmains.MonitorLizard/` does **not** exist (container was previously deleted, not recreated)
+- `SULastCheckTime` is set to today's date (not 2000-01-01 — the Sparkle loop trigger is gone)
+- `SUAutomaticallyUpdate = 1` is set in UserDefaults, and `automaticallyDownloadsUpdates = true` in code — Sparkle will silently install any available update on launch
+- Sparkle cache dirs (`PersistentDownloads`, `Installation`) are empty
+- A stale MonitorLizard process (pid 50396, from the previous working session) was being held **suspended** by a stale Xcode `debugserver` process; `kill -9` had no effect until the `debugserver` was killed
+- After clearing the stale process + `killall WindowManager`, `open` still returns error -600 and the binary still exits immediately with no output
+
+### Root Cause (Resolved)
+
+The key was `"NSStatusItem VisibleCC Item-0" = 0` in `defaults read net.mcmains.MonitorLizard`. This preference is written by macOS when a status item is "removed from menu bar" (e.g. via right-click menu or state corruption). On launch, FrontBoard reads this cached value, sends a "disconnect scene" action to the `NSSceneStatusItem`, which calls `NSApplication.terminate:`. Cancelling the terminate in `applicationShouldTerminate:` keeps the process alive but the scene is already deactivated — so the icon never appears.
+
+Two stale MonitorLizard processes and a stale `debugserver` were also present, potentially blocking clean NSStatusItem registration.
+
+### Fix Applied
+
+```bash
+# 1. Kill stale processes (pids were 41617, 85994 for MonitorLizard; 41747 for debugserver)
+kill -9 <stale-pids>
+
+# 2. Delete the hidden status item preference (THE KEY FIX)
+defaults delete net.mcmains.MonitorLizard "NSStatusItem VisibleCC Item-0"
+
+# 3. Restart WindowManager to clear cached scene policy
+killall WindowManager
+```
+
+### Prevention
+
+The `NSStatusItem VisibleCC Item-0` key can be written by:
+- Right-clicking the menu bar item and choosing "Remove from Menu Bar" (if macOS surfaces that option)
+- State corruption during crash/force-kill of the app while the status item is being manipulated
+- WindowManager state getting out of sync during aggressive restart testing
+
+When diagnosing future recurrences, check `defaults read net.mcmains.MonitorLizard` for this key first.
