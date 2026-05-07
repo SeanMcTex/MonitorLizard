@@ -50,7 +50,7 @@ struct MenuBarView: View {
             // Footer
             footerView
         }
-        .frame(minWidth: 400, maxWidth: 500)
+        .frame(minWidth: 400, maxWidth: .infinity)
     }
 
     private var headerView: some View {
@@ -180,17 +180,7 @@ struct MenuBarView: View {
     }
 
     private var prListView: some View {
-        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.filteredOtherPRs.count
-        let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
-        let sectionHeaderHeight: CGFloat = 40
-        let numSections = (viewModel.reviewPRs.isEmpty ? 0 : 1)
-            + (viewModel.authoredPRs.isEmpty ? 0 : 1)
-            + (viewModel.filteredOtherPRs.isEmpty ? 0 : 1)
-        let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
-        let maxHeight = calculateMaxHeight()
-        let targetHeight = min(estimatedContentHeight, maxHeight)
-
-        return ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
                     // Dedicated scroll anchor — stable ID never moves between views
@@ -236,7 +226,7 @@ struct MenuBarView: View {
                     }
                 }
             }
-            .frame(height: targetHeight)
+            .frame(maxHeight: .infinity)
             .id(viewModel.selectedRepository)
             .onAppear {
                 proxy.scrollTo("top", anchor: .top)
@@ -259,15 +249,6 @@ struct MenuBarView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.gray.opacity(0.05))
-    }
-
-    private func calculateMaxHeight() -> CGFloat {
-        // Get screen height and use 70% of it, max 700px
-        if let screen = NSScreen.main {
-            let maxHeight = screen.visibleFrame.height * Constants.menuMaxHeightMultiplier
-            return min(maxHeight, 700)
-        }
-        return 600 // Fallback
     }
 
     private var footerView: some View {
