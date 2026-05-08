@@ -10,6 +10,19 @@ extension ReviewDecision {
     }
 }
 
+extension NonBlockingCheckState {
+    var color: Color {
+        switch self {
+        case .failed, .waitingForApproval:
+            return .orange.opacity(0.85)
+        case .running, .queued, .pending:
+            return .blue.opacity(0.85)
+        case .passed:
+            return .green.opacity(0.85)
+        }
+    }
+}
+
 struct PRRowView: View {
     let pr: PullRequest
     @EnvironmentObject var viewModel: PRMonitorViewModel
@@ -47,7 +60,7 @@ struct PRRowView: View {
 
     private var failingChecks: [StatusCheck] {
         pr.statusChecks.filter { check in
-            check.status == .failure || check.status == .error
+            !check.isNonBlocking && (check.status == .failure || check.status == .error)
         }
     }
 
@@ -218,6 +231,22 @@ struct PRRowView: View {
                     Text("(\(daysSinceUpdateText))")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                }
+
+                if let summary = pr.nonBlockingCheckSummary {
+                    HStack(spacing: 4) {
+                        Text("Non-blocking:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(Array(summary.segments.enumerated()), id: \.element.id) { index, segment in
+                            Text(segment.text + (index == summary.segments.count - 1 ? "" : ","))
+                                .font(.caption2)
+                                .foregroundStyle(segment.state.color)
+                        }
+                    }
+                    .lineLimit(1)
+                    .help("These checks do not block merging.")
                 }
 
                 // Labels

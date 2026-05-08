@@ -91,6 +91,94 @@ struct PullRequest: Identifiable, Hashable {
     }
 }
 
+enum NonBlockingCheckState: Hashable {
+    case failed
+    case waitingForApproval
+    case running
+    case queued
+    case pending
+    case passed
+}
+
+struct NonBlockingCheckSummary: Hashable {
+    struct Segment: Identifiable, Hashable {
+        let state: NonBlockingCheckState
+        let count: Int
+
+        var id: NonBlockingCheckState { state }
+
+        var text: String {
+            switch state {
+            case .failed:
+                return count == 1 ? "1 failed" : "\(count) failed"
+            case .waitingForApproval:
+                return count == 1 ? "1 waiting for approval" : "\(count) waiting for approval"
+            case .running:
+                return count == 1 ? "1 running" : "\(count) running"
+            case .queued:
+                return count == 1 ? "1 queued" : "\(count) queued"
+            case .pending:
+                return count == 1 ? "1 pending" : "\(count) pending"
+            case .passed:
+                return count == 1 ? "1 passed" : "\(count) passed"
+            }
+        }
+    }
+
+    let segments: [Segment]
+}
+
+extension PullRequest {
+    var nonBlockingCheckSummary: NonBlockingCheckSummary? {
+        let nonBlockingChecks = statusChecks.filter(\.isNonBlocking)
+        guard !nonBlockingChecks.isEmpty else { return nil }
+
+        let counts = Dictionary(grouping: nonBlockingChecks, by: nonBlockingCheckState(for:))
+            .mapValues(\.count)
+        let needsAttention = [
+            NonBlockingCheckState.failed,
+            .waitingForApproval,
+            .running,
+            .queued,
+            .pending,
+        ].contains { (counts[$0] ?? 0) > 0 }
+        guard needsAttention else { return nil }
+
+        let segments = [
+            NonBlockingCheckState.failed,
+            .waitingForApproval,
+            .running,
+            .queued,
+            .pending,
+            .passed,
+        ].compactMap { state -> NonBlockingCheckSummary.Segment? in
+            guard let count = counts[state], count > 0 else { return nil }
+            return NonBlockingCheckSummary.Segment(state: state, count: count)
+        }
+
+        return NonBlockingCheckSummary(segments: segments)
+    }
+
+    private func nonBlockingCheckState(for check: StatusCheck) -> NonBlockingCheckState {
+        switch check.status {
+        case .failure, .error:
+            return .failed
+        case .waiting:
+            return .waitingForApproval
+        case .running:
+            return .running
+        case .queued:
+            return .queued
+        case .pending:
+            return .pending
+        case .success:
+            return .passed
+        case .skipped:
+            return .passed
+        }
+    }
+}
+
 /// Identifies a specific PR for use in batch status requests.
 struct PRStatusRequest: Hashable {
     let owner: String
@@ -165,6 +253,7 @@ struct BatchPRStatusResponse: Codable {
     let reviewDecision: String?
     let latestReviews: ReviewConnection?
     let reviewRequests: ReviewRequestConnection?
+    let baseRef: BaseRef?
 
     /// Wraps the raw GraphQL `statusCheckRollup { contexts { nodes [...] } }` shape.
     struct StatusCheckRollupWrapper: Codable {
@@ -191,6 +280,26 @@ struct BatchPRStatusResponse: Codable {
         }
     }
 
+    struct BaseRef: Codable {
+        let branchProtectionRule: BranchProtectionRule?
+    }
+
+    struct BranchProtectionRule: Codable {
+        let requiredStatusCheckContexts: [String]?
+        let requiredStatusChecks: [RequiredStatusCheck]?
+
+        struct RequiredStatusCheck: Codable {
+            let context: String
+        }
+    }
+
+    var requiredStatusCheckContexts: [String]? {
+        guard let rule = baseRef?.branchProtectionRule else { return nil }
+        let contexts = rule.requiredStatusCheckContexts ?? []
+        let checkContexts = rule.requiredStatusChecks?.map(\.context) ?? []
+        return Array(Set(contexts + checkContexts))
+    }
+
     /// Converts to GHPRDetailResponse so existing status-parsing logic can be reused.
     func toDetailResponse() -> GHPRDetailResponse {
         let flatRequests = reviewRequests?.nodes?.map {
@@ -203,7 +312,8 @@ struct BatchPRStatusResponse: Codable {
             mergeStateStatus: mergeStateStatus,
             reviewDecision: reviewDecision,
             latestReviews: latestReviews?.nodes,
-            reviewRequests: flatRequests
+            reviewRequests: flatRequests,
+            requiredStatusCheckContexts: requiredStatusCheckContexts
         )
     }
 }
@@ -226,6 +336,27 @@ struct GHPRDetailResponse: Codable {
     let reviewDecision: String?
     let latestReviews: [Review]?
     let reviewRequests: [ReviewRequest]?
+    let requiredStatusCheckContexts: [String]?
+
+    init(
+        headRefName: String,
+        statusCheckRollup: [StatusCheck]?,
+        mergeable: String?,
+        mergeStateStatus: String?,
+        reviewDecision: String?,
+        latestReviews: [Review]?,
+        reviewRequests: [ReviewRequest]?,
+        requiredStatusCheckContexts: [String]? = nil
+    ) {
+        self.headRefName = headRefName
+        self.statusCheckRollup = statusCheckRollup
+        self.mergeable = mergeable
+        self.mergeStateStatus = mergeStateStatus
+        self.reviewDecision = reviewDecision
+        self.latestReviews = latestReviews
+        self.reviewRequests = reviewRequests
+        self.requiredStatusCheckContexts = requiredStatusCheckContexts
+    }
 
     struct Review: Codable {
         let author: ReviewAuthor?
@@ -249,9 +380,10 @@ struct GHPRDetailResponse: Codable {
         let __typename: String
         let detailsUrl: String?
         let targetUrl: String?
+        let isRequired: Bool?
 
         private enum CodingKeys: String, CodingKey {
-            case name, context, status, state, conclusion, __typename, detailsUrl, targetUrl
+            case name, context, status, state, conclusion, __typename, detailsUrl, targetUrl, isRequired
         }
     }
 }
