@@ -2,6 +2,86 @@ import Testing
 import Foundation
 @testable import MonitorLizard
 
+// MARK: - Non-blocking Check Summary Tests
+
+@MainActor
+struct NonBlockingCheckSummaryTests {
+
+    private func makePR(statusChecks: [StatusCheck]) -> PullRequest {
+        PullRequest(
+            number: 1,
+            title: "Test PR",
+            repository: PullRequest.RepositoryInfo(name: "repo", nameWithOwner: "owner/repo"),
+            url: "https://github.com/owner/repo/pull/1",
+            author: PullRequest.Author(login: "author"),
+            headRefName: "feature/test",
+            updatedAt: Date(),
+            buildStatus: .success,
+            isWatched: false,
+            labels: [],
+            type: .authored,
+            isDraft: false,
+            statusChecks: statusChecks,
+            reviewDecision: nil,
+            host: "github.com"
+        )
+    }
+
+    @Test func summaryIsNilWhenOnlyRequiredChecksExist() {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "required", name: "required", status: .success, detailsUrl: nil, isRequired: true)
+        ])
+
+        #expect(pr.nonBlockingCheckSummary == nil)
+    }
+
+    @Test func summaryIsNilWhenRequirednessIsUnknown() {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "unknown", name: "unknown", status: .pending, detailsUrl: nil, isRequired: nil)
+        ])
+
+        #expect(pr.nonBlockingCheckSummary == nil)
+    }
+
+    @Test func summaryIsNilWhenAllNonBlockingChecksPassed() {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "optional", name: "optional", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true)
+        ])
+
+        #expect(pr.nonBlockingCheckSummary == nil)
+    }
+
+    @Test func summaryDescribesWaitingAndRunningNonBlockingChecks() throws {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "approval", name: "approval", status: .waiting, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "analysis", name: "analysis", status: .running, detailsUrl: nil, isRequired: false, isNonBlocking: true)
+        ])
+
+        let summary = try #require(pr.nonBlockingCheckSummary)
+
+        #expect(summary.segments.map(\.text) == ["1 waiting for approval", "1 running"])
+    }
+
+    @Test func summaryDescribesFailedAndPassedNonBlockingChecksWhenAttentionIsNeeded() throws {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "optional-failed", name: "optional-failed", status: .failure, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-passed", name: "optional-passed", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true)
+        ])
+
+        let summary = try #require(pr.nonBlockingCheckSummary)
+
+        #expect(summary.segments.map(\.text) == ["1 failed", "1 passed"])
+    }
+
+    @Test func summaryIgnoresNonRequiredChecksThatAreNotNonBlocking() {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "required-workflow-job", name: "required-workflow-job", status: .running, detailsUrl: nil, isRequired: false)
+        ])
+
+        #expect(pr.nonBlockingCheckSummary == nil)
+    }
+}
+
 // MARK: - Mock
 
 private actor MockShellExecutor: ShellExecuting {
@@ -155,6 +235,18 @@ struct GitHubServiceBatchQueryTests {
         #expect(query.contains("reviewDecision"))
         #expect(query.contains("latestReviews"))
         #expect(query.contains("reviewRequests"))
+    }
+
+    @Test func buildBatchQueryIncludesRequiredCheckMetadata() {
+        let query = GitHubService.buildBatchQuery(for: [
+            PRStatusRequest(owner: "alice", repo: "repo", number: 42)
+        ])
+
+        #expect(query.contains("isRequired(pullRequestNumber: 42)"))
+        #expect(query.contains("baseRef"))
+        #expect(query.contains("branchProtectionRule"))
+        #expect(query.contains("requiredStatusCheckContexts"))
+        #expect(query.contains("requiredStatusChecks"))
     }
 
     @Test func buildBatchQueryForEmptyListProducesValidQuery() {
@@ -363,6 +455,154 @@ struct GitHubServiceBatchIntegrationTests {
     }
     """
 
+    private static let requiredSuccessOptionalPendingResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "manual_approval", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/manual", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let requiredSuccessOptionalFailureResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "manual_approval", "status": "COMPLETED", "conclusion": "FAILURE", "isRequired": false, "detailsUrl": "https://ci.example.com/manual", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let missingRequiredMetadataPendingResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "unknown_ci", "status": "WAITING", "conclusion": null, "detailsUrl": "https://ci.example.com/unknown", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": { "branchProtectionRule": null }
+          }
+        }
+      }
+    }
+    """
+
+    private static let requiredContextMissingApprovalWaitingResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "dead_code_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/optional", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "pull_requests", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: dead_code_cleanup/approve_dead_code_cleanup", "state": "PENDING", "targetUrl": "https://circleci.com/workflow-run/optional", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: run_unit_tests", "state": "PENDING", "targetUrl": "https://circleci.com/gh/owner/repo/100", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: check_circleci_config_lint", "state": "SUCCESS", "targetUrl": "https://circleci.com/gh/owner/repo/101", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/circleci: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/circleci: required_jobs_met" }, { "context": "version_health / assessment" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let emptyRollupRequiredContextResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": { "nodes": [] }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/circleci: required_jobs_met"],
+                "requiredStatusChecks": [{ "context": "ci/circleci: required_jobs_met" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
     @Test func fetchAllOpenPRsUsesBatchGraphQLInsteadOfPerPRView() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
@@ -396,5 +636,77 @@ struct GitHubServiceBatchIntegrationTests {
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
         #expect(result.pullRequests.first?.headRefName == "feature/test")
+    }
+
+    @Test func fetchAllOpenPRsTreatsOptionalPendingChecksAsSuccessWhenRequiredChecksPass() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredSuccessOptionalPendingResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+
+        #expect(result.pullRequests.first?.buildStatus == .success)
+    }
+
+    @Test func fetchAllOpenPRsTreatsOptionalFailingChecksAsSuccessWhenRequiredChecksPass() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredSuccessOptionalFailureResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+
+        #expect(result.pullRequests.first?.buildStatus == .success)
+    }
+
+    @Test func fetchAllOpenPRsKeepsPendingStatusWhenRequiredMetadataIsUnknown() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.missingRequiredMetadataPendingResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+
+        #expect(result.pullRequests.first?.buildStatus == .pending)
+    }
+
+    @Test func fetchAllOpenPRsTreatsMissingRequiredContextAsPendingAndSummarizesApprovalGate() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredContextMissingApprovalWaitingResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .pending)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
+    }
+
+    @Test func fetchAllOpenPRsTreatsEmptyRollupWithRequiredContextAsPending() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.emptyRollupRequiredContextResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+
+        #expect(result.pullRequests.first?.buildStatus == .pending)
     }
 }
