@@ -40,6 +40,19 @@ enum ShellError: Error {
 /// `Process`, so concurrent calls are safe. Marked as `final class`
 /// (not `actor`) to allow true parallelism in task groups.
 final class ShellExecutor: ShellExecuting {
+    nonisolated(unsafe) static let networkErrorPatterns = [
+        "error connecting",
+        "check your internet connection",
+        "could not resolve host",
+        "network is unreachable",
+        "dial tcp",
+        "no such host",
+        "connection refused",
+        "i/o timeout",
+        "unable to connect",
+        "failed to connect"
+    ]
+
     nonisolated func execute(command: String, arguments: [String] = [], timeout: TimeInterval = 30, host: String? = nil) async throws -> String {
         let process = Process()
 
@@ -90,10 +103,14 @@ final class ShellExecutor: ShellExecuting {
         //
         // resumedLock holds "already resumed" state. Both the terminationHandler
         // and the timeout Task race to flip it; only the first caller wins.
+        // timeoutTaskBox lets terminationHandler cancel the timeout Task so it
+        // doesn't linger for the full timeout duration after normal completion.
         let timedOut = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
             let resumedLock = OSAllocatedUnfairLock(initialState: false)
+            let timeoutTaskBox = OSAllocatedUnfairLock<Task<Void, Never>?>(initialState: nil)
 
             process.terminationHandler = { _ in
+                timeoutTaskBox.withLock { $0 }?.cancel()
                 let alreadyResumed = resumedLock.withLock { state -> Bool in
                     defer { state = true }
                     return state
@@ -114,15 +131,18 @@ final class ShellExecutor: ShellExecuting {
             }
 
             // Timeout: terminate the process if it hasn't finished in time.
-            Task {
-                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                let alreadyResumed = resumedLock.withLock { state -> Bool in
-                    defer { state = true }
-                    return state
-                }
-                if !alreadyResumed {
-                    process.terminate()
-                    continuation.resume(returning: true)
+            timeoutTaskBox.withLock {
+                $0 = Task {
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    guard !Task.isCancelled else { return }
+                    let alreadyResumed = resumedLock.withLock { state -> Bool in
+                        defer { state = true }
+                        return state
+                    }
+                    if !alreadyResumed {
+                        process.terminate()
+                        continuation.resume(returning: true)
+                    }
                 }
             }
         }
@@ -143,21 +163,8 @@ final class ShellExecutor: ShellExecuting {
         guard process.terminationStatus == 0 else {
             let errorMessage = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Unknown error"
 
-            let networkErrorPatterns = [
-                "error connecting",
-                "check your internet connection",
-                "could not resolve host",
-                "network is unreachable",
-                "dial tcp",
-                "no such host",
-                "connection refused",
-                "i/o timeout",
-                "unable to connect",
-                "failed to connect"
-            ]
-
             let lowercaseMessage = errorMessage.lowercased()
-            for pattern in networkErrorPatterns {
+            for pattern in Self.networkErrorPatterns {
                 if lowercaseMessage.contains(pattern) {
                     throw ShellError.networkError(errorMessage)
                 }
@@ -187,7 +194,7 @@ final class ShellExecutor: ShellExecuting {
         }
     }
 
-    nonisolated private static func parseHosts(from output: String) -> [String] {
+    nonisolated static func parseHosts(from output: String) -> [String] {
         var hosts: [String] = []
         for line in output.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -214,20 +221,8 @@ final class ShellExecutor: ShellExecuting {
         } catch let ShellError.networkError(message) {
             throw ShellError.networkError(message)
         } catch let ShellError.executionFailed(message) {
-            let networkErrorPatterns = [
-                "error connecting",
-                "check your internet connection",
-                "could not resolve host",
-                "network is unreachable",
-                "dial tcp",
-                "no such host",
-                "connection refused",
-                "i/o timeout",
-                "unable to connect"
-            ]
-
             let lowercaseMessage = message.lowercased()
-            for pattern in networkErrorPatterns {
+            for pattern in Self.networkErrorPatterns {
                 if lowercaseMessage.contains(pattern) {
                     throw ShellError.networkError(message)
                 }
