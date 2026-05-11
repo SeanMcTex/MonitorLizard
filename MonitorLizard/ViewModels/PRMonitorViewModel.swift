@@ -111,10 +111,14 @@ class PRMonitorViewModel: ObservableObject {
     private func restoreFromCache() {
         let cached = cacheService.loadMainPRs()
         if !cached.isEmpty {
-            unsortedPullRequests = cached
+            unsortedPullRequests = cached.map {
+                var pr = $0; pr.isWatched = watchlistService.isWatched(pr); return pr
+            }
             applySorting()
         }
-        otherPullRequests = cacheService.loadOtherPRs()
+        otherPullRequests = cacheService.loadOtherPRs().map {
+            var pr = $0; pr.isWatched = watchlistService.isWatched(pr); return pr
+        }
     }
 
     private func observeSortSetting() {

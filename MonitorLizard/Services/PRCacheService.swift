@@ -30,15 +30,12 @@ final class PRCacheService {
         }
     }
 
-    func loadMainPRs() -> [PullRequest] {
-        guard let data = defaults.data(forKey: Key.mainPRs),
-              let prs = try? decoder.decode([PullRequest].self, from: data) else { return [] }
-        return prs
-    }
+    func loadMainPRs() -> [PullRequest] { load(forKey: Key.mainPRs) }
+    func loadOtherPRs() -> [PullRequest] { load(forKey: Key.otherPRs) }
 
-    func loadOtherPRs() -> [PullRequest] {
-        guard let data = defaults.data(forKey: Key.otherPRs),
-              let prs = try? decoder.decode([PullRequest].self, from: data) else { return [] }
-        return prs
+    private func load<T: Decodable>(forKey key: String) -> [T] {
+        guard let data = defaults.data(forKey: key),
+              let values = try? decoder.decode([T].self, from: data) else { return [] }
+        return values
     }
 }
