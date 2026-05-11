@@ -35,6 +35,7 @@ class PRMonitorViewModel: ObservableObject {
     private let notificationService = NotificationService.shared
     private let otherPRsService: OtherPRsService
     private let customNamesService: CustomNamesService
+    private let cacheService: PRCacheService
 
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
@@ -84,12 +85,15 @@ class PRMonitorViewModel: ObservableObject {
     init(isDemoMode: Bool = false,
          watchlistService: WatchlistService? = nil,
          otherPRsService: OtherPRsService? = nil,
-         customNamesService: CustomNamesService? = nil) {
+         customNamesService: CustomNamesService? = nil,
+         cacheService: PRCacheService? = nil) {
         self.isDemoMode = isDemoMode
         self.githubService = GitHubService(isDemoMode: isDemoMode)
         self.watchlistService = watchlistService ?? .shared
         self.otherPRsService = otherPRsService ?? OtherPRsService()
         self.customNamesService = customNamesService ?? CustomNamesService()
+        self.cacheService = cacheService ?? PRCacheService()
+        restoreFromCache()
         setupNotifications()
         startPolling()
         observeSortSetting()
@@ -101,6 +105,19 @@ class PRMonitorViewModel: ObservableObject {
             refreshTimer?.invalidate()
             sortSettingObserver?.cancel()
             reviewPRsSettingObserver?.cancel()
+        }
+    }
+
+    private func restoreFromCache() {
+        let cached = cacheService.loadMainPRs()
+        if !cached.isEmpty {
+            unsortedPullRequests = cached.map {
+                var pr = $0; pr.isWatched = watchlistService.isWatched(pr); return pr
+            }
+            applySorting()
+        }
+        otherPullRequests = cacheService.loadOtherPRs().map {
+            var pr = $0; pr.isWatched = watchlistService.isWatched(pr); return pr
         }
     }
 
@@ -215,6 +232,8 @@ class PRMonitorViewModel: ObservableObject {
                 !otherPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) {
                 selectedRepository = "All Repositories"
             }
+
+            cacheService.save(mainPRs: unsortedPullRequests, otherPRs: otherPullRequests)
 
             lastRefreshTime = Date()
             isGHAvailable = true

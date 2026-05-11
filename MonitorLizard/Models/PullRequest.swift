@@ -47,7 +47,7 @@ enum PRType: String, Codable, Hashable {
     }
 }
 
-struct PullRequest: Identifiable, Hashable {
+struct PullRequest: Identifiable, Hashable, Codable {
     let number: Int
     let title: String
     let repository: RepositoryInfo
@@ -75,16 +75,16 @@ struct PullRequest: Identifiable, Hashable {
         !statusChecks.isEmpty
     }
 
-    struct RepositoryInfo: Hashable {
+    struct RepositoryInfo: Hashable, Codable {
         let name: String
         let nameWithOwner: String
     }
 
-    struct Author: Hashable {
+    struct Author: Hashable, Codable {
         let login: String
     }
 
-    struct Label: Hashable, Identifiable {
+    struct Label: Hashable, Identifiable, Codable {
         let id: String
         let name: String
         let color: String

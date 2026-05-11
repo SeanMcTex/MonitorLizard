@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3235E3782FB25D2B00A8B4D4 /* PRCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3235E3772FB25D2A00A8B4D4 /* PRCacheService.swift */; };
 		32364F9E2F1143E100493ED7 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32364F9D2F1143E100493ED7 /* Constants.swift */; };
 		324376112F5DB275009B7E2D /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 324376102F5DB275009B7E2D /* UpdateService.swift */; };
 		3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 324376122F5DB2A0009B7E2D /* Sparkle */; };
@@ -29,6 +30,7 @@
 		32TESTS032F4A000000000001 /* WindowOcclusionObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */; };
 		32TESTS042F4A000000000001 /* GitHubServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS042F4A000000000000 /* GitHubServiceTests.swift */; };
 		32TESTS052F4A000000000001 /* ShellExecutorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS052F4A000000000000 /* ShellExecutorTests.swift */; };
+		32TESTS062F4A000000000001 /* PRCacheServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32TESTS062F4A000000000000 /* PRCacheServiceTests.swift */; };
 		A8C2D4E19F7B4A2D9E3B7C41 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7BF1FEEFD8924EFA85A1FE55 /* Assets.xcassets */; };
 		AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002222F103E3200F0ABCD /* OtherPRsService.swift */; };
 		AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004442F103E3200F0ABCD /* AddPRView.swift */; };
@@ -46,6 +48,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3235E3772FB25D2A00A8B4D4 /* PRCacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRCacheService.swift; sourceTree = "<group>"; };
 		32364F9D2F1143E100493ED7 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		324376102F5DB275009B7E2D /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		329D9EB32F103DF700F0E6EA /* MonitorLizard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MonitorLizard.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -70,6 +73,7 @@
 		32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowOcclusionObserverTests.swift; sourceTree = "<group>"; };
 		32TESTS042F4A000000000000 /* GitHubServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceTests.swift; sourceTree = "<group>"; };
 		32TESTS052F4A000000000000 /* ShellExecutorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellExecutorTests.swift; sourceTree = "<group>"; };
+		32TESTS062F4A000000000000 /* PRCacheServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRCacheServiceTests.swift; sourceTree = "<group>"; };
 		7BF1FEEFD8924EFA85A1FE55 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0002222F103E3200F0ABCD /* OtherPRsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherPRsService.swift; sourceTree = "<group>"; };
 		AA0004442F103E3200F0ABCD /* AddPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPRView.swift; sourceTree = "<group>"; };
@@ -152,6 +156,7 @@
 				324376102F5DB275009B7E2D /* UpdateService.swift */,
 				AA0002222F103E3200F0ABCD /* OtherPRsService.swift */,
 				BB0002222F103E3200F0ABCD /* CustomNamesService.swift */,
+				3235E3772FB25D2A00A8B4D4 /* PRCacheService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -183,6 +188,7 @@
 				32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */,
 				32TESTS042F4A000000000000 /* GitHubServiceTests.swift */,
 				32TESTS052F4A000000000000 /* ShellExecutorTests.swift */,
+				32TESTS062F4A000000000000 /* PRCacheServiceTests.swift */,
 			);
 			name = MonitorLizardTests;
 			path = ../MonitorLizardTests;
@@ -302,6 +308,7 @@
 				32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */,
 				329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */,
 				329D9EF12F103E3200F0E6EA /* GitHubService.swift in Sources */,
+				3235E3782FB25D2B00A8B4D4 /* PRCacheService.swift in Sources */,
 				329D9EF22F103E3200F0E6EA /* NotificationService.swift in Sources */,
 				329D9EF32F103E3200F0E6EA /* ShellExecutor.swift in Sources */,
 				329D9EF42F103E3200F0E6EA /* WatchlistService.swift in Sources */,
@@ -327,6 +334,7 @@
 				32TESTS032F4A000000000001 /* WindowOcclusionObserverTests.swift in Sources */,
 				32TESTS042F4A000000000001 /* GitHubServiceTests.swift in Sources */,
 				32TESTS052F4A000000000001 /* ShellExecutorTests.swift in Sources */,
+				32TESTS062F4A000000000001 /* PRCacheServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
