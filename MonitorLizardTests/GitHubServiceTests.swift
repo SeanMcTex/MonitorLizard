@@ -2,6 +2,32 @@ import Testing
 import Foundation
 @testable import MonitorLizard
 
+// MARK: - Build Status Presentation Tests
+
+@MainActor
+struct BuildStatusPresentationTests {
+
+    @Test func buildStatusPresentationCoversEveryState() {
+        let presentations: [(status: BuildStatus, displayName: String, icon: String, systemImageName: String?)] = [
+            (.conflict, "Merge Conflict", "❗", nil),
+            (.notStarted, "Not started", "🛑", "play.slash"),
+            (.pending, "Pending", "🔄", "gear"),
+            (.success, "Success", "✅", "gear.badge.checkmark"),
+            (.failure, "Failed", "❌", "gear.badge.xmark"),
+            (.error, "Error", "⚠️", "gear.badge.xmark"),
+            (.unknown, "Unknown", "❓", nil),
+            (.inactive, "Inactive", "⏳", nil),
+        ]
+
+        #expect(presentations.map(\.status) == BuildStatus.allCases)
+        for presentation in presentations {
+            #expect(presentation.status.displayName == presentation.displayName)
+            #expect(presentation.status.icon == presentation.icon)
+            #expect(presentation.status.systemImageName == presentation.systemImageName)
+        }
+    }
+}
+
 // MARK: - Non-blocking Check Summary Tests
 
 @MainActor
@@ -62,7 +88,24 @@ struct NonBlockingCheckSummaryTests {
         #expect(summary.segments.map(\.text) == ["1 waiting for approval", "1 running"])
     }
 
-    @Test func summaryDescribesFailedAndPassedNonBlockingChecksWhenAttentionIsNeeded() throws {
+    @Test func summaryOrdersAllActionableStatesAndOmitsPassedStates() throws {
+        let pr = makePR(statusChecks: [
+            StatusCheck(id: "optional-failed", name: "optional-failed", status: .failure, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-error", name: "optional-error", status: .error, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-waiting", name: "optional-waiting", status: .waiting, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-running", name: "optional-running", status: .running, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-queued", name: "optional-queued", status: .queued, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-pending", name: "optional-pending", status: .pending, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-success", name: "optional-success", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+            StatusCheck(id: "optional-skipped", name: "optional-skipped", status: .skipped, detailsUrl: nil, isRequired: false, isNonBlocking: true),
+        ])
+
+        let summary = try #require(pr.nonBlockingCheckSummary)
+
+        #expect(summary.segments.map(\.text) == ["2 failed", "1 waiting for approval", "1 running", "1 queued", "1 pending"])
+    }
+
+    @Test func summaryOmitsPassedNonBlockingChecksWhenAttentionIsNeeded() throws {
         let pr = makePR(statusChecks: [
             StatusCheck(id: "optional-failed", name: "optional-failed", status: .failure, detailsUrl: nil, isRequired: false, isNonBlocking: true),
             StatusCheck(id: "optional-passed", name: "optional-passed", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true)
@@ -70,7 +113,7 @@ struct NonBlockingCheckSummaryTests {
 
         let summary = try #require(pr.nonBlockingCheckSummary)
 
-        #expect(summary.segments.map(\.text) == ["1 failed", "1 passed"])
+        #expect(summary.segments.map(\.text) == ["1 failed"])
     }
 
     @Test func summaryIgnoresNonRequiredChecksThatAreNotNonBlocking() {
@@ -230,6 +273,7 @@ struct GitHubServiceBatchQueryTests {
         ])
         #expect(query.contains("headRefName"))
         #expect(query.contains("statusCheckRollup"))
+        #expect(query.range(of: #"statusCheckRollup\s*\{\s*state"#, options: .regularExpression) != nil)
         #expect(query.contains("mergeable"))
         #expect(query.contains("mergeStateStatus"))
         #expect(query.contains("reviewDecision"))
@@ -243,10 +287,24 @@ struct GitHubServiceBatchQueryTests {
         ])
 
         #expect(query.contains("isRequired(pullRequestNumber: 42)"))
+        #expect(query.components(separatedBy: "isRequired(pullRequestNumber: 42)").count - 1 == 2)
         #expect(query.contains("baseRef"))
         #expect(query.contains("branchProtectionRule"))
         #expect(query.contains("requiredStatusCheckContexts"))
         #expect(query.contains("requiredStatusChecks"))
+        #expect(query.range(of: #"statusCheckRollup\s*\{\s*state"#, options: .regularExpression) != nil)
+    }
+
+    @Test func buildPRDetailQueryIncludesRequiredCheckMetadata() {
+        let query = GitHubService.buildPRDetailQuery(for: PRStatusRequest(owner: "alice", repo: "repo", number: 42))
+
+        #expect(query.contains("isRequired(pullRequestNumber: 42)"))
+        #expect(query.components(separatedBy: "isRequired(pullRequestNumber: 42)").count - 1 == 2)
+        #expect(query.contains("baseRef"))
+        #expect(query.contains("branchProtectionRule"))
+        #expect(query.contains("requiredStatusCheckContexts"))
+        #expect(query.contains("requiredStatusChecks"))
+        #expect(query.range(of: #"statusCheckRollup\s*\{\s*state"#, options: .regularExpression) != nil)
     }
 
     @Test func buildBatchQueryForEmptyListProducesValidQuery() {
@@ -517,6 +575,69 @@ struct GitHubServiceBatchIntegrationTests {
     }
     """
 
+    private static let optionalApprovalNamedStatusContextResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: approval_tests", "state": "PENDING", "targetUrl": "https://ci.example.com/approval-tests", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let requiredApprovalGateDoesNotSuppressOptionalParentResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "deploy", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": true, "context": "ci/example: deploy/approve_deploy", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/approve", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci", "ci/example: deploy/approve_deploy"],
+                "requiredStatusChecks": [{ "context": "required_ci" }, { "context": "ci/example: deploy/approve_deploy" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
     private static let missingRequiredMetadataPendingResult = """
     {
       "data": {
@@ -549,13 +670,15 @@ struct GitHubServiceBatchIntegrationTests {
           "pullRequest": {
             "headRefName": "feature/test",
             "statusCheckRollup": {
+              "state": "FAILURE",
               "contexts": {
                 "nodes": [
                   { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/circleci: preflight_check", "state": "FAILURE", "targetUrl": "https://circleci.com/gh/owner/repo/105140", "detailsUrl": null },
+                  { "__typename": "CheckRun", "name": "pull_requests", "status": "COMPLETED", "conclusion": "FAILURE", "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/required", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "CheckRun", "name": "dead_code_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/optional", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "CheckRun", "name": "pull_requests", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/required", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: dead_code_cleanup/approve_dead_code_cleanup", "state": "PENDING", "targetUrl": "https://circleci.com/workflow-run/optional", "detailsUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: run_unit_tests", "state": "PENDING", "targetUrl": "https://circleci.com/gh/owner/repo/100", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: check_mobsfscan", "state": "SUCCESS", "targetUrl": "https://circleci.com/gh/owner/repo/101", "detailsUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: check_circleci_config_lint", "state": "SUCCESS", "targetUrl": "https://circleci.com/gh/owner/repo/101", "detailsUrl": null }
                 ]
               }
@@ -569,6 +692,77 @@ struct GitHubServiceBatchIntegrationTests {
               "branchProtectionRule": {
                 "requiredStatusCheckContexts": ["ci/circleci: required_jobs_met", "version_health / assessment"],
                 "requiredStatusChecks": [{ "context": "ci/circleci: required_jobs_met" }, { "context": "version_health / assessment" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let missingRequiredContextNotStartedResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "SUCCESS",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/example: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/example: required_jobs_met" }, { "context": "version_health / assessment" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let missingRequiredContextWithRequiredWorkflowProgressResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "PENDING",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "dead_code_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/workflows/optional", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "pull_requests", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/workflows/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: dead_code_cleanup/approve_dead_code_cleanup", "state": "PENDING", "targetUrl": "https://ci.example.com/workflows/optional/approve", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: generate_beta_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/generate_beta_build", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: generate_release_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/generate_release_build", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: generate_simulator_debug_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/generate_simulator_debug_build", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: run_unit_tests", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/run_unit_tests", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: validate_release_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/validate_release_build", "detailsUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: preflight_check", "state": "SUCCESS", "targetUrl": "https://ci.example.com/jobs/preflight_check", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/example: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/example: required_jobs_met" }, { "context": "version_health / assessment" }]
               }
             }
           }
@@ -595,6 +789,88 @@ struct GitHubServiceBatchIntegrationTests {
               "branchProtectionRule": {
                 "requiredStatusCheckContexts": ["ci/circleci: required_jobs_met"],
                 "requiredStatusChecks": [{ "context": "ci/circleci: required_jobs_met" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let otherPRGraphQLResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "number": 42,
+            "title": "Track required checks",
+            "url": "https://github.com/alice/repo/pull/42",
+            "author": { "login": "alice" },
+            "updatedAt": "2024-01-01T00:00:00Z",
+            "labels": {
+              "nodes": [{ "id": "label-1", "name": "ci", "color": "0e8a16" }]
+            },
+            "isDraft": false,
+            "state": "OPEN",
+            "headRefName": "feature/required-checks",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": "APPROVED",
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let otherPRFailedRollupMissingRequiredContextResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "number": 42,
+            "title": "Track required checks",
+            "url": "https://github.com/alice/repo/pull/42",
+            "author": { "login": "alice" },
+            "updatedAt": "2024-01-01T00:00:00Z",
+            "labels": { "nodes": [] },
+            "isDraft": false,
+            "state": "OPEN",
+            "headRefName": "feature/required-checks",
+            "statusCheckRollup": {
+              "state": "FAILURE",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: preflight_check", "state": "FAILURE", "targetUrl": "https://ci.example.com/preflight", "detailsUrl": null },
+                  { "__typename": "CheckRun", "name": "optional_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/optional", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: optional_cleanup/approve", "state": "PENDING", "targetUrl": "https://ci.example.com/optional/approve", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/example: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/example: required_jobs_met" }, { "context": "version_health / assessment" }]
               }
             }
           }
@@ -680,7 +956,7 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(result.pullRequests.first?.buildStatus == .pending)
     }
 
-    @Test func fetchAllOpenPRsTreatsMissingRequiredContextAsPendingAndSummarizesApprovalGate() async throws {
+    @Test func fetchAllOpenPRsTreatsFailedRollupWithMissingRequiredContextAsFailure() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
                 ("--author=@me", .success(Self.authoredSearchResult)),
@@ -692,11 +968,80 @@ struct GitHubServiceBatchIntegrationTests {
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
 
-        #expect(pr.buildStatus == .pending)
+        #expect(pr.buildStatus == .failure)
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
+        let blockingFailures = pr.statusChecks.filter {
+            !$0.isNonBlocking && ($0.status == .failure || $0.status == .error)
+        }.map(\.name)
+        #expect(blockingFailures == ["ci/circleci: preflight_check", "pull_requests"])
     }
 
-    @Test func fetchAllOpenPRsTreatsEmptyRollupWithRequiredContextAsPending() async throws {
+    @Test func fetchAllOpenPRsTreatsMissingRequiredContextWithoutStartedCIAsNotStarted() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.missingRequiredContextNotStartedResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .notStarted)
+        #expect(pr.nonBlockingCheckSummary == nil)
+    }
+
+    @Test func fetchAllOpenPRsKeepsRequiredWorkflowProgressOutOfNonBlockingSummary() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.missingRequiredContextWithRequiredWorkflowProgressResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .pending)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/example: dead_code_cleanup/approve_dead_code_cleanup"])
+    }
+
+    @Test func fetchAllOpenPRsTreatsApprovalNamedStatusContextWithoutGateAsPending() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.optionalApprovalNamedStatusContextResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .success)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 pending"])
+    }
+
+    @Test func fetchAllOpenPRsDoesNotLetRequiredApprovalGateSuppressOptionalParentCheck() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredApprovalGateDoesNotSuppressOptionalParentResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .pending)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 running"])
+    }
+
+    @Test func fetchAllOpenPRsTreatsEmptyRollupWithRequiredContextAsNotStarted() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
                 ("--author=@me", .success(Self.authoredSearchResult)),
@@ -707,6 +1052,42 @@ struct GitHubServiceBatchIntegrationTests {
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
-        #expect(result.pullRequests.first?.buildStatus == .pending)
+        #expect(result.pullRequests.first?.buildStatus == .notStarted)
+    }
+
+    @Test func fetchOtherPRUsesSingleGraphQLRequest() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(Self.otherPRGraphQLResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
+
+        let pr = try #require(await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3))
+        let calls = await mock.executeCalls
+
+        #expect(pr.number == 42)
+        #expect(pr.title == "Track required checks")
+        #expect(pr.headRefName == "feature/required-checks")
+        #expect(pr.buildStatus == .success)
+        #expect(pr.statusChecks.map(\.name) == ["required_ci"])
+        #expect(calls.filter { $0.arguments.contains("graphql") }.count == 1)
+        #expect(calls.filter { $0.arguments.contains("pr") && $0.arguments.contains("view") }.isEmpty)
+    }
+
+    @Test func fetchOtherPRTreatsFailedRollupWithMissingRequiredContextAsFailure() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(Self.otherPRFailedRollupMissingRequiredContextResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
+
+        let pr = try #require(await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3))
+
+        #expect(pr.buildStatus == .failure)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 }
