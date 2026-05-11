@@ -4,27 +4,29 @@ import Foundation
 
 // MARK: - Build Status Presentation Tests
 
-@MainActor
 struct BuildStatusPresentationTests {
 
-    @Test func buildStatusPresentationCoversEveryState() {
-        let presentations: [(status: BuildStatus, displayName: String, icon: String, systemImageName: String?)] = [
-            (.conflict, "Merge Conflict", "❗", nil),
-            (.notStarted, "Not started", "🛑", "play.slash"),
-            (.pending, "Pending", "🔄", "gear"),
-            (.success, "Success", "✅", "gear.badge.checkmark"),
-            (.failure, "Failed", "❌", "gear.badge.xmark"),
-            (.error, "Error", "⚠️", "gear.badge.xmark"),
-            (.unknown, "Unknown", "❓", nil),
-            (.inactive, "Inactive", "⏳", nil),
-        ]
+    private static let presentations: [(status: BuildStatus, displayName: String, icon: String, systemImageName: String?)] = [
+        (.conflict, "Merge Conflict", "❗", nil),
+        (.notStarted, "Not started", "🛑", "play.slash"),
+        (.pending, "Pending", "🔄", "gear"),
+        (.success, "Success", "✅", "gear.badge.checkmark"),
+        (.failure, "Failed", "❌", "gear.badge.xmark"),
+        (.error, "Error", "⚠️", "gear.badge.xmark"),
+        (.unknown, "Unknown", "❓", nil),
+        (.inactive, "Inactive", "⏳", nil),
+    ]
 
-        #expect(presentations.map(\.status) == BuildStatus.allCases)
-        for presentation in presentations {
-            #expect(presentation.status.displayName == presentation.displayName)
-            #expect(presentation.status.icon == presentation.icon)
-            #expect(presentation.status.systemImageName == presentation.systemImageName)
-        }
+    @Test func buildStatusPresentationCoversEveryState() {
+        #expect(Self.presentations.map(\.status) == BuildStatus.allCases)
+    }
+
+    @Test(arguments: BuildStatusPresentationTests.presentations)
+    @MainActor
+    func buildStatusPresentationMatchesExpected(status: BuildStatus, displayName: String, icon: String, systemImageName: String?) {
+        #expect(status.displayName == displayName)
+        #expect(status.icon == icon)
+        #expect(status.systemImageName == systemImageName)
     }
 }
 
@@ -32,6 +34,81 @@ struct BuildStatusPresentationTests {
 
 @MainActor
 struct NonBlockingCheckSummaryTests {
+
+    enum NilSummaryScenario: CaseIterable, Sendable {
+        case requiredOnly
+        case unknownRequiredness
+        case allNonBlockingChecksPassed
+        case nonRequiredCheckNotMarkedNonBlocking
+
+        @MainActor
+        var statusChecks: [StatusCheck] {
+            switch self {
+            case .requiredOnly:
+                return [Self.check(id: "required", status: .success, isRequired: true, isNonBlocking: false)]
+            case .unknownRequiredness:
+                return [Self.check(id: "unknown", status: .pending, isRequired: nil, isNonBlocking: false)]
+            case .allNonBlockingChecksPassed:
+                return [Self.check(id: "optional", status: .success)]
+            case .nonRequiredCheckNotMarkedNonBlocking:
+                return [Self.check(id: "required-workflow-job", status: .running, isNonBlocking: false)]
+            }
+        }
+
+        @MainActor
+        private static func check(id: String, status: CheckStatus, isRequired: Bool? = false, isNonBlocking: Bool = true) -> StatusCheck {
+            StatusCheck(id: id, name: id, status: status, detailsUrl: nil, isRequired: isRequired, isNonBlocking: isNonBlocking)
+        }
+    }
+
+    enum SegmentSummaryScenario: CaseIterable, Sendable {
+        case waitingAndRunning
+        case allActionableStates
+        case failedWithPassedCheck
+
+        @MainActor
+        var statusChecks: [StatusCheck] {
+            switch self {
+            case .waitingAndRunning:
+                return [
+                    Self.check(id: "approval", status: .waiting),
+                    Self.check(id: "analysis", status: .running),
+                ]
+            case .allActionableStates:
+                return [
+                    Self.check(id: "optional-failed", status: .failure),
+                    Self.check(id: "optional-error", status: .error),
+                    Self.check(id: "optional-waiting", status: .waiting),
+                    Self.check(id: "optional-running", status: .running),
+                    Self.check(id: "optional-queued", status: .queued),
+                    Self.check(id: "optional-pending", status: .pending),
+                    Self.check(id: "optional-success", status: .success),
+                    Self.check(id: "optional-skipped", status: .skipped),
+                ]
+            case .failedWithPassedCheck:
+                return [
+                    Self.check(id: "optional-failed", status: .failure),
+                    Self.check(id: "optional-passed", status: .success),
+                ]
+            }
+        }
+
+        var expectedSegments: [String] {
+            switch self {
+            case .waitingAndRunning:
+                return ["1 waiting for approval", "1 running"]
+            case .allActionableStates:
+                return ["2 failed", "1 waiting for approval", "1 running", "1 queued", "1 pending"]
+            case .failedWithPassedCheck:
+                return ["1 failed"]
+            }
+        }
+
+        @MainActor
+        private static func check(id: String, status: CheckStatus) -> StatusCheck {
+            StatusCheck(id: id, name: id, status: status, detailsUrl: nil, isRequired: false, isNonBlocking: true)
+        }
+    }
 
     private func makePR(statusChecks: [StatusCheck]) -> PullRequest {
         PullRequest(
@@ -53,75 +130,20 @@ struct NonBlockingCheckSummaryTests {
         )
     }
 
-    @Test func summaryIsNilWhenOnlyRequiredChecksExist() {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "required", name: "required", status: .success, detailsUrl: nil, isRequired: true)
-        ])
+    @Test(arguments: NilSummaryScenario.allCases)
+    func summaryIsNil(scenario: NilSummaryScenario) {
+        let pr = makePR(statusChecks: scenario.statusChecks)
 
         #expect(pr.nonBlockingCheckSummary == nil)
     }
 
-    @Test func summaryIsNilWhenRequirednessIsUnknown() {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "unknown", name: "unknown", status: .pending, detailsUrl: nil, isRequired: nil)
-        ])
-
-        #expect(pr.nonBlockingCheckSummary == nil)
-    }
-
-    @Test func summaryIsNilWhenAllNonBlockingChecksPassed() {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "optional", name: "optional", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true)
-        ])
-
-        #expect(pr.nonBlockingCheckSummary == nil)
-    }
-
-    @Test func summaryDescribesWaitingAndRunningNonBlockingChecks() throws {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "approval", name: "approval", status: .waiting, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "analysis", name: "analysis", status: .running, detailsUrl: nil, isRequired: false, isNonBlocking: true)
-        ])
+    @Test(arguments: SegmentSummaryScenario.allCases)
+    func summarySegmentsMatchExpected(scenario: SegmentSummaryScenario) throws {
+        let pr = makePR(statusChecks: scenario.statusChecks)
 
         let summary = try #require(pr.nonBlockingCheckSummary)
 
-        #expect(summary.segments.map(\.text) == ["1 waiting for approval", "1 running"])
-    }
-
-    @Test func summaryOrdersAllActionableStatesAndOmitsPassedStates() throws {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "optional-failed", name: "optional-failed", status: .failure, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-error", name: "optional-error", status: .error, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-waiting", name: "optional-waiting", status: .waiting, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-running", name: "optional-running", status: .running, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-queued", name: "optional-queued", status: .queued, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-pending", name: "optional-pending", status: .pending, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-success", name: "optional-success", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-skipped", name: "optional-skipped", status: .skipped, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-        ])
-
-        let summary = try #require(pr.nonBlockingCheckSummary)
-
-        #expect(summary.segments.map(\.text) == ["2 failed", "1 waiting for approval", "1 running", "1 queued", "1 pending"])
-    }
-
-    @Test func summaryOmitsPassedNonBlockingChecksWhenAttentionIsNeeded() throws {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "optional-failed", name: "optional-failed", status: .failure, detailsUrl: nil, isRequired: false, isNonBlocking: true),
-            StatusCheck(id: "optional-passed", name: "optional-passed", status: .success, detailsUrl: nil, isRequired: false, isNonBlocking: true)
-        ])
-
-        let summary = try #require(pr.nonBlockingCheckSummary)
-
-        #expect(summary.segments.map(\.text) == ["1 failed"])
-    }
-
-    @Test func summaryIgnoresNonRequiredChecksThatAreNotNonBlocking() {
-        let pr = makePR(statusChecks: [
-            StatusCheck(id: "required-workflow-job", name: "required-workflow-job", status: .running, detailsUrl: nil, isRequired: false)
-        ])
-
-        #expect(pr.nonBlockingCheckSummary == nil)
+        #expect(summary.segments.map(\.text) == scenario.expectedSegments)
     }
 }
 
@@ -198,6 +220,29 @@ struct GitHubServiceHostCacheTests {
 @MainActor
 struct GitHubServiceFetchErrorTests {
 
+    enum GitHubErrorMappingScenario: CaseIterable, Sendable {
+        case networkError
+        case commandNotFound
+
+        var shellError: ShellError {
+            switch self {
+            case .networkError:
+                return .networkError("error connecting to api.github.com")
+            case .commandNotFound:
+                return .commandNotFound
+            }
+        }
+
+        var expectedError: GitHubError {
+            switch self {
+            case .networkError:
+                return .networkError
+            case .commandNotFound:
+                return .notInstalled
+            }
+        }
+    }
+
     /// When all fetches fail with a generic execution error (e.g. auth expired), the original
     /// ShellError should propagate — not be swallowed into GitHubError.networkError.
     @Test func executionFailureRethrowsAsShellError() async {
@@ -216,31 +261,16 @@ struct GitHubServiceFetchErrorTests {
         }
     }
 
-    /// A genuine network error from the shell (gh CLI) should map to GitHubError.networkError.
-    @Test func shellNetworkErrorBecomesGitHubNetworkError() async {
-        let mock = MockShellExecutor(executeResponse: .failure(ShellError.networkError("error connecting to api.github.com")))
+    @Test(arguments: GitHubErrorMappingScenario.allCases)
+    func shellFailureMapsToExpectedGitHubError(scenario: GitHubErrorMappingScenario) async {
+        let mock = MockShellExecutor(executeResponse: .failure(scenario.shellError))
         let service = GitHubService(shellExecutor: mock)
 
         do {
             _ = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
             Issue.record("Expected an error to be thrown")
         } catch let error as GitHubError {
-            #expect(error == .networkError)
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
-        }
-    }
-
-    /// A missing gh binary should map to GitHubError.notInstalled.
-    @Test func commandNotFoundBecomesGitHubNotInstalled() async {
-        let mock = MockShellExecutor(executeResponse: .failure(ShellError.commandNotFound))
-        let service = GitHubService(shellExecutor: mock)
-
-        do {
-            _ = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
-            Issue.record("Expected an error to be thrown")
-        } catch let error as GitHubError {
-            #expect(error == .notInstalled)
+            #expect(error == scenario.expectedError)
         } catch {
             Issue.record("Unexpected error type: \(error)")
         }
@@ -250,6 +280,21 @@ struct GitHubServiceFetchErrorTests {
 // MARK: - Batch Query Building Tests
 
 struct GitHubServiceBatchQueryTests {
+
+    enum RequiredMetadataQueryScenario: CaseIterable, Sendable {
+        case batch
+        case detail
+
+        var query: String {
+            let request = PRStatusRequest(owner: "alice", repo: "repo", number: 42)
+            switch self {
+            case .batch:
+                return GitHubService.buildBatchQuery(for: [request])
+            case .detail:
+                return GitHubService.buildPRDetailQuery(for: request)
+            }
+        }
+    }
 
     @Test func buildBatchQueryContainsAllPRs() {
         let requests = [
@@ -281,22 +326,9 @@ struct GitHubServiceBatchQueryTests {
         #expect(query.contains("reviewRequests"))
     }
 
-    @Test func buildBatchQueryIncludesRequiredCheckMetadata() {
-        let query = GitHubService.buildBatchQuery(for: [
-            PRStatusRequest(owner: "alice", repo: "repo", number: 42)
-        ])
-
-        #expect(query.contains("isRequired(pullRequestNumber: 42)"))
-        #expect(query.components(separatedBy: "isRequired(pullRequestNumber: 42)").count - 1 == 2)
-        #expect(query.contains("baseRef"))
-        #expect(query.contains("branchProtectionRule"))
-        #expect(query.contains("requiredStatusCheckContexts"))
-        #expect(query.contains("requiredStatusChecks"))
-        #expect(query.range(of: #"statusCheckRollup\s*\{\s*state"#, options: .regularExpression) != nil)
-    }
-
-    @Test func buildPRDetailQueryIncludesRequiredCheckMetadata() {
-        let query = GitHubService.buildPRDetailQuery(for: PRStatusRequest(owner: "alice", repo: "repo", number: 42))
+    @Test(arguments: RequiredMetadataQueryScenario.allCases)
+    func queryIncludesRequiredCheckMetadata(scenario: RequiredMetadataQueryScenario) {
+        let query = scenario.query
 
         #expect(query.contains("isRequired(pullRequestNumber: 42)"))
         #expect(query.components(separatedBy: "isRequired(pullRequestNumber: 42)").count - 1 == 2)
@@ -474,6 +506,65 @@ struct GitHubServiceBatchResponseParsingTests {
         let result = try GitHubService.parseBatchResponse(json, requests: [request])
         #expect(result[request]?.reviewRequests?.first?.login == nil)
     }
+
+    @Test func parseBatchResponseUnionsAndDeduplicatesRequiredStatusContexts() throws {
+        let json = """
+        {
+          "data": {
+            "pr0": {
+              "pullRequest": {
+                "headRefName": "main",
+                "statusCheckRollup": null,
+                "mergeable": null,
+                "mergeStateStatus": null,
+                "reviewDecision": null,
+                "latestReviews": { "nodes": [] },
+                "reviewRequests": { "nodes": [] },
+                "baseRef": {
+                  "branchProtectionRule": {
+                    "requiredStatusCheckContexts": ["legacy_ci", "duplicate_ci"],
+                    "requiredStatusChecks": [{ "context": "modern_ci" }, { "context": "duplicate_ci" }]
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        let request = PRStatusRequest(owner: "owner", repo: "repo", number: 1)
+
+        let result = try GitHubService.parseBatchResponse(json, requests: [request])
+        let contexts = try #require(result[request]?.requiredStatusCheckContexts)
+
+        #expect(Set(contexts) == ["legacy_ci", "modern_ci", "duplicate_ci"])
+        #expect(contexts.count == 3)
+    }
+
+    @Test func parseBatchResponseLeavesRequiredContextsNilWithoutBranchProtectionRule() throws {
+        let json = """
+        {
+          "data": {
+            "pr0": {
+              "pullRequest": {
+                "headRefName": "main",
+                "statusCheckRollup": null,
+                "mergeable": null,
+                "mergeStateStatus": null,
+                "reviewDecision": null,
+                "latestReviews": { "nodes": [] },
+                "reviewRequests": { "nodes": [] },
+                "baseRef": { "branchProtectionRule": null }
+              }
+            }
+          }
+        }
+        """
+        let request = PRStatusRequest(owner: "owner", repo: "repo", number: 1)
+
+        let result = try GitHubService.parseBatchResponse(json, requests: [request])
+
+        #expect(result[request]?.requiredStatusCheckContexts == nil)
+    }
 }
 
 // MARK: - Batch Integration Tests
@@ -512,6 +603,30 @@ struct GitHubServiceBatchIntegrationTests {
       }
     }
     """
+
+    private static func rollupStateOnlyResult(state: String) -> String {
+        """
+        {
+          "data": {
+            "pr0": {
+              "pullRequest": {
+                "headRefName": "feature/test",
+                "statusCheckRollup": {
+                  "state": "\(state)",
+                  "contexts": { "nodes": [] }
+                },
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "reviewDecision": null,
+                "latestReviews": { "nodes": [] },
+                "reviewRequests": { "nodes": [] },
+                "baseRef": { "branchProtectionRule": null }
+              }
+            }
+          }
+        }
+        """
+    }
 
     private static let requiredSuccessOptionalPendingResult = """
     {
@@ -586,6 +701,68 @@ struct GitHubServiceBatchIntegrationTests {
                 "nodes": [
                   { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: approval_tests", "state": "PENDING", "targetUrl": "https://ci.example.com/approval-tests", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let branchProtectionRequirednessFallbackResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "optional_ci", "status": "PENDING", "conclusion": null, "detailsUrl": "https://ci.example.com/optional", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let approvalContainsGateResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: deploy/wait_for_approval", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/wait", "detailsUrl": null }
                 ]
               }
             },
@@ -692,6 +869,38 @@ struct GitHubServiceBatchIntegrationTests {
               "branchProtectionRule": {
                 "requiredStatusCheckContexts": ["ci/circleci: required_jobs_met", "version_health / assessment"],
                 "requiredStatusChecks": [{ "context": "ci/circleci: required_jobs_met" }, { "context": "version_health / assessment" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let requiredContextMissingErrorResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "ERROR",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: preflight_check", "state": "ERROR", "targetUrl": "https://ci.example.com/preflight", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/example: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/example: required_jobs_met" }, { "context": "version_health / assessment" }]
               }
             }
           }
@@ -914,6 +1123,27 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(result.pullRequests.first?.headRefName == "feature/test")
     }
 
+    @Test(arguments: [
+        ("FAILURE", BuildStatus.failure),
+        ("ERROR", .error),
+        ("PENDING", .pending),
+        ("EXPECTED", .pending),
+        ("SUCCESS", .success),
+    ] as [(String, BuildStatus)])
+    func fetchAllOpenPRsUsesRollupStateWhenNoCheckMetadata(state: String, expectedStatus: BuildStatus) async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.rollupStateOnlyResult(state: state)))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+
+        #expect(result.pullRequests.first?.buildStatus == expectedStatus)
+    }
+
     @Test func fetchAllOpenPRsTreatsOptionalPendingChecksAsSuccessWhenRequiredChecksPass() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
@@ -940,6 +1170,28 @@ struct GitHubServiceBatchIntegrationTests {
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
         #expect(result.pullRequests.first?.buildStatus == .success)
+    }
+
+    @Test func fetchAllOpenPRsFallsBackToBranchProtectionWhenIsRequiredIsMissing() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.branchProtectionRequirednessFallbackResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+        let requiredCheck = try #require(pr.statusChecks.first { $0.name == "required_ci" })
+        let optionalCheck = try #require(pr.statusChecks.first { $0.name == "optional_ci" })
+
+        #expect(pr.buildStatus == .success)
+        #expect(requiredCheck.isRequired == true)
+        #expect(requiredCheck.isNonBlocking == false)
+        #expect(optionalCheck.isRequired == false)
+        #expect(optionalCheck.isNonBlocking == true)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 pending"])
     }
 
     @Test func fetchAllOpenPRsKeepsPendingStatusWhenRequiredMetadataIsUnknown() async throws {
@@ -974,6 +1226,26 @@ struct GitHubServiceBatchIntegrationTests {
             !$0.isNonBlocking && ($0.status == .failure || $0.status == .error)
         }.map(\.name)
         #expect(blockingFailures == ["ci/circleci: preflight_check", "pull_requests"])
+    }
+
+    @Test func fetchAllOpenPRsTreatsErrorRollupWithMissingRequiredContextAsError() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredContextMissingErrorResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+        let blockingFailures = pr.statusChecks.filter {
+            !$0.isNonBlocking && ($0.status == .failure || $0.status == .error)
+        }.map(\.name)
+
+        #expect(pr.buildStatus == .error)
+        #expect(blockingFailures == ["ci/example: preflight_check"])
+        #expect(pr.nonBlockingCheckSummary == nil)
     }
 
     @Test func fetchAllOpenPRsTreatsMissingRequiredContextWithoutStartedCIAsNotStarted() async throws {
@@ -1025,6 +1297,25 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 pending"])
     }
 
+    @Test func fetchAllOpenPRsTreatsApprovalNamedGateAsWaiting() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.approvalContainsGateResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+        let approvalCheck = try #require(pr.statusChecks.first { $0.name == "ci/example: deploy/wait_for_approval" })
+
+        #expect(pr.buildStatus == .success)
+        #expect(approvalCheck.status == .waiting)
+        #expect(approvalCheck.isNonBlocking == true)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
+    }
+
     @Test func fetchAllOpenPRsDoesNotLetRequiredApprovalGateSuppressOptionalParentCheck() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
@@ -1053,6 +1344,49 @@ struct GitHubServiceBatchIntegrationTests {
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
         #expect(result.pullRequests.first?.buildStatus == .notStarted)
+    }
+
+    @Test func fetchPRStatusUsesRequiredCIStatusParsing() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(Self.requiredContextMissingApprovalWaitingResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let status = try await service.fetchPRStatus(
+            owner: "alice",
+            repo: "repo",
+            number: 1,
+            updatedAt: Date(),
+            enableInactiveDetection: false,
+            inactiveThresholdDays: 3
+        )
+
+        #expect(status.status == .failure)
+        #expect(status.headRefName == "feature/test")
+        #expect(status.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/circleci: dead_code_cleanup/approve_dead_code_cleanup"])
+    }
+
+    @Test func fetchPRStatusTreatsMissingRequiredContextWithoutStartedCIAsNotStarted() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(Self.missingRequiredContextNotStartedResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let status = try await service.fetchPRStatus(
+            owner: "alice",
+            repo: "repo",
+            number: 1,
+            updatedAt: Date(),
+            enableInactiveDetection: false,
+            inactiveThresholdDays: 3
+        )
+
+        #expect(status.status == .notStarted)
+        #expect(status.statusChecks.allSatisfy { !$0.isNonBlocking })
     }
 
     @Test func fetchOtherPRUsesSingleGraphQLRequest() async throws {
