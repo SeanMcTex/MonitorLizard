@@ -572,12 +572,28 @@ class GitHubService: ObservableObject {
             requiredStatusCheckContexts: requiredStatusCheckContexts
         )
         let checksToEvaluate = statusChecksForOverallStatus(checks, requiredStatusCheckContexts: requiredStatusCheckContexts)
+        let hasRequiredMetadata = requiredStatusCheckContexts != nil || checks.contains { $0.isRequired != nil }
 
         // Priority: conflict > failure > error > pending > success
         var hasFailure = false
         var hasError = false
         var hasPending = !missingRequiredContexts.isEmpty
         var hasSuccess = false
+
+        if !hasRequiredMetadata && checksToEvaluate.isEmpty {
+            switch statusCheckRollupState?.uppercased() {
+            case "FAILURE":
+                hasFailure = true
+            case "ERROR":
+                hasError = true
+            case "PENDING", "EXPECTED":
+                hasPending = true
+            case "SUCCESS":
+                hasSuccess = true
+            default:
+                break
+            }
+        }
 
         if !missingRequiredContexts.isEmpty {
             switch statusCheckRollupState?.uppercased() {
