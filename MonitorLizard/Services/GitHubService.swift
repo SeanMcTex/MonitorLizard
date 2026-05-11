@@ -657,7 +657,7 @@ class GitHubService: ObservableObject {
             return .error
         }
 
-        if !missingRequiredContexts.isEmpty && !hasActiveNonApprovalWork(in: checks) {
+        if !missingRequiredContexts.isEmpty && !hasActiveNonApprovalWork(in: checks, requiredStatusCheckContexts: requiredStatusCheckContexts) {
             return .notStarted
         }
 
@@ -681,15 +681,30 @@ class GitHubService: ObservableObject {
         return .success
     }
 
-    private func hasActiveNonApprovalWork(in checks: [GHPRDetailResponse.StatusCheck]) -> Bool {
-        checks.contains { check in
+    private func hasActiveNonApprovalWork(
+        in checks: [GHPRDetailResponse.StatusCheck],
+        requiredStatusCheckContexts: [String]?
+    ) -> Bool {
+        let requiredContextSet = requiredStatusCheckContexts.map(Set.init)
+        let approvalParentWorkflowNames = approvalParentWorkflowNames(in: checks, requiredContextSet: requiredContextSet)
+
+        return checks.contains { check in
             guard let checkName = check.name ?? check.context,
-                  !isApprovalGate(checkName) else {
+                   !isApprovalGate(checkName) else {
                 return false
             }
 
+            let isRequired = check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }
+            let isWaitingForApprovalParent = check.__typename == "CheckRun"
+                && isRequired == false
+                && approvalParentWorkflowNames.contains(checkName)
+
             if let state = check.state?.uppercased(), ["PENDING", "EXPECTED"].contains(state) {
                 return true
+            }
+
+            if let status = check.status?.uppercased(), ["IN_PROGRESS", "WAITING"].contains(status), isWaitingForApprovalParent {
+                return false
             }
 
             if let status = check.status?.uppercased(), ["IN_PROGRESS", "QUEUED", "WAITING", "PENDING"].contains(status) {
@@ -723,6 +738,20 @@ class GitHubService: ObservableObject {
         return hasRequiredMetadata ? [] : checks
     }
 
+    private func approvalParentWorkflowNames(
+        in checks: [GHPRDetailResponse.StatusCheck],
+        requiredContextSet: Set<String>?
+    ) -> Set<String> {
+        Set(checks.compactMap { check -> String? in
+            guard let checkName = check.name ?? check.context,
+                  (check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }) == false,
+                  ["PENDING", "EXPECTED"].contains(check.state?.uppercased()) else {
+                return nil
+            }
+            return parentWorkflowNameForApprovalGate(checkName)
+        })
+    }
+
     private func missingRequiredStatusCheckContexts(
         in checks: [GHPRDetailResponse.StatusCheck],
         requiredStatusCheckContexts: [String]?
@@ -748,14 +777,7 @@ class GitHubService: ObservableObject {
         )
         let rollupFailedWithMissingRequiredContext = !missingRequiredContexts.isEmpty
             && ["FAILURE", "ERROR"].contains(statusCheckRollupState?.uppercased())
-        let pendingApprovalWorkflowNames = Set(checks.compactMap { check -> String? in
-            guard let checkName = check.name ?? check.context,
-                  (check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }) == false,
-                  ["PENDING", "EXPECTED"].contains(check.state?.uppercased()) else {
-                return nil
-            }
-            return parentWorkflowNameForApprovalGate(checkName)
-        })
+        let approvalParentWorkflowNames = approvalParentWorkflowNames(in: checks, requiredContextSet: requiredContextSet)
 
         return checks.compactMap { check in
             // Extract check name from either name (CheckRun) or context (StatusContext)
@@ -821,8 +843,8 @@ class GitHubService: ObservableObject {
                 && (checkStatus == .failure || checkStatus == .error)
             let isWaitingForApprovalParent = check.__typename == "CheckRun"
                 && isRequired == false
-                && checkStatus == .running
-                && pendingApprovalWorkflowNames.contains(checkName)
+                && (checkStatus == .running || checkStatus == .waiting)
+                && approvalParentWorkflowNames.contains(checkName)
             let isRequiredAggregateWork = !missingRequiredContexts.isEmpty && !isApprovalGate(checkName)
             let isNonBlocking = isRequired == false
                 && !isBlockingFailure

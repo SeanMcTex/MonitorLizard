@@ -752,6 +752,38 @@ struct GitHubServiceBatchIntegrationTests {
     }
     """
 
+    private static let requiredSuccessWaitingApprovalParentResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: deploy/approve_deploy", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/approve", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["required_ci"],
+                "requiredStatusChecks": [{ "context": "required_ci" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
     private static let approvalContainsGateResult = """
     {
       "data": {
@@ -869,6 +901,39 @@ struct GitHubServiceBatchIntegrationTests {
               "branchProtectionRule": {
                 "requiredStatusCheckContexts": ["ci/circleci: required_jobs_met", "version_health / assessment"],
                 "requiredStatusChecks": [{ "context": "ci/circleci: required_jobs_met" }, { "context": "version_health / assessment" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    private static let missingRequiredContextWithWaitingApprovalParentResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "PENDING",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: deploy/approve_deploy", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/approve", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/example: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/example: required_jobs_met" }, { "context": "version_health / assessment" }]
               }
             }
           }
@@ -1313,6 +1378,40 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(pr.buildStatus == .success)
         #expect(approvalCheck.status == .waiting)
         #expect(approvalCheck.isNonBlocking == true)
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
+    }
+
+    @Test func fetchAllOpenPRsSuppressesWaitingApprovalParentFromNonBlockingSummary() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredSuccessWaitingApprovalParentResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .success)
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/example: deploy/approve_deploy"])
+        #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
+    }
+
+    @Test func fetchAllOpenPRsIgnoresWaitingApprovalParentWhenRequiredCIHasNotStarted() async throws {
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.missingRequiredContextWithWaitingApprovalParentResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .notStarted)
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/example: deploy/approve_deploy"])
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 

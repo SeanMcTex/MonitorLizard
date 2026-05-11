@@ -507,6 +507,27 @@ struct PRMonitorViewModelTests {
         return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
     }
 
+    private func makePR(number: Int = 1, nameWithOwner: String = "acme/widget", buildStatus: BuildStatus) -> PullRequest {
+        let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
+        return PullRequest(
+            number: number,
+            title: "Test PR #\(number)",
+            repository: PullRequest.RepositoryInfo(name: name, nameWithOwner: nameWithOwner),
+            url: "https://github.com/\(nameWithOwner)/pull/\(number)",
+            author: PullRequest.Author(login: "testuser"),
+            headRefName: "feature/test",
+            updatedAt: Date(),
+            buildStatus: buildStatus,
+            isWatched: false,
+            labels: [],
+            type: .authored,
+            isDraft: false,
+            statusChecks: [],
+            reviewDecision: nil,
+            host: "github.com"
+        )
+    }
+
     private func createLoadedViewModel() async -> PRMonitorViewModel {
         let (watchlist, otherPRs) = makeIsolatedServices()
         let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
@@ -531,6 +552,27 @@ struct PRMonitorViewModelTests {
         let vm = await createLoadedViewModel()
 
         #expect(vm.selectedRepository == "All Repositories")
+    }
+
+    @Test func reposWithIssuesIncludesNotStartedPRs() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        vm.otherPullRequests = [makePR(buildStatus: .notStarted)]
+
+        #expect(vm.reposWithIssues == ["acme/widget"])
+    }
+
+    @Test func watchlistReportsCompletionFromNotStarted() {
+        let (watchlist, _) = makeIsolatedServices()
+        let pendingPR = makePR(buildStatus: .notStarted)
+        var completedPR = pendingPR
+        completedPR.buildStatus = .success
+
+        watchlist.watch(pendingPR)
+
+        #expect(watchlist.checkForCompletions(currentPRs: [completedPR]).map(\.id) == [pendingPR.id])
     }
 
     @Test func filterByRepository() async {
