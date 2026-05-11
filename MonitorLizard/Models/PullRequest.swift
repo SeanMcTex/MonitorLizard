@@ -150,7 +150,6 @@ extension PullRequest {
             .running,
             .queued,
             .pending,
-            .passed,
         ].compactMap { state -> NonBlockingCheckSummary.Segment? in
             guard let count = counts[state], count > 0 else { return nil }
             return NonBlockingCheckSummary.Segment(state: state, count: count)
@@ -213,39 +212,18 @@ struct GHPRSearchResponse: Codable {
     }
 }
 
-/// Combined response for `gh pr view --json number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,latestReviews,reviewRequests,state`
-struct GHPRViewResponse: Codable {
-    let number: Int
-    let title: String
-    let url: String
-    let author: Author
-    let updatedAt: String
-    let labels: [Label]
-    let isDraft: Bool
-    let headRefName: String
-    let statusCheckRollup: [GHPRDetailResponse.StatusCheck]?
-    let mergeable: String?
-    let mergeStateStatus: String?
-    let reviewDecision: String?
-    let latestReviews: [GHPRDetailResponse.Review]?
-    let reviewRequests: [GHPRDetailResponse.ReviewRequest]?
-    let state: String
-
-    struct Author: Codable {
-        let login: String
-    }
-
-    struct Label: Codable {
-        let id: String?
-        let name: String
-        let color: String
-    }
-}
-
 /// Response structure for a single PR node inside a `gh api graphql` batch query.
 /// Unlike GHPRDetailResponse (used with `gh pr view --json`), review connections use
 /// `{ nodes: [...] }` format as returned by the raw GraphQL API.
 struct BatchPRStatusResponse: Codable {
+    let number: Int?
+    let title: String?
+    let url: String?
+    let author: Author?
+    let updatedAt: String?
+    let labels: LabelConnection?
+    let isDraft: Bool?
+    let state: String?
     let headRefName: String
     let statusCheckRollup: StatusCheckRollupWrapper?
     let mergeable: String?
@@ -257,10 +235,25 @@ struct BatchPRStatusResponse: Codable {
 
     /// Wraps the raw GraphQL `statusCheckRollup { contexts { nodes [...] } }` shape.
     struct StatusCheckRollupWrapper: Codable {
+        let state: String?
         let contexts: Contexts?
 
         struct Contexts: Codable {
             let nodes: [GHPRDetailResponse.StatusCheck]?
+        }
+    }
+
+    struct Author: Codable {
+        let login: String
+    }
+
+    struct LabelConnection: Codable {
+        let nodes: [Label]?
+
+        struct Label: Codable {
+            let id: String
+            let name: String
+            let color: String
         }
     }
 
@@ -308,6 +301,7 @@ struct BatchPRStatusResponse: Codable {
         return GHPRDetailResponse(
             headRefName: headRefName,
             statusCheckRollup: statusCheckRollup?.contexts?.nodes,
+            statusCheckRollupState: statusCheckRollup?.state,
             mergeable: mergeable,
             mergeStateStatus: mergeStateStatus,
             reviewDecision: reviewDecision,
@@ -331,6 +325,7 @@ struct BatchGraphQLResponse: Codable {
 struct GHPRDetailResponse: Codable {
     let headRefName: String
     let statusCheckRollup: [StatusCheck]?
+    let statusCheckRollupState: String?
     let mergeable: String?
     let mergeStateStatus: String?
     let reviewDecision: String?
@@ -341,6 +336,7 @@ struct GHPRDetailResponse: Codable {
     init(
         headRefName: String,
         statusCheckRollup: [StatusCheck]?,
+        statusCheckRollupState: String? = nil,
         mergeable: String?,
         mergeStateStatus: String?,
         reviewDecision: String?,
@@ -350,6 +346,7 @@ struct GHPRDetailResponse: Codable {
     ) {
         self.headRefName = headRefName
         self.statusCheckRollup = statusCheckRollup
+        self.statusCheckRollupState = statusCheckRollupState
         self.mergeable = mergeable
         self.mergeStateStatus = mergeStateStatus
         self.reviewDecision = reviewDecision

@@ -163,6 +163,7 @@ struct ResolveReviewDecisionTests {
     }
 }
 
+@MainActor
 struct ParsePRURLTests {
 
     @Test func validGitHubURL() {
@@ -213,6 +214,7 @@ struct ParsePRURLTests {
     }
 }
 
+@MainActor
 struct OtherPRsServiceTests {
 
     private func makeService() -> OtherPRsService {
@@ -277,6 +279,7 @@ struct OtherPRsServiceTests {
     }
 }
 
+@MainActor
 struct PRTypeDisplayTitleTests {
 
     @Test(arguments: [0, 1, 5])
@@ -295,6 +298,7 @@ struct PRTypeDisplayTitleTests {
     }
 }
 
+@MainActor
 struct CustomNamesServiceTests {
 
     private func makeService() -> CustomNamesService {

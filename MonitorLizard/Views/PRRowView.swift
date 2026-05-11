@@ -124,13 +124,9 @@ struct PRRowView: View {
                     ProgressView()
                         .scaleEffect(0.8)
                 }
-            } else if pr.buildStatus == .success {
-                Image(systemName: "gear.badge.checkmark")
-                    .foregroundColor(.green)
-                    .font(.title2)
-            } else if pr.buildStatus == .failure || pr.buildStatus == .error {
-                Image(systemName: "gear.badge.xmark")
-                    .foregroundColor(.red)
+            } else if let systemImageName = pr.buildStatus.systemImageName {
+                Image(systemName: systemImageName)
+                    .foregroundColor(pr.buildStatus.color)
                     .font(.title2)
             } else {
                 Text(pr.buildStatus.icon)
@@ -268,6 +264,10 @@ struct PRRowView: View {
                 // Failing checks (only shown when checks fail)
                 if !failingChecks.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
+                        Text("Failed checks:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
                         ForEach(failingChecks) { check in
                             Button(action: {
                                 openCheckURL(check.detailsUrl)
