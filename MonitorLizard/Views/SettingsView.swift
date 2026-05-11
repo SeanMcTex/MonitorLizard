@@ -227,7 +227,7 @@ struct SettingsView: View {
                     }
 
                     Button("Report Issue") {
-                        if let url = URL(string: "https://github.com") {
+                        if let url = URL(string: "https://github.com/SeanMcTex/MonitorLizard/issues") {
                             NSWorkspace.shared.open(url)
                         }
                     }
