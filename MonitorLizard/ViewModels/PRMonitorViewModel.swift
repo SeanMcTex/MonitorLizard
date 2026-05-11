@@ -58,7 +58,8 @@ class PRMonitorViewModel: ObservableObject {
         let allPRs = unsortedPullRequests + otherPullRequests
         return Set(allPRs.compactMap { pr -> String? in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
-                || pr.buildStatus == .conflict || pr.buildStatus == .inactive
+                || pr.buildStatus == .conflict || pr.buildStatus == .notStarted
+                || pr.buildStatus == .inactive
             guard badBuild || pr.reviewDecision == .changesRequested else { return nil }
             return pr.repository.nameWithOwner
         })
@@ -298,11 +299,12 @@ class PRMonitorViewModel: ObservableObject {
             pullRequests = newPullRequests
         }
 
-        // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
+        // Update warning icon indicator (failures, errors, conflicts, not-started/inactive PRs, changes requested, or any review PRs)
         let allDisplayed = newPullRequests + otherPullRequests
         let hasBadStatus = allDisplayed.contains { pr in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
-                || pr.buildStatus == .conflict || pr.buildStatus == .inactive
+                || pr.buildStatus == .conflict || pr.buildStatus == .notStarted
+                || pr.buildStatus == .inactive
             return badBuild || pr.reviewDecision == .changesRequested
         }
         let hasReviewPRs = newPullRequests.contains { pr in
@@ -383,7 +385,7 @@ class PRMonitorViewModel: ObservableObject {
 
     private func sort(_ prs: [PullRequest]) -> [PullRequest] {
         prs.sorted { pr1, pr2 in
-            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .pending, .inactive]
+            let nonSuccessStatuses: [BuildStatus] = [.failure, .error, .conflict, .notStarted, .pending, .inactive]
             let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus) || pr1.reviewDecision == .changesRequested
             let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus) || pr2.reviewDecision == .changesRequested
 
