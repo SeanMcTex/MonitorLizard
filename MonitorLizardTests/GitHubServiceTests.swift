@@ -538,6 +538,7 @@ struct GitHubServiceBatchResponseParsingTests {
 
         #expect(Set(contexts) == ["legacy_ci", "modern_ci", "duplicate_ci"])
         #expect(contexts.count == 3)
+        #expect(contexts == contexts.sorted())
     }
 
     @Test func parseBatchResponseLeavesRequiredContextsNilWithoutBranchProtectionRule() throws {

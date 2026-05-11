@@ -290,7 +290,7 @@ struct BatchPRStatusResponse: Codable {
         guard let rule = baseRef?.branchProtectionRule else { return nil }
         let contexts = rule.requiredStatusCheckContexts ?? []
         let checkContexts = rule.requiredStatusChecks?.map(\.context) ?? []
-        return Array(Set(contexts + checkContexts))
+        return Array(Set(contexts + checkContexts)).sorted()
     }
 
     /// Converts to GHPRDetailResponse so existing status-parsing logic can be reused.

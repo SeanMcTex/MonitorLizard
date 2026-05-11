@@ -235,8 +235,8 @@ struct PRRowView: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
 
-                        ForEach(Array(summary.segments.enumerated()), id: \.element.id) { index, segment in
-                            Text(segment.text + (index == summary.segments.count - 1 ? "" : ","))
+                        ForEach(summary.segments) { segment in
+                            Text(segment.text + (segment.id == summary.segments.last?.id ? "" : ","))
                                 .font(.caption2)
                                 .foregroundStyle(segment.state.color)
                         }
