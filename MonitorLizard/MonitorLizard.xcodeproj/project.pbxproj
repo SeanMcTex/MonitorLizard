@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3235E3782FB25D2B00A8B4D4 /* PRCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3235E3772FB25D2A00A8B4D4 /* PRCacheService.swift */; };
 		32364F9E2F1143E100493ED7 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32364F9D2F1143E100493ED7 /* Constants.swift */; };
 		324376112F5DB275009B7E2D /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 324376102F5DB275009B7E2D /* UpdateService.swift */; };
 		3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 324376122F5DB2A0009B7E2D /* Sparkle */; };
@@ -46,6 +47,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		3235E3772FB25D2A00A8B4D4 /* PRCacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRCacheService.swift; sourceTree = "<group>"; };
 		32364F9D2F1143E100493ED7 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		324376102F5DB275009B7E2D /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		329D9EB32F103DF700F0E6EA /* MonitorLizard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MonitorLizard.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -152,6 +154,7 @@
 				324376102F5DB275009B7E2D /* UpdateService.swift */,
 				AA0002222F103E3200F0ABCD /* OtherPRsService.swift */,
 				BB0002222F103E3200F0ABCD /* CustomNamesService.swift */,
+				3235E3772FB25D2A00A8B4D4 /* PRCacheService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -302,6 +305,7 @@
 				32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */,
 				329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */,
 				329D9EF12F103E3200F0E6EA /* GitHubService.swift in Sources */,
+				3235E3782FB25D2B00A8B4D4 /* PRCacheService.swift in Sources */,
 				329D9EF22F103E3200F0E6EA /* NotificationService.swift in Sources */,
 				329D9EF32F103E3200F0E6EA /* ShellExecutor.swift in Sources */,
 				329D9EF42F103E3200F0E6EA /* WatchlistService.swift in Sources */,
