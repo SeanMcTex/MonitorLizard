@@ -689,8 +689,8 @@ class GitHubService: ObservableObject {
         let approvalParentWorkflowNames = approvalParentWorkflowNames(in: checks, requiredContextSet: requiredContextSet)
 
         return checks.contains { check in
-            guard let checkName = check.name ?? check.context,
-                   !isApprovalGate(checkName) else {
+            guard check.status?.uppercased() != "WAITING",
+                  let checkName = check.name ?? check.context else {
                 return false
             }
 
@@ -743,12 +743,14 @@ class GitHubService: ObservableObject {
         requiredContextSet: Set<String>?
     ) -> Set<String> {
         Set(checks.compactMap { check -> String? in
-            guard let checkName = check.name ?? check.context,
-                  (check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }) == false,
-                  ["PENDING", "EXPECTED"].contains(check.state?.uppercased()) else {
-                return nil
-            }
-            return parentWorkflowNameForApprovalGate(checkName)
+            guard check.status?.uppercased() == "WAITING",
+                  let checkName = check.name ?? check.context,
+                  (check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }) == false
+            else { return nil }
+            let components = workflowPathComponents(checkName)
+            guard components.count == 2 else { return nil }
+            let workflowName = String(components[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return workflowName.isEmpty ? nil : workflowName
         })
     }
 
@@ -805,7 +807,7 @@ class GitHubService: ObservableObject {
                 case "FAILURE", "ERROR":
                     checkStatus = .failure
                 case "PENDING", "EXPECTED":
-                    checkStatus = isApprovalGate(checkName) ? .waiting : .pending
+                    checkStatus = .pending
                 case "SUCCESS":
                     checkStatus = .success
                 default:
@@ -845,7 +847,7 @@ class GitHubService: ObservableObject {
                 && isRequired == false
                 && (checkStatus == .running || checkStatus == .waiting)
                 && approvalParentWorkflowNames.contains(checkName)
-            let isRequiredAggregateWork = !missingRequiredContexts.isEmpty && !isApprovalGate(checkName)
+            let isRequiredAggregateWork = !missingRequiredContexts.isEmpty && check.status?.uppercased() != "WAITING"
             let isNonBlocking = isRequired == false
                 && !isBlockingFailure
                 && !isWaitingForApprovalParent
@@ -860,30 +862,6 @@ class GitHubService: ObservableObject {
                 isNonBlocking: isNonBlocking
             )
         }
-    }
-
-    private func isApprovalGate(_ checkName: String) -> Bool {
-        guard let gateName = approvalGateName(checkName) else { return false }
-        let lowercasedName = gateName.lowercased()
-        return lowercasedName.hasPrefix("approve") || lowercasedName.contains("approval")
-    }
-
-    private func parentWorkflowNameForApprovalGate(_ checkName: String) -> String? {
-        guard isApprovalGate(checkName) else { return nil }
-
-        let components = workflowPathComponents(checkName)
-        guard components.count == 2 else { return nil }
-
-        let workflowName = components[0].trimmingCharacters(in: .whitespacesAndNewlines)
-        return workflowName.isEmpty ? nil : workflowName
-    }
-
-    private func approvalGateName(_ checkName: String) -> String? {
-        let components = workflowPathComponents(checkName)
-        guard components.count == 2 else { return nil }
-
-        let gateName = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
-        return gateName.isEmpty ? nil : gateName
     }
 
     private func workflowPathComponents(_ checkName: String) -> [Substring] {

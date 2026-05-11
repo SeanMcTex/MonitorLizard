@@ -762,8 +762,7 @@ struct GitHubServiceBatchIntegrationTests {
               "contexts": {
                 "nodes": [
                   { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: deploy/approve_deploy", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/approve", "detailsUrl": null }
+                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null }
                 ]
               }
             },
@@ -784,7 +783,7 @@ struct GitHubServiceBatchIntegrationTests {
     }
     """
 
-    private static let approvalContainsGateResult = """
+    private static let waitingCheckRunApprovalResult = """
     {
       "data": {
         "pr0": {
@@ -794,7 +793,7 @@ struct GitHubServiceBatchIntegrationTests {
               "contexts": {
                 "nodes": [
                   { "__typename": "CheckRun", "name": "required_ci", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/required", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: deploy/wait_for_approval", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/wait", "detailsUrl": null }
+                  { "__typename": "CheckRun", "name": "deploy / wait_for_approval", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy/wait", "context": null, "state": null, "targetUrl": null }
                 ]
               }
             },
@@ -886,7 +885,7 @@ struct GitHubServiceBatchIntegrationTests {
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/circleci: preflight_check", "state": "FAILURE", "targetUrl": "https://circleci.com/gh/owner/repo/105140", "detailsUrl": null },
                   { "__typename": "CheckRun", "name": "pull_requests", "status": "COMPLETED", "conclusion": "FAILURE", "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/required", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "CheckRun", "name": "dead_code_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://app.circleci.com/pipelines/gh/owner/repo/1/workflows/optional", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: dead_code_cleanup/approve_dead_code_cleanup", "state": "PENDING", "targetUrl": "https://circleci.com/workflow-run/optional", "detailsUrl": null },
+                  { "__typename": "CheckRun", "name": "dead_code_cleanup / approve", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/workflows/optional/approve", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: check_mobsfscan", "state": "SUCCESS", "targetUrl": "https://circleci.com/gh/owner/repo/101", "detailsUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "context": "ci/circleci: check_circleci_config_lint", "state": "SUCCESS", "targetUrl": "https://circleci.com/gh/owner/repo/101", "detailsUrl": null }
                 ]
@@ -920,8 +919,7 @@ struct GitHubServiceBatchIntegrationTests {
               "contexts": {
                 "nodes": [
                   { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: deploy/approve_deploy", "state": "PENDING", "targetUrl": "https://ci.example.com/deploy/approve", "detailsUrl": null }
+                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null }
                 ]
               }
             },
@@ -1018,7 +1016,7 @@ struct GitHubServiceBatchIntegrationTests {
                   { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "CheckRun", "name": "dead_code_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/workflows/optional", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "CheckRun", "name": "pull_requests", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/workflows/required", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: dead_code_cleanup/approve_dead_code_cleanup", "state": "PENDING", "targetUrl": "https://ci.example.com/workflows/optional/approve", "detailsUrl": null },
+                  { "__typename": "CheckRun", "name": "dead_code_cleanup / approve", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/workflows/optional/approve", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: generate_beta_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/generate_beta_build", "detailsUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: generate_release_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/generate_release_build", "detailsUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: generate_simulator_debug_build", "state": "PENDING", "targetUrl": "https://ci.example.com/jobs/generate_simulator_debug_build", "detailsUrl": null },
@@ -1132,7 +1130,7 @@ struct GitHubServiceBatchIntegrationTests {
                   { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
                   { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: preflight_check", "state": "FAILURE", "targetUrl": "https://ci.example.com/preflight", "detailsUrl": null },
                   { "__typename": "CheckRun", "name": "optional_cleanup", "status": "IN_PROGRESS", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/optional", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/example: optional_cleanup/approve", "state": "PENDING", "targetUrl": "https://ci.example.com/optional/approve", "detailsUrl": null }
+                  { "__typename": "CheckRun", "name": "optional_cleanup / approve", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/optional/approve", "context": null, "state": null, "targetUrl": null }
                 ]
               }
             },
@@ -1291,6 +1289,7 @@ struct GitHubServiceBatchIntegrationTests {
             !$0.isNonBlocking && ($0.status == .failure || $0.status == .error)
         }.map(\.name)
         #expect(blockingFailures == ["ci/circleci: preflight_check", "pull_requests"])
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["dead_code_cleanup / approve"])
     }
 
     @Test func fetchAllOpenPRsTreatsErrorRollupWithMissingRequiredContextAsError() async throws {
@@ -1343,7 +1342,7 @@ struct GitHubServiceBatchIntegrationTests {
 
         #expect(pr.buildStatus == .pending)
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
-        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/example: dead_code_cleanup/approve_dead_code_cleanup"])
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["dead_code_cleanup / approve"])
     }
 
     @Test func fetchAllOpenPRsTreatsApprovalNamedStatusContextWithoutGateAsPending() async throws {
@@ -1362,18 +1361,18 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 pending"])
     }
 
-    @Test func fetchAllOpenPRsTreatsApprovalNamedGateAsWaiting() async throws {
+    @Test func fetchAllOpenPRsTreatsWaitingCheckRunAsNonBlockingApproval() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
                 ("--author=@me", .success(Self.authoredSearchResult)),
-                ("graphql", .success(Self.approvalContainsGateResult))
+                ("graphql", .success(Self.waitingCheckRunApprovalResult))
             ]
         )
         let service = GitHubService(shellExecutor: mock)
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
-        let approvalCheck = try #require(pr.statusChecks.first { $0.name == "ci/example: deploy/wait_for_approval" })
+        let approvalCheck = try #require(pr.statusChecks.first { $0.name == "deploy / wait_for_approval" })
 
         #expect(pr.buildStatus == .success)
         #expect(approvalCheck.status == .waiting)
@@ -1381,7 +1380,7 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 
-    @Test func fetchAllOpenPRsSuppressesWaitingApprovalParentFromNonBlockingSummary() async throws {
+    @Test func fetchAllOpenPRsTreatsNonRequiredWaitingCheckRunAsNonBlocking() async throws {
         let mock = MockShellExecutor(
             executeResponseMatchers: [
                 ("--author=@me", .success(Self.authoredSearchResult)),
@@ -1394,7 +1393,7 @@ struct GitHubServiceBatchIntegrationTests {
         let pr = try #require(result.pullRequests.first)
 
         #expect(pr.buildStatus == .success)
-        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/example: deploy/approve_deploy"])
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["deploy"])
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 
@@ -1411,7 +1410,7 @@ struct GitHubServiceBatchIntegrationTests {
         let pr = try #require(result.pullRequests.first)
 
         #expect(pr.buildStatus == .notStarted)
-        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/example: deploy/approve_deploy"])
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["deploy"])
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 
@@ -1464,7 +1463,7 @@ struct GitHubServiceBatchIntegrationTests {
 
         #expect(status.status == .failure)
         #expect(status.headRefName == "feature/test")
-        #expect(status.statusChecks.filter(\.isNonBlocking).map(\.name) == ["ci/circleci: dead_code_cleanup/approve_dead_code_cleanup"])
+        #expect(status.statusChecks.filter(\.isNonBlocking).map(\.name) == ["dead_code_cleanup / approve"])
     }
 
     @Test func fetchPRStatusTreatsMissingRequiredContextWithoutStartedCIAsNotStarted() async throws {
