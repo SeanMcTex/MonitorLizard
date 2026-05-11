@@ -260,6 +260,40 @@ git push
 - GitHub CLI (`gh`) installed and authenticated
 - GitHub Pages enabled on the repo, serving from `docs/` on `main`
 
+## Contributing
+
+Contributions are welcome! A few guidelines:
+
+### One Feature Per PR
+
+Please keep pull requests focused on a single feature, bug fix, or improvement. PRs that bundle multiple unrelated changes are harder to review and more likely to be rejected or asked to be split. If you're unsure whether your changes belong together, err on the side of separating them.
+
+### Getting Started
+
+1. Fork the repository and create a branch from `main`
+2. Build and run the app to confirm your starting point works
+3. Make your changes and run the test suite: `swift test`
+4. Open a pull request with a clear description of what changed and why
+
+AI-assisted and AI-authored contributions are welcome, but the human submitting the PR is responsible for reviewing the changes, understanding what they do, and verifying that the app builds and works correctly before opening the PR. Unvetted AI output will not be merged.
+
+### What to Contribute
+
+- Bug fixes and reliability improvements
+- New build status types or notification options
+- Additional GitHub CLI query fields surfaced in the UI
+- Improved test coverage
+- Documentation fixes
+
+### What to Avoid
+
+- Changes that require a GitHub token or server-side component (the app intentionally uses only the `gh` CLI)
+- Dependencies beyond Swift Package Manager packages
+
+### Code Style
+
+Follow the patterns already in the codebase: MVVM with `@Published`/Combine, actors for thread-safe services, `@AppStorage` for settings. Swift 6 strict concurrency is enabled — all new code must compile without warnings.
+
 ## Credits
 
 Inspired by the original `watch-ci-build` bash script that watched CircleCI builds via GitHub API.
