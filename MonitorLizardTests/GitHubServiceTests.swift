@@ -1523,4 +1523,110 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(pr.buildStatus == .failure)
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
+
+    // MARK: - Comment 1: required WAITING non-approval check must not be hidden
+
+    private static let requiredWaitingNonApprovalCheckResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "PENDING",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "build", "status": "WAITING", "conclusion": null, "isRequired": true, "detailsUrl": "https://ci.example.com/build", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["build", "lint"],
+                "requiredStatusChecks": [{ "context": "build" }, { "context": "lint" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    @Test func fetchAllOpenPRsDoesNotHideRequiredWaitingNonApprovalCheck() async throws {
+        // "build" is required and WAITING (single-component name — not an approval gate).
+        // "lint" is required and missing. With the old blanket WAITING guard, "build" was excluded
+        // from hasActiveNonApprovalWork, causing the PR to be misclassified as notStarted.
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.requiredWaitingNonApprovalCheckResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        // "build" is active required work — PR should be pending, not notStarted.
+        #expect(pr.buildStatus == .pending)
+    }
+
+    // MARK: - Comment 2: legacy StatusContext approval gate should be non-blocking
+
+    private static let legacyApprovalStatusContextMissingRequiredResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "PENDING",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "StatusContext", "name": null, "status": null, "conclusion": null, "isRequired": false, "context": "ci/circleci: deploy/approve_deploy", "state": "PENDING", "targetUrl": "https://circleci.com/approve", "detailsUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/circleci: build"],
+                "requiredStatusChecks": [{ "context": "ci/circleci: build" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    @Test func fetchAllOpenPRsTreatsLegacyApprovalStatusContextAsNonBlocking() async throws {
+        // "ci/circleci: build" is required and missing (notStarted scenario).
+        // "ci/circleci: deploy/approve_deploy" is a non-required StatusContext approval gate.
+        // It should be excluded from hasActiveNonApprovalWork and marked isNonBlocking, so the
+        // overall status is notStarted (not masked as pending by the approval context).
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.legacyApprovalStatusContextMissingRequiredResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+        let approvalCheck = try #require(pr.statusChecks.first { $0.name == "ci/circleci: deploy/approve_deploy" })
+
+        #expect(pr.buildStatus == .notStarted)
+        #expect(approvalCheck.isNonBlocking == true)
+    }
 }

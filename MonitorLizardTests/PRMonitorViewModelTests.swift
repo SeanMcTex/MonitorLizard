@@ -304,9 +304,9 @@ struct CustomNamesServiceTests {
 @MainActor
 struct OtherPRsViewModelTests {
 
-    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService) {
+    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite), PRCacheService(defaults: suite))
     }
 
     private func makePR(number: Int, nameWithOwner: String, type: PRType = .other) -> PullRequest {
@@ -331,8 +331,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRThrowsInvalidURL() async {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         do {
             try await vm.addOtherPR(urlString: "not-a-valid-url")
@@ -345,8 +345,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -369,8 +369,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -398,8 +398,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func filteredOtherPRsRespectSelectedRepository() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -417,8 +417,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func removeOtherPRResetsRepoSelectionWhenLastRemoved() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -432,8 +432,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func toggleWatchUpdatesOtherPullRequests() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
 
         var pr = makePR(number: 1, nameWithOwner: "acme/widget")
@@ -448,8 +448,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func clearAllWatchedResetsOtherPullRequests() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
 
         var pr = makePR(number: 1, nameWithOwner: "acme/widget")
@@ -469,7 +469,8 @@ struct OtherPRsViewModelTests {
             isDemoMode: true,
             watchlistService: watchlist,
             otherPRsService: otherPRs,
-            customNamesService: customNames
+            customNamesService: customNames,
+            cacheService: PRCacheService(defaults: suite)
         )
         vm.stopPolling()
 
@@ -483,8 +484,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -502,9 +503,9 @@ struct OtherPRsViewModelTests {
 @MainActor
 struct PRMonitorViewModelTests {
 
-    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService) {
+    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite), PRCacheService(defaults: suite))
     }
 
     private func makePR(number: Int = 1, nameWithOwner: String = "acme/widget", buildStatus: BuildStatus) -> PullRequest {
@@ -529,8 +530,8 @@ struct PRMonitorViewModelTests {
     }
 
     private func createLoadedViewModel() async -> PRMonitorViewModel {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         // Poll until demo data is loaded rather than using a fixed sleep,
         // so the test doesn't flake under parallel load.
         for _ in 0..<40 {
@@ -555,8 +556,8 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func reposWithIssuesIncludesNotStartedPRs() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
 
         vm.otherPullRequests = [makePR(buildStatus: .notStarted)]
@@ -565,7 +566,7 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func watchlistReportsCompletionFromNotStarted() {
-        let (watchlist, _) = makeIsolatedServices()
+        let (watchlist, _, _) = makeIsolatedServices()
         let pendingPR = makePR(buildStatus: .notStarted)
         var completedPR = pendingPR
         completedPR.buildStatus = .success

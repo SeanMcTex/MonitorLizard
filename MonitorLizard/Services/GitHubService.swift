@@ -689,12 +689,32 @@ class GitHubService: ObservableObject {
         let approvalParentWorkflowNames = approvalParentWorkflowNames(in: checks, requiredContextSet: requiredContextSet)
 
         return checks.contains { check in
-            guard check.status?.uppercased() != "WAITING",
-                  let checkName = check.name ?? check.context else {
+            guard let checkName = check.name ?? check.context else {
                 return false
             }
 
             let isRequired = check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }
+
+            // Non-required WAITING checks are approval gates or approval-parent workflows — skip them.
+            // Required WAITING checks are genuine active CI work (e.g. a queued check) and must not
+            // be hidden; they fall through so hasActiveNonApprovalWork correctly returns true.
+            if check.status?.uppercased() == "WAITING", isRequired == false {
+                return false
+            }
+
+            // Skip non-required StatusContext approval gates (legacy CircleCI / external-provider
+            // pattern: "ci/circleci: deploy/approve_deploy"). These are human-approval steps, not CI.
+            if check.__typename == "StatusContext",
+               check.state?.uppercased() == "PENDING",
+               isRequired == false,
+               workflowPathComponents(checkName).count == 2 {
+                // Heuristic: CircleCI and similar providers name approval steps with "approve"
+                // in the job component (e.g. "deploy/approve_deploy"). Won't catch non-English
+                // or custom naming conventions (e.g. "hold_for_review", "manual_gate").
+                let jobName = String(workflowPathComponents(checkName)[1]).lowercased()
+                if jobName.contains("approve") { return false }
+            }
+
             let isWaitingForApprovalParent = check.__typename == "CheckRun"
                 && isRequired == false
                 && approvalParentWorkflowNames.contains(checkName)
@@ -847,7 +867,17 @@ class GitHubService: ObservableObject {
                 && isRequired == false
                 && (checkStatus == .running || checkStatus == .waiting)
                 && approvalParentWorkflowNames.contains(checkName)
-            let isRequiredAggregateWork = !missingRequiredContexts.isEmpty && check.status?.uppercased() != "WAITING"
+            let isLegacyApprovalContext: Bool = {
+                guard check.__typename == "StatusContext",
+                      checkStatus == .pending,
+                      isRequired == false,
+                      workflowPathComponents(checkName).count == 2 else { return false }
+                // Heuristic: same "approve" convention as in hasActiveNonApprovalWork above.
+                return String(workflowPathComponents(checkName)[1]).lowercased().contains("approve")
+            }()
+            let isRequiredAggregateWork = !missingRequiredContexts.isEmpty
+                && check.status?.uppercased() != "WAITING"
+                && !isLegacyApprovalContext
             let isNonBlocking = isRequired == false
                 && !isBlockingFailure
                 && !isWaitingForApprovalParent
