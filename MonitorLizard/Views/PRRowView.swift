@@ -10,6 +10,19 @@ extension ReviewDecision {
     }
 }
 
+extension NonBlockingCheckState {
+    var color: Color {
+        switch self {
+        case .failed, .waitingForApproval:
+            return .orange.opacity(0.85)
+        case .running, .queued, .pending:
+            return .blue.opacity(0.85)
+        case .passed:
+            return .green.opacity(0.85)
+        }
+    }
+}
+
 struct PRRowView: View {
     let pr: PullRequest
     @EnvironmentObject var viewModel: PRMonitorViewModel
@@ -47,7 +60,7 @@ struct PRRowView: View {
 
     private var failingChecks: [StatusCheck] {
         pr.statusChecks.filter { check in
-            check.status == .failure || check.status == .error
+            !check.isNonBlocking && (check.status == .failure || check.status == .error)
         }
     }
 
@@ -111,13 +124,9 @@ struct PRRowView: View {
                     ProgressView()
                         .scaleEffect(0.8)
                 }
-            } else if pr.buildStatus == .success {
-                Image(systemName: "gear.badge.checkmark")
-                    .foregroundColor(.green)
-                    .font(.title2)
-            } else if pr.buildStatus == .failure || pr.buildStatus == .error {
-                Image(systemName: "gear.badge.xmark")
-                    .foregroundColor(.red)
+            } else if let systemImageName = pr.buildStatus.systemImageName {
+                Image(systemName: systemImageName)
+                    .foregroundColor(pr.buildStatus.color)
                     .font(.title2)
             } else {
                 Text(pr.buildStatus.icon)
@@ -220,6 +229,22 @@ struct PRRowView: View {
                         .foregroundColor(.secondary)
                 }
 
+                if let summary = pr.nonBlockingCheckSummary {
+                    HStack(spacing: 4) {
+                        Text("Non-blocking:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(summary.segments) { segment in
+                            Text(segment.text + (segment.id == summary.segments.last?.id ? "" : ","))
+                                .font(.caption2)
+                                .foregroundStyle(segment.state.color)
+                        }
+                    }
+                    .lineLimit(1)
+                    .help("These checks do not block merging.")
+                }
+
                 // Labels
                 if !pr.labels.isEmpty {
                     HStack(spacing: 4) {
@@ -239,6 +264,10 @@ struct PRRowView: View {
                 // Failing checks (only shown when checks fail)
                 if !failingChecks.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
+                        Text("Failed checks:")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
                         ForEach(failingChecks) { check in
                             Button(action: {
                                 openCheckURL(check.detailsUrl)

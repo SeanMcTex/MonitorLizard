@@ -4,212 +4,158 @@ import Foundation
 
 struct ResolveReviewDecisionTests {
 
-    private typealias Review = GHPRDetailResponse.Review
-    private typealias ReviewAuthor = GHPRDetailResponse.Review.ReviewAuthor
-    private typealias ReviewRequest = GHPRDetailResponse.ReviewRequest
+    typealias Review = GHPRDetailResponse.Review
+    typealias ReviewAuthor = GHPRDetailResponse.Review.ReviewAuthor
+    typealias ReviewRequest = GHPRDetailResponse.ReviewRequest
 
-    private func review(_ login: String, state: String) -> Review {
+    enum Scenario: CaseIterable, Sendable {
+        case approvedPassesThrough
+        case reviewRequiredPassesThrough
+        case nilRawValueReturnsNil
+        case changesRequestedWithNoReviewRequests
+        case changesRequestedWithNilReviewRequests
+        case changesRequestedWhenDifferentReviewerReRequested
+        case changesRequestedWhenOnlyOneOfTwoReRequested
+        case changesRequestedDowngradedWhenReviewerReRequested
+        case changesRequestedDowngradedWhenAllReviewersReRequested
+        case changesRequestedDowngradedWhenMixedReviewsAndAllChangesReRequesters
+        case changesRequestedWithNoLatestReviewsAndPendingRequest
+        case changesRequestedWithEmptyLatestReviewsAndPendingRequest
+        case changesRequestedWithEmptyLatestReviewsAndNoRequests
+        case teamReviewRequestIgnoredGracefully
+        case caseInsensitiveRawValue
+
+        var rawValue: String? {
+            switch self {
+            case .approvedPassesThrough:
+                return "APPROVED"
+            case .reviewRequiredPassesThrough:
+                return "REVIEW_REQUIRED"
+            case .nilRawValueReturnsNil:
+                return nil
+            case .caseInsensitiveRawValue:
+                return "changes_requested"
+            default:
+                return "CHANGES_REQUESTED"
+            }
+        }
+
+        var latestReviews: [Review]? {
+            switch self {
+            case .approvedPassesThrough, .reviewRequiredPassesThrough, .nilRawValueReturnsNil,
+                    .changesRequestedWithNoLatestReviewsAndPendingRequest:
+                return nil
+            case .changesRequestedWithEmptyLatestReviewsAndPendingRequest,
+                    .changesRequestedWithEmptyLatestReviewsAndNoRequests:
+                return []
+            case .changesRequestedWhenOnlyOneOfTwoReRequested,
+                    .changesRequestedDowngradedWhenAllReviewersReRequested:
+                return [
+                    ResolveReviewDecisionTests.review("alice", state: "CHANGES_REQUESTED"),
+                    ResolveReviewDecisionTests.review("bob", state: "CHANGES_REQUESTED"),
+                ]
+            case .changesRequestedDowngradedWhenMixedReviewsAndAllChangesReRequesters:
+                return [
+                    ResolveReviewDecisionTests.review("alice", state: "APPROVED"),
+                    ResolveReviewDecisionTests.review("bob", state: "CHANGES_REQUESTED"),
+                ]
+            default:
+                return [ResolveReviewDecisionTests.review("alice", state: "CHANGES_REQUESTED")]
+            }
+        }
+
+        var reviewRequests: [ReviewRequest]? {
+            switch self {
+            case .approvedPassesThrough, .reviewRequiredPassesThrough, .nilRawValueReturnsNil:
+                return nil
+            case .changesRequestedWithNoReviewRequests, .changesRequestedWithEmptyLatestReviewsAndNoRequests:
+                return []
+            case .changesRequestedWithNilReviewRequests:
+                return nil
+            case .changesRequestedWhenDifferentReviewerReRequested:
+                return [ResolveReviewDecisionTests.request("bob")]
+            case .changesRequestedWhenOnlyOneOfTwoReRequested,
+                    .changesRequestedDowngradedWhenReviewerReRequested,
+                    .caseInsensitiveRawValue:
+                return [ResolveReviewDecisionTests.request("alice")]
+            case .changesRequestedDowngradedWhenAllReviewersReRequested:
+                return [ResolveReviewDecisionTests.request("alice"), ResolveReviewDecisionTests.request("bob")]
+            case .changesRequestedDowngradedWhenMixedReviewsAndAllChangesReRequesters:
+                return [ResolveReviewDecisionTests.request("bob")]
+            case .changesRequestedWithNoLatestReviewsAndPendingRequest,
+                    .changesRequestedWithEmptyLatestReviewsAndPendingRequest:
+                return [ResolveReviewDecisionTests.request("alice")]
+            case .teamReviewRequestIgnoredGracefully:
+                return [ReviewRequest(login: nil)]
+            }
+        }
+
+        var expected: ReviewDecision? {
+            switch self {
+            case .approvedPassesThrough:
+                return .approved
+            case .reviewRequiredPassesThrough,
+                    .changesRequestedDowngradedWhenReviewerReRequested,
+                    .changesRequestedDowngradedWhenAllReviewersReRequested,
+                    .changesRequestedDowngradedWhenMixedReviewsAndAllChangesReRequesters,
+                    .changesRequestedWithNoLatestReviewsAndPendingRequest,
+                    .changesRequestedWithEmptyLatestReviewsAndPendingRequest,
+                    .caseInsensitiveRawValue:
+                return .reviewRequired
+            case .nilRawValueReturnsNil:
+                return nil
+            default:
+                return .changesRequested
+            }
+        }
+    }
+
+    private static func review(_ login: String, state: String) -> Review {
         Review(author: ReviewAuthor(login: login), state: state)
     }
 
-    private func request(_ login: String) -> ReviewRequest {
+    private static func request(_ login: String) -> ReviewRequest {
         ReviewRequest(login: login)
     }
 
-    // MARK: Non-CHANGES_REQUESTED pass-throughs
-
-    @Test func approvedPassesThrough() {
-        let result = GitHubService.resolveReviewDecision(rawValue: "APPROVED", latestReviews: nil, reviewRequests: nil)
-        #expect(result == .approved)
-    }
-
-    @Test func reviewRequiredPassesThrough() {
-        let result = GitHubService.resolveReviewDecision(rawValue: "REVIEW_REQUIRED", latestReviews: nil, reviewRequests: nil)
-        #expect(result == .reviewRequired)
-    }
-
-    @Test func nilRawValueReturnsNil() {
-        let result = GitHubService.resolveReviewDecision(rawValue: nil, latestReviews: nil, reviewRequests: nil)
-        #expect(result == nil)
-    }
-
-    // MARK: CHANGES_REQUESTED with no re-request
-
-    @Test func changesRequestedWithNoReviewRequestsStaysChangesRequested() {
+    @Test(arguments: Scenario.allCases)
+    func resolvesReviewDecision(scenario: Scenario) {
         let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
-            reviewRequests: []
+            rawValue: scenario.rawValue,
+            latestReviews: scenario.latestReviews,
+            reviewRequests: scenario.reviewRequests
         )
-        #expect(result == .changesRequested)
-    }
-
-    @Test func changesRequestedWithNilReviewRequestsStaysChangesRequested() {
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
-            reviewRequests: nil
-        )
-        #expect(result == .changesRequested)
-    }
-
-    @Test func changesRequestedWhenDifferentReviewerReRequestedStaysChangesRequested() {
-        // alice requested changes, but only bob has a pending re-review
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
-            reviewRequests: [request("bob")]
-        )
-        #expect(result == .changesRequested)
-    }
-
-    @Test func changesRequestedWhenOnlyOneOfTwoReRequestedStaysChangesRequested() {
-        // Both alice and bob requested changes; only alice re-requested
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [
-                review("alice", state: "CHANGES_REQUESTED"),
-                review("bob", state: "CHANGES_REQUESTED")
-            ],
-            reviewRequests: [request("alice")]
-        )
-        #expect(result == .changesRequested)
-    }
-
-    // MARK: CHANGES_REQUESTED downgraded to REVIEW_REQUIRED
-
-    @Test func changesRequestedDowngradedWhenReviewerReRequested() {
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
-            reviewRequests: [request("alice")]
-        )
-        #expect(result == .reviewRequired)
-    }
-
-    @Test func changesRequestedDowngradedWhenAllReviewersReRequested() {
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [
-                review("alice", state: "CHANGES_REQUESTED"),
-                review("bob", state: "CHANGES_REQUESTED")
-            ],
-            reviewRequests: [request("alice"), request("bob")]
-        )
-        #expect(result == .reviewRequired)
-    }
-
-    @Test func changesRequestedDowngradedWhenMixedReviewsAndAllChangesReRequesters() {
-        // alice approved, bob requested changes and has been re-requested
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [
-                review("alice", state: "APPROVED"),
-                review("bob", state: "CHANGES_REQUESTED")
-            ],
-            reviewRequests: [request("bob")]
-        )
-        #expect(result == .reviewRequired)
-    }
-
-    // MARK: Edge cases
-
-    @Test func changesRequestedWithNoLatestReviewsAndPendingRequestBecomesReviewRequired() {
-        // GitHub sometimes returns latestReviews empty even when reviewDecision is CHANGES_REQUESTED.
-        // If there's a pending re-review, treat it as reviewRequired.
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: nil,
-            reviewRequests: [request("alice")]
-        )
-        #expect(result == .reviewRequired)
-    }
-
-    @Test func changesRequestedWithEmptyLatestReviewsAndPendingRequestBecomesReviewRequired() {
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [],
-            reviewRequests: [request("alice")]
-        )
-        #expect(result == .reviewRequired)
-    }
-
-    @Test func changesRequestedWithEmptyLatestReviewsAndNoRequestsStaysChangesRequested() {
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [],
-            reviewRequests: []
-        )
-        #expect(result == .changesRequested)
-    }
-
-    @Test func teamReviewRequestIgnoredGracefully() {
-        // Team review requests have nil login — should not crash or incorrectly downgrade
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "CHANGES_REQUESTED",
-            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
-            reviewRequests: [ReviewRequest(login: nil)]
-        )
-        #expect(result == .changesRequested)
-    }
-
-    @Test func caseInsensitiveRawValue() {
-        let result = GitHubService.resolveReviewDecision(
-            rawValue: "changes_requested",
-            latestReviews: [review("alice", state: "CHANGES_REQUESTED")],
-            reviewRequests: [request("alice")]
-        )
-        #expect(result == .reviewRequired)
+        #expect(result == scenario.expected)
     }
 }
 
 @MainActor
 struct ParsePRURLTests {
 
-    @Test func validGitHubURL() {
-        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/123")
-        #expect(id?.host == "github.com")
-        #expect(id?.owner == "owner")
-        #expect(id?.repo == "repo")
-        #expect(id?.number == 123)
+    @Test(arguments: [
+        ("https://github.com/owner/repo/pull/123", "github.com", "owner", "repo", 123),
+        ("https://github.example.com/myorg/myrepo/pull/42", "github.example.com", "myorg", "myrepo", 42),
+    ] as [(String, String, String, String, Int)])
+    func parsesValidPRURL(url: String, host: String, owner: String, repo: String, number: Int) {
+        let id = GitHubService.parsePRURL(url)
+
+        #expect(id?.host == host)
+        #expect(id?.owner == owner)
+        #expect(id?.repo == repo)
+        #expect(id?.number == number)
     }
 
-    @Test func validGHEURL() {
-        let id = GitHubService.parsePRURL("https://github.example.com/myorg/myrepo/pull/42")
-        #expect(id?.host == "github.example.com")
-        #expect(id?.owner == "myorg")
-        #expect(id?.repo == "myrepo")
-        #expect(id?.number == 42)
-    }
+    @Test(arguments: [
+        "https://github.com/owner/repo/issues/123",
+        "https://github.com/owner/repo/pull/",
+        "https://github.com/owner/repo/pull/abc",
+        "not-a-url",
+        "",
+        "https://github.com/owner/repo/pull/123/files",
+    ])
+    func rejectsInvalidPRURL(url: String) {
+        let id = GitHubService.parsePRURL(url)
 
-    @Test func invalidURLNotPullPath() {
-        let id = GitHubService.parsePRURL("https://github.com/owner/repo/issues/123")
-        #expect(id == nil)
-    }
-
-    @Test func invalidURLMissingNumber() {
-        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/")
-        #expect(id == nil)
-    }
-
-    @Test func invalidURLNonNumericNumber() {
-        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/abc")
-        #expect(id == nil)
-    }
-
-    @Test func invalidURLNoHost() {
-        let id = GitHubService.parsePRURL("not-a-url")
-        #expect(id == nil)
-    }
-
-    @Test func invalidURLEmpty() {
-        let id = GitHubService.parsePRURL("")
-        #expect(id == nil)
-    }
-
-    @Test func validURLWithTrailingSlash() {
-        // Extra path components — should not match
-        let id = GitHubService.parsePRURL("https://github.com/owner/repo/pull/123/files")
         #expect(id == nil)
     }
 }
@@ -358,9 +304,9 @@ struct CustomNamesServiceTests {
 @MainActor
 struct OtherPRsViewModelTests {
 
-    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService) {
+    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite), PRCacheService(defaults: suite))
     }
 
     private func makePR(number: Int, nameWithOwner: String, type: PRType = .other) -> PullRequest {
@@ -385,8 +331,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRThrowsInvalidURL() async {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         do {
             try await vm.addOtherPR(urlString: "not-a-valid-url")
@@ -399,8 +345,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -423,8 +369,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -452,8 +398,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func filteredOtherPRsRespectSelectedRepository() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -471,8 +417,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func removeOtherPRResetsRepoSelectionWhenLastRemoved() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -486,8 +432,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func toggleWatchUpdatesOtherPullRequests() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
 
         var pr = makePR(number: 1, nameWithOwner: "acme/widget")
@@ -502,8 +448,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func clearAllWatchedResetsOtherPullRequests() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
 
         var pr = makePR(number: 1, nameWithOwner: "acme/widget")
@@ -523,7 +469,8 @@ struct OtherPRsViewModelTests {
             isDemoMode: true,
             watchlistService: watchlist,
             otherPRsService: otherPRs,
-            customNamesService: customNames
+            customNamesService: customNames,
+            cacheService: PRCacheService(defaults: suite)
         )
         vm.stopPolling()
 
@@ -537,8 +484,8 @@ struct OtherPRsViewModelTests {
     }
 
     @Test func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         vm.stopPolling()
         defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
@@ -556,14 +503,35 @@ struct OtherPRsViewModelTests {
 @MainActor
 struct PRMonitorViewModelTests {
 
-    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService) {
+    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
         let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
+        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite), PRCacheService(defaults: suite))
+    }
+
+    private func makePR(number: Int = 1, nameWithOwner: String = "acme/widget", buildStatus: BuildStatus) -> PullRequest {
+        let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
+        return PullRequest(
+            number: number,
+            title: "Test PR #\(number)",
+            repository: PullRequest.RepositoryInfo(name: name, nameWithOwner: nameWithOwner),
+            url: "https://github.com/\(nameWithOwner)/pull/\(number)",
+            author: PullRequest.Author(login: "testuser"),
+            headRefName: "feature/test",
+            updatedAt: Date(),
+            buildStatus: buildStatus,
+            isWatched: false,
+            labels: [],
+            type: .authored,
+            isDraft: false,
+            statusChecks: [],
+            reviewDecision: nil,
+            host: "github.com"
+        )
     }
 
     private func createLoadedViewModel() async -> PRMonitorViewModel {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
         // Poll until demo data is loaded rather than using a fixed sleep,
         // so the test doesn't flake under parallel load.
         for _ in 0..<40 {
@@ -585,6 +553,27 @@ struct PRMonitorViewModelTests {
         let vm = await createLoadedViewModel()
 
         #expect(vm.selectedRepository == "All Repositories")
+    }
+
+    @Test func reposWithIssuesIncludesNotStartedPRs() {
+        let (watchlist, otherPRs, cache) = makeIsolatedServices()
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+        vm.stopPolling()
+
+        vm.otherPullRequests = [makePR(buildStatus: .notStarted)]
+
+        #expect(vm.reposWithIssues == ["acme/widget"])
+    }
+
+    @Test func watchlistReportsCompletionFromNotStarted() {
+        let (watchlist, _, _) = makeIsolatedServices()
+        let pendingPR = makePR(buildStatus: .notStarted)
+        var completedPR = pendingPR
+        completedPR.buildStatus = .success
+
+        watchlist.watch(pendingPR)
+
+        #expect(watchlist.checkForCompletions(currentPRs: [completedPR]).map(\.id) == [pendingPR.id])
     }
 
     @Test func filterByRepository() async {

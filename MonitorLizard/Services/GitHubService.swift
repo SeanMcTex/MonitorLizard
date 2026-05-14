@@ -102,7 +102,16 @@ class GitHubService: ObservableObject {
             pr\(index): repository(owner: "\(req.owner)", name: "\(req.repo)") {
               pullRequest(number: \(req.number)) {
                 headRefName
+                baseRef {
+                  branchProtectionRule {
+                    requiredStatusCheckContexts
+                    requiredStatusChecks {
+                      context
+                    }
+                  }
+                }
                 statusCheckRollup {
+                  state
                   contexts(last: 100) {
                     nodes {
                       ... on CheckRun {
@@ -110,12 +119,14 @@ class GitHubService: ObservableObject {
                         name
                         status
                         conclusion
+                        isRequired(pullRequestNumber: \(req.number))
                         detailsUrl
                       }
                       ... on StatusContext {
                         __typename
                         context
                         state
+                        isRequired(pullRequestNumber: \(req.number))
                         targetUrl
                       }
                     }
@@ -143,6 +154,78 @@ class GitHubService: ObservableObject {
         }
 
         return "query {\n\(fragments.joined(separator: "\n"))}"
+    }
+
+    nonisolated static func buildPRDetailQuery(for request: PRStatusRequest) -> String {
+        """
+        query {
+          pr0: repository(owner: "\(request.owner)", name: "\(request.repo)") {
+            pullRequest(number: \(request.number)) {
+              number
+              title
+              url
+              author { login }
+              updatedAt
+              labels(first: 20) {
+                nodes {
+                  id
+                  name
+                  color
+                }
+              }
+              isDraft
+              state
+              headRefName
+              baseRef {
+                branchProtectionRule {
+                  requiredStatusCheckContexts
+                  requiredStatusChecks {
+                    context
+                  }
+                }
+              }
+              statusCheckRollup {
+                state
+                contexts(last: 100) {
+                  nodes {
+                    ... on CheckRun {
+                      __typename
+                      name
+                      status
+                      conclusion
+                      isRequired(pullRequestNumber: \(request.number))
+                      detailsUrl
+                    }
+                    ... on StatusContext {
+                      __typename
+                      context
+                      state
+                      isRequired(pullRequestNumber: \(request.number))
+                      targetUrl
+                    }
+                  }
+                }
+              }
+              mergeable
+              mergeStateStatus
+              reviewDecision
+              latestReviews(last: 20) {
+                nodes {
+                  state
+                  author { login }
+                }
+              }
+              reviewRequests(last: 20) {
+                nodes {
+                  requestedReviewer {
+                    ... on User { login }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
     }
 
     /// Parses a `gh api graphql` batch response and maps the per-alias results back to
@@ -377,8 +460,10 @@ class GitHubService: ObservableObject {
                 updatedAt: updatedAt,
                 buildStatus: parseOverallStatus(
                     from: detail?.statusCheckRollup,
+                    statusCheckRollupState: detail?.statusCheckRollupState,
                     mergeable: detail?.mergeable,
                     mergeStateStatus: detail?.mergeStateStatus,
+                    requiredStatusCheckContexts: detail?.requiredStatusCheckContexts,
                     updatedAt: updatedAt,
                     enableInactiveDetection: enableInactiveDetection,
                     inactiveThresholdDays: inactiveThresholdDays
@@ -387,7 +472,11 @@ class GitHubService: ObservableObject {
                 labels: result.labels.map { PullRequest.Label(id: $0.id, name: $0.name, color: $0.color) },
                 type: prType,
                 isDraft: result.isDraft,
-                statusChecks: parseStatusChecks(from: detail?.statusCheckRollup),
+                statusChecks: parseStatusChecks(
+                    from: detail?.statusCheckRollup,
+                    statusCheckRollupState: detail?.statusCheckRollupState,
+                    requiredStatusCheckContexts: detail?.requiredStatusCheckContexts
+                ),
                 reviewDecision: GitHubService.resolveReviewDecision(
                     rawValue: detail?.reviewDecision,
                     latestReviews: detail?.latestReviews,
@@ -399,29 +488,23 @@ class GitHubService: ObservableObject {
     }
 
     func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String = "github.com") async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?) {
-        let json = try await shellExecutor.execute(
-            command: "gh",
-            arguments: [
-                "pr", "view", "\(number)",
-                "--repo", "\(owner)/\(repo)",
-                "--json", "headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,latestReviews,reviewRequests"
-            ],
-            host: host
-        )
-
-        guard let jsonData = json.data(using: .utf8) else {
+        let request = PRStatusRequest(owner: owner, repo: repo, number: number)
+        guard let detail = try await batchFetchStatuses(for: [request], host: host)[request] else {
             throw GitHubError.invalidResponse
         }
 
-        let decoder = JSONDecoder()
-        let detail = try decoder.decode(GHPRDetailResponse.self, from: jsonData)
-
-        let statusChecks = parseStatusChecks(from: detail.statusCheckRollup)
+        let statusChecks = parseStatusChecks(
+            from: detail.statusCheckRollup,
+            statusCheckRollupState: detail.statusCheckRollupState,
+            requiredStatusCheckContexts: detail.requiredStatusCheckContexts
+        )
 
         let status = parseOverallStatus(
             from: detail.statusCheckRollup,
+            statusCheckRollupState: detail.statusCheckRollupState,
             mergeable: detail.mergeable,
             mergeStateStatus: detail.mergeStateStatus,
+            requiredStatusCheckContexts: detail.requiredStatusCheckContexts,
             updatedAt: updatedAt,
             enableInactiveDetection: enableInactiveDetection,
             inactiveThresholdDays: inactiveThresholdDays
@@ -472,7 +555,7 @@ class GitHubService: ObservableObject {
         return .changesRequested
     }
 
-    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
+    private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, statusCheckRollupState: String? = nil, mergeable: String?, mergeStateStatus: String?, requiredStatusCheckContexts: [String]? = nil, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
         // Check for merge conflicts first (highest priority)
         if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
             return .conflict
@@ -482,17 +565,48 @@ class GitHubService: ObservableObject {
             return .conflict
         }
 
-        guard let checks = checks, !checks.isEmpty else {
-            return .success
-        }
+        let checks = checks ?? []
+
+        let missingRequiredContexts = missingRequiredStatusCheckContexts(
+            in: checks,
+            requiredStatusCheckContexts: requiredStatusCheckContexts
+        )
+        let checksToEvaluate = statusChecksForOverallStatus(checks, requiredStatusCheckContexts: requiredStatusCheckContexts)
+        let hasRequiredMetadata = requiredStatusCheckContexts != nil || checks.contains { $0.isRequired != nil }
 
         // Priority: conflict > failure > error > pending > success
         var hasFailure = false
         var hasError = false
-        var hasPending = false
+        var hasPending = !missingRequiredContexts.isEmpty
         var hasSuccess = false
 
-        for check in checks {
+        if !hasRequiredMetadata && checksToEvaluate.isEmpty {
+            switch statusCheckRollupState?.uppercased() {
+            case "FAILURE":
+                hasFailure = true
+            case "ERROR":
+                hasError = true
+            case "PENDING", "EXPECTED":
+                hasPending = true
+            case "SUCCESS":
+                hasSuccess = true
+            default:
+                break
+            }
+        }
+
+        if !missingRequiredContexts.isEmpty {
+            switch statusCheckRollupState?.uppercased() {
+            case "FAILURE":
+                hasFailure = true
+            case "ERROR":
+                hasError = true
+            default:
+                break
+            }
+        }
+
+        for check in checksToEvaluate {
             // Check conclusion field (for completed checks)
             if let conclusion = check.conclusion?.uppercased() {
                 switch conclusion {
@@ -543,6 +657,10 @@ class GitHubService: ObservableObject {
             return .error
         }
 
+        if !missingRequiredContexts.isEmpty && !hasActiveNonApprovalWork(in: checks, requiredStatusCheckContexts: requiredStatusCheckContexts) {
+            return .notStarted
+        }
+
         if hasPending {
             return .pending
         }
@@ -563,10 +681,125 @@ class GitHubService: ObservableObject {
         return .success
     }
 
-    private func parseStatusChecks(from checks: [GHPRDetailResponse.StatusCheck]?) -> [StatusCheck] {
+    private func hasActiveNonApprovalWork(
+        in checks: [GHPRDetailResponse.StatusCheck],
+        requiredStatusCheckContexts: [String]?
+    ) -> Bool {
+        let requiredContextSet = requiredStatusCheckContexts.map(Set.init)
+        let approvalParentWorkflowNames = approvalParentWorkflowNames(in: checks, requiredContextSet: requiredContextSet)
+
+        return checks.contains { check in
+            guard let checkName = check.name ?? check.context else {
+                return false
+            }
+
+            let isRequired = check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }
+
+            // Non-required WAITING checks are approval gates or approval-parent workflows — skip them.
+            // Required WAITING checks are genuine active CI work (e.g. a queued check) and must not
+            // be hidden; they fall through so hasActiveNonApprovalWork correctly returns true.
+            if check.status?.uppercased() == "WAITING", isRequired == false {
+                return false
+            }
+
+            // Skip non-required StatusContext approval gates (legacy CircleCI / external-provider
+            // pattern: "ci/circleci: deploy/approve_deploy"). These are human-approval steps, not CI.
+            if check.__typename == "StatusContext",
+               check.state?.uppercased() == "PENDING",
+               isRequired == false,
+               workflowPathComponents(checkName).count == 2 {
+                // Heuristic: CircleCI and similar providers name approval steps with "approve"
+                // in the job component (e.g. "deploy/approve_deploy"). Won't catch non-English
+                // or custom naming conventions (e.g. "hold_for_review", "manual_gate").
+                let jobName = String(workflowPathComponents(checkName)[1]).lowercased()
+                if jobName.contains("approve") { return false }
+            }
+
+            let isWaitingForApprovalParent = check.__typename == "CheckRun"
+                && isRequired == false
+                && approvalParentWorkflowNames.contains(checkName)
+
+            if let state = check.state?.uppercased(), ["PENDING", "EXPECTED"].contains(state) {
+                return true
+            }
+
+            if let status = check.status?.uppercased(), ["IN_PROGRESS", "WAITING"].contains(status), isWaitingForApprovalParent {
+                return false
+            }
+
+            if let status = check.status?.uppercased(), ["IN_PROGRESS", "QUEUED", "WAITING", "PENDING"].contains(status) {
+                return true
+            }
+
+            return false
+        }
+    }
+
+    private func statusChecksForOverallStatus(
+        _ checks: [GHPRDetailResponse.StatusCheck],
+        requiredStatusCheckContexts: [String]?
+    ) -> [GHPRDetailResponse.StatusCheck] {
+        let requiredContextSet = requiredStatusCheckContexts.map(Set.init)
+        let requiredChecks = checks.filter { check in
+            if let isRequired = check.isRequired {
+                return isRequired
+            }
+            guard let requiredContextSet, let checkName = check.name ?? check.context else {
+                return false
+            }
+            return requiredContextSet.contains(checkName)
+        }
+
+        if !requiredChecks.isEmpty {
+            return requiredChecks
+        }
+
+        let hasRequiredMetadata = requiredContextSet != nil || checks.contains { $0.isRequired != nil }
+        return hasRequiredMetadata ? [] : checks
+    }
+
+    private func approvalParentWorkflowNames(
+        in checks: [GHPRDetailResponse.StatusCheck],
+        requiredContextSet: Set<String>?
+    ) -> Set<String> {
+        Set(checks.compactMap { check -> String? in
+            guard check.status?.uppercased() == "WAITING",
+                  let checkName = check.name ?? check.context,
+                  (check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }) == false
+            else { return nil }
+            let components = workflowPathComponents(checkName)
+            guard components.count == 2 else { return nil }
+            let workflowName = String(components[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return workflowName.isEmpty ? nil : workflowName
+        })
+    }
+
+    private func missingRequiredStatusCheckContexts(
+        in checks: [GHPRDetailResponse.StatusCheck],
+        requiredStatusCheckContexts: [String]?
+    ) -> Set<String> {
+        guard let requiredStatusCheckContexts else { return [] }
+        let presentNames = Set(checks.compactMap { $0.name ?? $0.context })
+        return Set(requiredStatusCheckContexts).subtracting(presentNames)
+    }
+
+    private func parseStatusChecks(
+        from checks: [GHPRDetailResponse.StatusCheck]?,
+        statusCheckRollupState: String? = nil,
+        requiredStatusCheckContexts: [String]? = nil
+    ) -> [StatusCheck] {
         guard let checks = checks else {
             return []
         }
+
+        let requiredContextSet = requiredStatusCheckContexts.map(Set.init)
+        let missingRequiredContexts = missingRequiredStatusCheckContexts(
+            in: checks,
+            requiredStatusCheckContexts: requiredStatusCheckContexts
+        )
+        let rollupFailedWithMissingRequiredContext = !missingRequiredContexts.isEmpty
+            && ["FAILURE", "ERROR"].contains(statusCheckRollupState?.uppercased())
+        let approvalParentWorkflowNames = approvalParentWorkflowNames(in: checks, requiredContextSet: requiredContextSet)
 
         return checks.compactMap { check in
             // Extract check name from either name (CheckRun) or context (StatusContext)
@@ -602,7 +835,13 @@ class GitHubService: ObservableObject {
                 }
             } else if let status = check.status?.uppercased() {
                 switch status {
-                case "IN_PROGRESS", "QUEUED", "WAITING", "PENDING":
+                case "IN_PROGRESS":
+                    checkStatus = .running
+                case "WAITING":
+                    checkStatus = .waiting
+                case "QUEUED":
+                    checkStatus = .queued
+                case "PENDING":
                     checkStatus = .pending
                 case "COMPLETED":
                     // If completed but no conclusion, assume success
@@ -620,14 +859,45 @@ class GitHubService: ObservableObject {
 
             // Generate stable ID
             let id = "\(check.__typename)-\(checkName)"
+            let isRequired = check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }
+            let isBlockingFailure = rollupFailedWithMissingRequiredContext
+                && isRequired == false
+                && (checkStatus == .failure || checkStatus == .error)
+            let isWaitingForApprovalParent = check.__typename == "CheckRun"
+                && isRequired == false
+                && (checkStatus == .running || checkStatus == .waiting)
+                && approvalParentWorkflowNames.contains(checkName)
+            let isLegacyApprovalContext: Bool = {
+                guard check.__typename == "StatusContext",
+                      checkStatus == .pending,
+                      isRequired == false,
+                      workflowPathComponents(checkName).count == 2 else { return false }
+                // Heuristic: same "approve" convention as in hasActiveNonApprovalWork above.
+                return String(workflowPathComponents(checkName)[1]).lowercased().contains("approve")
+            }()
+            let isRequiredAggregateWork = !missingRequiredContexts.isEmpty
+                && check.status?.uppercased() != "WAITING"
+                && !isLegacyApprovalContext
+            let isNonBlocking = isRequired == false
+                && !isBlockingFailure
+                && !isWaitingForApprovalParent
+                && !isRequiredAggregateWork
 
             return StatusCheck(
                 id: id,
                 name: checkName,
                 status: checkStatus,
-                detailsUrl: detailsUrl
+                detailsUrl: detailsUrl,
+                isRequired: isRequired,
+                isNonBlocking: isNonBlocking
             )
         }
+    }
+
+    private func workflowPathComponents(_ checkName: String) -> [Substring] {
+        let suffix = checkName.split(separator: ":", maxSplits: 1).last.map(String.init) ?? checkName
+        let path = suffix.trimmingCharacters(in: .whitespacesAndNewlines)
+        return path.split(separator: "/", maxSplits: 1)
     }
 
     private func parseDate(_ dateString: String) throws -> Date {
@@ -676,66 +946,90 @@ class GitHubService: ObservableObject {
     /// Fetches a single Other PR by its identifier.
     /// Returns `nil` if the PR is closed/merged, not found, or inaccessible.
     func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> PullRequest? {
+        let host = id.host
+        let owner = id.owner
+        let repo = id.repo
+        let number = id.number
+
+        let request = PRStatusRequest(owner: owner, repo: repo, number: number)
         do {
-            let json = try await shellExecutor.execute(
-                command: "gh",
-                arguments: [
-                    "pr", "view", "\(id.number)",
-                    "--repo", "\(id.owner)/\(id.repo)",
-                    "--json", "number,title,url,author,updatedAt,labels,isDraft,headRefName,statusCheckRollup,mergeable,mergeStateStatus,reviewDecision,latestReviews,reviewRequests,state"
-                ],
-                host: id.host
+            guard let response = try await fetchPRDetail(for: request, host: host),
+                  response.state?.uppercased() == "OPEN",
+                  let responseNumber = response.number,
+                  let title = response.title,
+                  let url = response.url,
+                  let author = response.author,
+                  let updatedAtString = response.updatedAt,
+                  let isDraft = response.isDraft else {
+                return nil
+            }
+
+            let updatedAt = try parseDate(updatedAtString)
+            let statusCheckRollup = response.statusCheckRollup?.contexts?.nodes
+            let statusChecks = parseStatusChecks(
+                from: statusCheckRollup,
+                statusCheckRollupState: response.statusCheckRollup?.state,
+                requiredStatusCheckContexts: response.requiredStatusCheckContexts
             )
-
-            guard let jsonData = json.data(using: .utf8) else { return nil }
-
-            let decoder = JSONDecoder()
-            let response = try decoder.decode(GHPRViewResponse.self, from: jsonData)
-
-            guard response.state.uppercased() == "OPEN" else { return nil }
-
-            let updatedAt = try parseDate(response.updatedAt)
-            let statusChecks = parseStatusChecks(from: response.statusCheckRollup)
             let status = parseOverallStatus(
-                from: response.statusCheckRollup,
+                from: statusCheckRollup,
+                statusCheckRollupState: response.statusCheckRollup?.state,
                 mergeable: response.mergeable,
                 mergeStateStatus: response.mergeStateStatus,
+                requiredStatusCheckContexts: response.requiredStatusCheckContexts,
                 updatedAt: updatedAt,
                 enableInactiveDetection: enableInactiveDetection,
                 inactiveThresholdDays: inactiveThresholdDays
             )
             let reviewDecision = Self.resolveReviewDecision(
                 rawValue: response.reviewDecision,
-                latestReviews: response.latestReviews,
-                reviewRequests: response.reviewRequests
+                latestReviews: response.latestReviews?.nodes,
+                reviewRequests: response.reviewRequests?.nodes?.map {
+                    GHPRDetailResponse.ReviewRequest(login: $0.requestedReviewer?.login)
+                }
             )
 
             return PullRequest(
-                number: response.number,
-                title: response.title,
+                number: responseNumber,
+                title: title,
                 repository: PullRequest.RepositoryInfo(
-                    name: id.repo,
-                    nameWithOwner: "\(id.owner)/\(id.repo)"
+                    name: repo,
+                    nameWithOwner: "\(owner)/\(repo)"
                 ),
-                url: response.url,
-                author: PullRequest.Author(login: response.author.login),
+                url: url,
+                author: PullRequest.Author(login: author.login),
                 headRefName: response.headRefName,
                 updatedAt: updatedAt,
                 buildStatus: status,
                 isWatched: false,
-                labels: response.labels.map { label in
-                    PullRequest.Label(id: label.id ?? label.name, name: label.name, color: label.color)
+                labels: (response.labels?.nodes ?? []).map { label in
+                    PullRequest.Label(id: label.id, name: label.name, color: label.color)
                 },
                 type: .other,
-                isDraft: response.isDraft,
+                isDraft: isDraft,
                 statusChecks: statusChecks,
                 reviewDecision: reviewDecision,
-                host: id.host
+                host: host
             )
         } catch {
             print("Error fetching Other PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
             return nil
         }
+    }
+
+    private func fetchPRDetail(for request: PRStatusRequest, host: String) async throws -> BatchPRStatusResponse? {
+        let query = GitHubService.buildPRDetailQuery(for: request)
+        let json = try await shellExecutor.execute(
+            command: "gh",
+            arguments: ["api", "graphql", "-f", "query=\(query)"],
+            host: host
+        )
+
+        guard let data = json.data(using: .utf8) else {
+            throw GitHubError.invalidResponse
+        }
+        let response = try JSONDecoder().decode(BatchGraphQLResponse.self, from: data)
+        return response.data["pr0"]?.pullRequest
     }
 
     private func extractOwner(from nameWithOwner: String) -> String {
