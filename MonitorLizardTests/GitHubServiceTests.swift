@@ -920,7 +920,8 @@ struct GitHubServiceBatchIntegrationTests {
               "contexts": {
                 "nodes": [
                   { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://github.com/example/version-health", "context": null, "state": null, "targetUrl": null },
-                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null }
+                  { "__typename": "CheckRun", "name": "deploy", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "deploy / approve", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/deploy/approve", "context": null, "state": null, "targetUrl": null }
                 ]
               }
             },
@@ -1411,7 +1412,7 @@ struct GitHubServiceBatchIntegrationTests {
         let pr = try #require(result.pullRequests.first)
 
         #expect(pr.buildStatus == .notStarted)
-        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["deploy"])
+        #expect(pr.statusChecks.filter(\.isNonBlocking).map(\.name) == ["deploy / approve"])
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 
@@ -1628,5 +1629,60 @@ struct GitHubServiceBatchIntegrationTests {
 
         #expect(pr.buildStatus == .notStarted)
         #expect(approvalCheck.isNonBlocking == true)
+    }
+
+    // MARK: - Comment 3: non-required non-approval WAITING check must not hide active CI
+
+    private static let nonRequiredWaitingNonApprovalWithMissingRequiredContextResult = """
+    {
+      "data": {
+        "pr0": {
+          "pullRequest": {
+            "headRefName": "feature/test",
+            "statusCheckRollup": {
+              "state": "PENDING",
+              "contexts": {
+                "nodes": [
+                  { "__typename": "CheckRun", "name": "version_health / assessment", "status": "COMPLETED", "conclusion": "SUCCESS", "isRequired": true, "detailsUrl": "https://ci.example.com/assessment", "context": null, "state": null, "targetUrl": null },
+                  { "__typename": "CheckRun", "name": "build", "status": "WAITING", "conclusion": null, "isRequired": false, "detailsUrl": "https://ci.example.com/build", "context": null, "state": null, "targetUrl": null }
+                ]
+              }
+            },
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "BLOCKED",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [] },
+            "reviewRequests": { "nodes": [] },
+            "baseRef": {
+              "branchProtectionRule": {
+                "requiredStatusCheckContexts": ["ci/example: required_jobs_met", "version_health / assessment"],
+                "requiredStatusChecks": [{ "context": "ci/example: required_jobs_met" }, { "context": "version_health / assessment" }]
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    @Test func fetchAllOpenPRsDoesNotHideNonRequiredWaitingNonApprovalCheckWhenRequiredContextMissing() async throws {
+        // "ci/example: required_jobs_met" is required and missing.
+        // "version_health / assessment" is required and has succeeded.
+        // "build" is non-required and WAITING — it is active CI work, not an approval gate.
+        // The old blanket WAITING guard incorrectly classified this PR as notStarted.
+        // With the narrower looksLikeApprovalGate check, "build" falls through and is
+        // counted as active work, so the PR is correctly reported as pending.
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("--author=@me", .success(Self.authoredSearchResult)),
+                ("graphql", .success(Self.nonRequiredWaitingNonApprovalWithMissingRequiredContextResult))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+
+        let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
+        let pr = try #require(result.pullRequests.first)
+
+        #expect(pr.buildStatus == .pending)
     }
 }

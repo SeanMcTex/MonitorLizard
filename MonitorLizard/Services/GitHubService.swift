@@ -695,24 +695,20 @@ class GitHubService: ObservableObject {
 
             let isRequired = check.isRequired ?? requiredContextSet.map { $0.contains(checkName) }
 
-            // Non-required WAITING checks are approval gates or approval-parent workflows — skip them.
-            // Required WAITING checks are genuine active CI work (e.g. a queued check) and must not
-            // be hidden; they fall through so hasActiveNonApprovalWork correctly returns true.
-            if check.status?.uppercased() == "WAITING", isRequired == false {
+            // Skip WAITING CheckRuns and PENDING StatusContexts that name an approval step
+            // (heuristic: 2-component name with "approve" in the job component). Plain CI checks
+            // like "build" that happen to be non-required and WAITING fall through so they are
+            // correctly counted as active work.
+            let isWaitingApprovalGate = check.__typename == "CheckRun"
+                && check.status?.uppercased() == "WAITING"
+                && isRequired == false
+                && looksLikeApprovalGate(checkName)
+            let isLegacyApprovalContext = check.__typename == "StatusContext"
+                && check.state?.uppercased() == "PENDING"
+                && isRequired == false
+                && looksLikeApprovalGate(checkName)
+            if isWaitingApprovalGate || isLegacyApprovalContext {
                 return false
-            }
-
-            // Skip non-required StatusContext approval gates (legacy CircleCI / external-provider
-            // pattern: "ci/circleci: deploy/approve_deploy"). These are human-approval steps, not CI.
-            if check.__typename == "StatusContext",
-               check.state?.uppercased() == "PENDING",
-               isRequired == false,
-               workflowPathComponents(checkName).count == 2 {
-                // Heuristic: CircleCI and similar providers name approval steps with "approve"
-                // in the job component (e.g. "deploy/approve_deploy"). Won't catch non-English
-                // or custom naming conventions (e.g. "hold_for_review", "manual_gate").
-                let jobName = String(workflowPathComponents(checkName)[1]).lowercased()
-                if jobName.contains("approve") { return false }
             }
 
             let isWaitingForApprovalParent = check.__typename == "CheckRun"
@@ -898,6 +894,12 @@ class GitHubService: ObservableObject {
         let suffix = checkName.split(separator: ":", maxSplits: 1).last.map(String.init) ?? checkName
         let path = suffix.trimmingCharacters(in: .whitespacesAndNewlines)
         return path.split(separator: "/", maxSplits: 1)
+    }
+
+    private func looksLikeApprovalGate(_ checkName: String) -> Bool {
+        let components = workflowPathComponents(checkName)
+        guard components.count == 2 else { return false }
+        return String(components[1]).lowercased().contains("approve")
     }
 
     private func parseDate(_ dateString: String) throws -> Date {
