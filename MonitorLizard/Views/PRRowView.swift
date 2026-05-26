@@ -16,11 +16,14 @@ struct PRRowView: View {
 
     @State private var isHovering = false
 
-    private var daysSinceUpdate: Int {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let updateDay = calendar.startOfDay(for: pr.updatedAt)
+    static func daysSinceUpdate(from date: Date, now: Date = Date(), calendar: Calendar = .current) -> Int {
+        let today = calendar.startOfDay(for: now)
+        let updateDay = calendar.startOfDay(for: date)
         return calendar.dateComponents([.day], from: updateDay, to: today).day ?? 0
+    }
+
+    private var daysSinceUpdate: Int {
+        PRRowView.daysSinceUpdate(from: pr.updatedAt)
     }
 
     private func openPRURL() {
