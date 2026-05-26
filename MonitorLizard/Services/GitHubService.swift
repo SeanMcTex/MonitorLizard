@@ -473,7 +473,16 @@ class GitHubService: ObservableObject {
     }
 
     private func parseOverallStatus(from checks: [GHPRDetailResponse.StatusCheck]?, mergeable: String?, mergeStateStatus: String?, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int) -> BuildStatus {
-        // Check for merge conflicts first (highest priority)
+        // Check for inactive branch first: long-abandoned PRs naturally accumulate conflicts,
+        // so inactive takes priority over conflict.
+        if enableInactiveDetection {
+            let daysSinceUpdate = Date().timeIntervalSince(updatedAt) / Constants.secondsPerDay
+            if daysSinceUpdate >= Double(inactiveThresholdDays) {
+                return .inactive
+            }
+        }
+
+        // Check for merge conflicts
         if let mergeable = mergeable?.uppercased(), mergeable == "CONFLICTING" {
             return .conflict
         }
@@ -486,7 +495,7 @@ class GitHubService: ObservableObject {
             return .success
         }
 
-        // Priority: conflict > failure > error > pending > success
+        // Priority: inactive > conflict > failure > error > pending > success
         var hasFailure = false
         var hasError = false
         var hasPending = false
@@ -545,15 +554,6 @@ class GitHubService: ObservableObject {
 
         if hasPending {
             return .pending
-        }
-
-        // Priority: failure > error > pending > inactive > success/unknown
-        // Check for inactive branch if enabled (overrides success and unknown)
-        if enableInactiveDetection {
-            let daysSinceUpdate = Date().timeIntervalSince(updatedAt) / Constants.secondsPerDay
-            if daysSinceUpdate >= Double(inactiveThresholdDays) {
-                return .inactive
-            }
         }
 
         if hasSuccess {
