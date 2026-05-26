@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+#if DEBUG
 final class DebugAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("[DEBUG] applicationDidFinishLaunching fired")
@@ -11,10 +12,13 @@ final class DebugAppDelegate: NSObject, NSApplicationDelegate {
         return .terminateCancel
     }
 }
+#endif
 
 @main
 struct MonitorLizardApp: App {
+    #if DEBUG
     @NSApplicationDelegateAdaptor(DebugAppDelegate.self) var appDelegate
+    #endif
 
     @StateObject private var viewModel = {
         let isDemoMode = CommandLine.arguments.contains("--demo-mode")
