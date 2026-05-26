@@ -290,10 +290,6 @@ AI-assisted and AI-authored contributions are welcome, but the human submitting 
 - Changes that require a GitHub token or server-side component (the app intentionally uses only the `gh` CLI)
 - Dependencies beyond Swift Package Manager packages
 
-### Testing
-
-Bug fixes should include a test that fails before the fix and passes after. New features should include tests where appropriate and practical. If the logic under test is buried in a private method or tightly coupled to a view, extract it to a `static func` with injectable parameters (date, calendar, etc.) so it can be exercised without UI infrastructure.
-
 ### Code Style
 
 Follow the patterns already in the codebase: MVVM with `@Published`/Combine, actors for thread-safe services, `@AppStorage` for settings. Swift 6 strict concurrency is enabled — all new code must compile without warnings.
