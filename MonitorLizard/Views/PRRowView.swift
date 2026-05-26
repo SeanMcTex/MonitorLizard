@@ -1,6 +1,7 @@
 import SwiftUI
 
 private struct ScrollViewHoveredKey: EnvironmentKey {
+    // Default true so rows outside the scroll view context don't have their hover cleared.
     static let defaultValue = true
 }
 
