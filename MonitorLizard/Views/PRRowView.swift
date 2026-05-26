@@ -174,7 +174,7 @@ struct PRRowView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    Text("#\(pr.number)")
+                    Text("#\(pr.number, format: .number.grouping(.never))")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
