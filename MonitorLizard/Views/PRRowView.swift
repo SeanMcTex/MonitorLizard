@@ -1,5 +1,16 @@
 import SwiftUI
 
+private struct ScrollViewHoveredKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var scrollViewHovered: Bool {
+        get { self[ScrollViewHoveredKey.self] }
+        set { self[ScrollViewHoveredKey.self] = newValue }
+    }
+}
+
 extension ReviewDecision {
     var color: Color {
         switch self {
@@ -13,6 +24,7 @@ extension ReviewDecision {
 struct PRRowView: View {
     let pr: PullRequest
     @EnvironmentObject var viewModel: PRMonitorViewModel
+    @Environment(\.scrollViewHovered) private var scrollViewHovered
 
     @State private var isHovering = false
 
@@ -354,6 +366,9 @@ struct PRRowView: View {
             case .ended:
                 if isHovering { isHovering = false }
             }
+        }
+        .onChange(of: scrollViewHovered) { hovered in
+            if !hovered && isHovering { isHovering = false }
         }
         .onTapGesture {
             openPRURL()

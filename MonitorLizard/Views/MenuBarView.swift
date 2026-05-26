@@ -7,6 +7,7 @@ struct MenuBarView: View {
     // when the panel is hidden. Swapping in an empty placeholder when not visible
     // reduces per-frame work to nearly nothing.
     @State private var isWindowVisible = true
+    @State private var isScrollViewHovered = false
 
     var body: some View {
         // WindowOcclusionObserver watches the specific NSWindow this view lives in
@@ -49,6 +50,11 @@ struct MenuBarView: View {
 
             // Footer
             footerView
+                .onContinuousHover { phase in
+                    if case .active = phase {
+                        isScrollViewHovered = false
+                    }
+                }
         }
         .frame(minWidth: 400, maxWidth: 500)
     }
@@ -237,6 +243,13 @@ struct MenuBarView: View {
                 }
             }
             .frame(height: targetHeight)
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: isScrollViewHovered = true
+                case .ended: isScrollViewHovered = false
+                }
+            }
+            .environment(\.scrollViewHovered, isScrollViewHovered)
             .id(viewModel.selectedRepository)
             .onAppear {
                 proxy.scrollTo("top", anchor: .top)
