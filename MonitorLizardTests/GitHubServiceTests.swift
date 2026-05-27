@@ -1682,7 +1682,12 @@ struct GitHubServiceBatchIntegrationTests {
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
+        let buildCheck = try #require(pr.statusChecks.first { $0.name == "build" })
 
         #expect(pr.buildStatus == .pending)
+        // "build" is active CI, not an approval gate, so it must not be classified as a
+        // non-blocking "waiting for approval" check.
+        #expect(buildCheck.isNonBlocking == false)
+        #expect(pr.nonBlockingCheckSummary == nil)
     }
 }

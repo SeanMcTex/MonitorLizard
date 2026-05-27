@@ -871,8 +871,15 @@ class GitHubService: ObservableObject {
                 // Heuristic: same "approve" convention as in hasActiveNonApprovalWork above.
                 return String(workflowPathComponents(checkName)[1]).lowercased().contains("approve")
             }()
+            // Mirror hasActiveNonApprovalWork: only WAITING checks that name an approval step
+            // (e.g. "deploy / approve") are excluded. A plain non-required WAITING check like
+            // "build" is active CI, so it stays aggregate work and is not marked non-blocking.
+            let isWaitingApprovalGate = check.__typename == "CheckRun"
+                && check.status?.uppercased() == "WAITING"
+                && isRequired == false
+                && looksLikeApprovalGate(checkName)
             let isRequiredAggregateWork = !missingRequiredContexts.isEmpty
-                && check.status?.uppercased() != "WAITING"
+                && !isWaitingApprovalGate
                 && !isLegacyApprovalContext
             let isNonBlocking = isRequired == false
                 && !isBlockingFailure
