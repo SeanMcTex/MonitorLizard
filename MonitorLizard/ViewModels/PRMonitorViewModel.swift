@@ -59,7 +59,7 @@ class PRMonitorViewModel: ObservableObject {
 
     var reposWithIssues: Set<String> {
         let allPRs = unsortedPullRequests + otherPullRequests
-        let visiblePRs = hideInactivePRs ? allPRs.filter { $0.buildStatus != .inactive } : allPRs
+        let visiblePRs = hideInactivePRs ? allPRs.filter { !isInactiveByAge($0) } : allPRs
         return Set(visiblePRs.compactMap { pr -> String? in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
                 || pr.buildStatus == .conflict || pr.buildStatus == .inactive
@@ -72,20 +72,26 @@ class PRMonitorViewModel: ObservableObject {
     var authoredPRs: [PullRequest] {
         let prs = pullRequests.filter { $0.type == .authored }
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
-        return hideInactivePRs ? prs.filter { $0.buildStatus != .inactive } : prs
+        return hideInactivePRs ? prs.filter { !isInactiveByAge($0) } : prs
     }
 
     var reviewPRs: [PullRequest] {
         guard showReviewPRs else { return [] }
         let prs = pullRequests.filter { $0.type == .reviewing }
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
-        return hideInactivePRs ? prs.filter { $0.buildStatus != .inactive } : prs
+        return hideInactivePRs ? prs.filter { !isInactiveByAge($0) } : prs
     }
 
     var filteredOtherPRs: [PullRequest] {
         let prs = otherPullRequests
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
-        return hideInactivePRs ? prs.filter { $0.buildStatus != .inactive } : prs
+        return hideInactivePRs ? prs.filter { !isInactiveByAge($0) } : prs
+    }
+
+    private func isInactiveByAge(_ pr: PullRequest) -> Bool {
+        guard enableInactiveBranchDetection else { return pr.buildStatus == .inactive }
+        let daysSinceUpdate = Date().timeIntervalSince(pr.updatedAt) / Constants.secondsPerDay
+        return daysSinceUpdate >= Double(inactiveBranchThresholdDays)
     }
 
     init(isDemoMode: Bool = false,
@@ -338,7 +344,7 @@ class PRMonitorViewModel: ObservableObject {
         // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
         var allDisplayed = newPullRequests + otherPullRequests
         if hideInactivePRs {
-            allDisplayed = allDisplayed.filter { $0.buildStatus != .inactive }
+            allDisplayed = allDisplayed.filter { !isInactiveByAge($0) }
         }
         let hasBadStatus = allDisplayed.contains { pr in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
