@@ -219,6 +219,32 @@ struct SettingsView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
 
+                Divider()
+                    .padding(.horizontal, 40)
+
+                VStack(spacing: 6) {
+                    Text("Credits")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+
+                    Text("Maintained by Sean \"Sharky\" McMains")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+
+                    Text("Contributors")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 4)
+
+                    Text("Kaijian Ding · John T McIntosh · Luke Labonte · Buqian Zheng")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 40)
+
                 HStack(spacing: 20) {
                     Button("GitHub CLI") {
                         if let url = URL(string: "https://cli.github.com") {
