@@ -9,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = Constants.defaultVoiceAnnouncementText
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("enableInactiveBranchDetection") private var enableInactiveBranchDetection = false
+    @AppStorage("hideInactivePRs") private var hideInactivePRs = false
     @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays = Constants.defaultInactiveBranchThreshold
 
     var body: some View {
@@ -95,6 +96,10 @@ struct SettingsView: View {
                         Text("PRs not updated for \(inactiveBranchThresholdDays) days will show as inactive")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                            .padding(.top, 4)
+
+                        Toggle("Hide inactive PRs", isOn: $hideInactivePRs)
+                            .help("Completely hide inactive PRs from the list instead of showing them with a warning")
                             .padding(.top, 4)
                     }
                 }

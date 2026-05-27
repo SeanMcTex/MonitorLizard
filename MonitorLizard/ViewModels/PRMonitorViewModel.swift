@@ -40,11 +40,13 @@ class PRMonitorViewModel: ObservableObject {
     private var refreshTimer: Timer?
     private var sortSettingObserver: AnyCancellable?
     private var reviewPRsSettingObserver: AnyCancellable?
+    private var hideInactiveSettingObserver: AnyCancellable?
     private var unsortedPullRequests: [PullRequest] = []
 
     @AppStorage("refreshInterval") private var refreshInterval: Int = Constants.defaultRefreshInterval
     @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst: Bool = false
     @AppStorage("enableInactiveBranchDetection") private var enableInactiveBranchDetection: Bool = false
+    @AppStorage("hideInactivePRs") private var hideInactivePRs: Bool = false
     @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays: Int = Constants.defaultInactiveBranchThreshold
     @AppStorage("showReviewPRs") private var showReviewPRs: Bool = true
 
@@ -57,7 +59,8 @@ class PRMonitorViewModel: ObservableObject {
 
     var reposWithIssues: Set<String> {
         let allPRs = unsortedPullRequests + otherPullRequests
-        return Set(allPRs.compactMap { pr -> String? in
+        let visiblePRs = hideInactivePRs ? allPRs.filter { $0.buildStatus != .inactive } : allPRs
+        return Set(visiblePRs.compactMap { pr -> String? in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
                 || pr.buildStatus == .conflict || pr.buildStatus == .inactive
             guard badBuild || pr.reviewDecision == .changesRequested else { return nil }
@@ -67,19 +70,22 @@ class PRMonitorViewModel: ObservableObject {
 
     // Computed properties for filtering PRs by type and repository
     var authoredPRs: [PullRequest] {
-        pullRequests.filter { $0.type == .authored }
+        let prs = pullRequests.filter { $0.type == .authored }
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
+        return hideInactivePRs ? prs.filter { $0.buildStatus != .inactive } : prs
     }
 
     var reviewPRs: [PullRequest] {
         guard showReviewPRs else { return [] }
-        return pullRequests.filter { $0.type == .reviewing }
+        let prs = pullRequests.filter { $0.type == .reviewing }
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
+        return hideInactivePRs ? prs.filter { $0.buildStatus != .inactive } : prs
     }
 
     var filteredOtherPRs: [PullRequest] {
-        otherPullRequests
+        let prs = otherPullRequests
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
+        return hideInactivePRs ? prs.filter { $0.buildStatus != .inactive } : prs
     }
 
     init(isDemoMode: Bool = false,
@@ -98,6 +104,7 @@ class PRMonitorViewModel: ObservableObject {
         startPolling()
         observeSortSetting()
         observeReviewPRsSetting()
+        observeHideInactiveSetting()
     }
 
     deinit {
@@ -105,6 +112,7 @@ class PRMonitorViewModel: ObservableObject {
             refreshTimer?.invalidate()
             sortSettingObserver?.cancel()
             reviewPRsSettingObserver?.cancel()
+            hideInactiveSettingObserver?.cancel()
         }
     }
 
@@ -135,6 +143,16 @@ class PRMonitorViewModel: ObservableObject {
         reviewPRsSettingObserver = UserDefaults.standard
             .publisher(for: \.showReviewPRs)
             .dropFirst() // Skip initial value
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+    }
+
+    private func observeHideInactiveSetting() {
+        hideInactiveSettingObserver = UserDefaults.standard
+            .publisher(for: \.hideInactivePRs)
+            .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -318,7 +336,10 @@ class PRMonitorViewModel: ObservableObject {
         }
 
         // Update warning icon indicator (failures, errors, conflicts, changes requested, inactive PRs, or any review PRs)
-        let allDisplayed = newPullRequests + otherPullRequests
+        var allDisplayed = newPullRequests + otherPullRequests
+        if hideInactivePRs {
+            allDisplayed = allDisplayed.filter { $0.buildStatus != .inactive }
+        }
         let hasBadStatus = allDisplayed.contains { pr in
             let badBuild = pr.buildStatus == .failure || pr.buildStatus == .error
                 || pr.buildStatus == .conflict || pr.buildStatus == .inactive
@@ -474,11 +495,7 @@ class PRMonitorViewModel: ObservableObject {
 
 // Extension to make UserDefaults keys observable
 extension UserDefaults {
-    @objc dynamic var sortNonSuccessFirst: Bool {
-        return bool(forKey: "sortNonSuccessFirst")
-    }
-
-    @objc dynamic var showReviewPRs: Bool {
-        return bool(forKey: "showReviewPRs")
-    }
+    @objc dynamic var sortNonSuccessFirst: Bool { bool(forKey: "sortNonSuccessFirst") }
+    @objc dynamic var showReviewPRs: Bool { bool(forKey: "showReviewPRs") }
+    @objc dynamic var hideInactivePRs: Bool { bool(forKey: "hideInactivePRs") }
 }
