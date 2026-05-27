@@ -79,7 +79,7 @@ class PRMonitorViewModel: ObservableObject {
         guard showReviewPRs else { return [] }
         let prs = pullRequests.filter { $0.type == .reviewing }
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
-        return hideInactivePRs ? prs.filter { !isInactiveByAge($0) } : prs
+        return prs
     }
 
     var filteredOtherPRs: [PullRequest] {

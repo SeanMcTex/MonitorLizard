@@ -751,6 +751,24 @@ struct PRMonitorViewModelTests {
         #expect(authoredInactive.isEmpty, "Inactive authored PRs should be hidden when hideInactivePRs is on")
     }
 
+    @Test func hideInactivePRsDoesNotFilterReviewPRs() async {
+        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
+            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
+            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
+        }
+
+        let vm = await createLoadedViewModel()
+
+        let reviewInactive = vm.reviewPRs.filter { $0.buildStatus == .inactive }
+        // Review PRs should never be hidden regardless of stale status
+        let allReview = vm.reviewPRs
+        #expect(!allReview.isEmpty, "Review PRs should still appear when hideInactivePRs is on")
+    }
+
     @Test func hideInactivePRsFiltersInactiveFromOtherPRs() {
         let (watchlist, otherPRs) = makeIsolatedServices()
         UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
