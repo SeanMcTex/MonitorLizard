@@ -81,4 +81,18 @@ bd close <id>         # Complete work
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+## Running Tests
+
+```bash
+xcodebuild test -project MonitorLizard/MonitorLizard.xcodeproj -scheme MonitorLizard -destination 'platform=macOS' -only-testing:MonitorLizardTests
+```
+
+**Important:** Tests that use `UserDefaults.standard` cannot run in parallel without state leakage between processes. Test structs that share this state are marked `@Suite(.serialized)`. If adding new tests that modify `UserDefaults.standard`, either:
+
+1. Add `@Suite(.serialized)` to the test struct, or
+2. Use isolated UserDefaults suites (`UserDefaults(suiteName:)`) for test isolation, or  
+3. Always set and tear down all relevant UserDefaults keys with `defer { ... removeObject(forKey:) }`
+
+When running a single test in isolation, it will likely pass even without these precautions. Bulk test failures are usually a sign of UserDefaults cross-contamination.
+
 <!-- END BEADS INTEGRATION -->
