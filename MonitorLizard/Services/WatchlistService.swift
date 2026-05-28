@@ -11,6 +11,7 @@ class WatchlistService {
     struct WatchedPRInfo {
         let lastStatus: BuildStatus
         let timestamp: Date
+        let lastUpdatedAt: Date
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -21,7 +22,8 @@ class WatchlistService {
     func watch(_ pr: PullRequest) {
         watchedPRs[pr.id] = WatchedPRInfo(
             lastStatus: pr.buildStatus,
-            timestamp: Date()
+            timestamp: Date(),
+            lastUpdatedAt: pr.updatedAt
         )
         save()
     }
@@ -51,11 +53,12 @@ class WatchlistService {
                 completed.append(pr)
             }
 
-            // Update stored status if changed
-            if watched.lastStatus != pr.buildStatus {
+            // Update stored status and updatedAt if changed
+            if watched.lastStatus != pr.buildStatus || watched.lastUpdatedAt != pr.updatedAt {
                 watchedPRs[pr.id] = WatchedPRInfo(
                     lastStatus: pr.buildStatus,
-                    timestamp: Date()
+                    timestamp: Date(),
+                    lastUpdatedAt: pr.updatedAt
                 )
             }
         }
@@ -83,7 +86,8 @@ class WatchlistService {
         for (key, info) in watchedPRs {
             dict[key] = [
                 "status": info.lastStatus.rawValue,
-                "timestamp": info.timestamp.timeIntervalSince1970
+                "timestamp": info.timestamp.timeIntervalSince1970,
+                "lastUpdatedAt": info.lastUpdatedAt.timeIntervalSince1970
             ]
         }
         defaults.set(dict, forKey: watchlistKey)
@@ -96,9 +100,11 @@ class WatchlistService {
                 if let statusRaw = value["status"] as? String,
                    let status = BuildStatus(rawValue: statusRaw),
                    let timestamp = value["timestamp"] as? TimeInterval {
+                    let lastUpdatedAt = (value["lastUpdatedAt"] as? TimeInterval).map { Date(timeIntervalSince1970: $0) } ?? Date(timeIntervalSince1970: 0)
                     watchedPRs[key] = WatchedPRInfo(
                         lastStatus: status,
-                        timestamp: Date(timeIntervalSince1970: timestamp)
+                        timestamp: Date(timeIntervalSince1970: timestamp),
+                        lastUpdatedAt: lastUpdatedAt
                     )
                 }
             }
