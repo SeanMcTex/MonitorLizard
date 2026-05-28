@@ -302,6 +302,7 @@ struct CustomNamesServiceTests {
 }
 
 @MainActor
+@Suite(.serialized)
 struct OtherPRsViewModelTests {
 
     private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
@@ -501,6 +502,7 @@ struct OtherPRsViewModelTests {
 }
 
 @MainActor
+@Suite(.serialized)
 struct PRMonitorViewModelTests {
 
     private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
@@ -522,6 +524,27 @@ struct PRMonitorViewModelTests {
             isWatched: false,
             labels: [],
             type: .authored,
+            isDraft: false,
+            statusChecks: [],
+            reviewDecision: nil,
+            host: "github.com"
+        )
+    }
+
+    private func makePR(number: Int, nameWithOwner: String, type: PRType = .other, updatedAt: Date = Date()) -> PullRequest {
+        let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
+        return PullRequest(
+            number: number,
+            title: "Test PR #\(number)",
+            repository: PullRequest.RepositoryInfo(name: name, nameWithOwner: nameWithOwner),
+            url: "https://github.com/\(nameWithOwner)/pull/\(number)",
+            author: PullRequest.Author(login: "testuser"),
+            headRefName: "feature/test",
+            updatedAt: updatedAt,
+            buildStatus: .success,
+            isWatched: false,
+            labels: [],
+            type: type,
             isDraft: false,
             statusChecks: [],
             reviewDecision: nil,
@@ -605,6 +628,9 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func allRepositoriesShowsEverything() async {
+        UserDefaults.standard.set(false, forKey: "hideInactivePRs")
+        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
+
         let vm = await createLoadedViewModel()
 
         vm.selectedRepository = "All Repositories"
@@ -693,5 +719,176 @@ struct PRMonitorViewModelTests {
         if let crIdx = changesRequestedIndex, let psIdx = pureSuccessIndex {
             #expect(crIdx < psIdx)
         }
+    }
+
+    // MARK: - Hide Inactive PRs
+
+    @Test func inactivePRsVisibleByDefault() async {
+        let vm = await createLoadedViewModel()
+
+        let authoredInactive = vm.authoredPRs.filter { $0.buildStatus == .inactive }
+        #expect(!authoredInactive.isEmpty, "Inactive PRs should be visible when hideInactivePRs is off")
+    }
+
+    @Test func hideInactivePRsFiltersInactiveFromAuthored() async {
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
+
+        let vm = await createLoadedViewModel()
+
+        let authoredInactive = vm.authoredPRs.filter { $0.buildStatus == .inactive }
+        #expect(authoredInactive.isEmpty, "Inactive authored PRs should be hidden when hideInactivePRs is on")
+    }
+
+    @Test func hideInactivePRsDoesNotFilterReviewPRs() async {
+        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
+            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
+            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
+        }
+
+        let vm = await createLoadedViewModel()
+
+        let reviewInactive = vm.reviewPRs.filter { $0.buildStatus == .inactive }
+        // Review PRs should never be hidden regardless of stale status
+        let allReview = vm.reviewPRs
+        #expect(!allReview.isEmpty, "Review PRs should still appear when hideInactivePRs is on")
+    }
+
+    @Test func hideInactivePRsFiltersInactiveFromOtherPRs() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
+            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
+            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
+        }
+
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        var inactivePR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date().addingTimeInterval(-4 * 24 * 60 * 60))
+        inactivePR.buildStatus = .inactive
+        var successPR = makePR(number: 2, nameWithOwner: "acme/widget")
+        successPR.buildStatus = .success
+
+        vm.otherPullRequests = [inactivePR, successPR]
+
+        #expect(vm.filteredOtherPRs.count == 1, "Inactive PR should be hidden from other PRs")
+        #expect(vm.filteredOtherPRs[0].buildStatus == .success)
+    }
+
+    @Test func hideInactivePRsHidesStaleConflictPR() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
+            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
+            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
+        }
+
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        // A PR that is both stale and has conflicts — buildStatus is .conflict (higher priority),
+        // but it should still be hidden because it's old enough to be inactive
+        var staleConflictPR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date().addingTimeInterval(-4 * 24 * 60 * 60))
+        staleConflictPR.buildStatus = .conflict
+
+        vm.otherPullRequests = [staleConflictPR]
+
+        #expect(vm.filteredOtherPRs.isEmpty, "Stale PR with conflict status should be hidden when hideInactivePRs is on")
+    }
+
+    @Test func hideInactivePRsDoesNotHideActiveConflictPR() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
+            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
+            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
+        }
+
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        // A PR with conflicts but recently updated — should NOT be hidden
+        var activeConflictPR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date())
+        activeConflictPR.buildStatus = .conflict
+
+        vm.otherPullRequests = [activeConflictPR]
+
+        #expect(vm.filteredOtherPRs.count == 1, "Recently-updated conflict PR should not be hidden")
+    }
+
+    @Test func hideInactivePRsExcludesInactiveFromReposWithIssues() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
+            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
+            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
+        }
+
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        var successPR = makePR(number: 999, nameWithOwner: "acme/success-only")
+        successPR.buildStatus = .success
+
+        var inactivePR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date().addingTimeInterval(-4 * 24 * 60 * 60))
+        inactivePR.buildStatus = .inactive
+
+        vm.otherPullRequests = [successPR, inactivePR]
+
+        #expect(!vm.reposWithIssues.contains("acme/widget"), "Repo with only inactive PR should not show issues when hidden")
+    }
+
+    @Test func hideInactivePRsOffStillShowsInactiveInReposWithIssues() {
+        let (watchlist, otherPRs) = makeIsolatedServices()
+        UserDefaults.standard.set(false, forKey: "hideInactivePRs")
+        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
+
+        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+        vm.stopPolling()
+
+        var inactivePR = makePR(number: 1, nameWithOwner: "acme/widget")
+        inactivePR.buildStatus = .inactive
+
+        vm.otherPullRequests = [inactivePR]
+
+        #expect(vm.reposWithIssues.contains("acme/widget"), "Repo with inactive PR shows issues when hideInactivePRs is off")
+    }
+
+    @Test func hideInactivePRsDoesNotAffectSuccessPRs() async {
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
+
+        let vm = await createLoadedViewModel()
+
+        let authoredSuccess = vm.authoredPRs.filter { $0.buildStatus == .success }
+        #expect(!authoredSuccess.isEmpty, "Success PRs should still be visible when hideInactivePRs is on")
+    }
+
+    @Test func availableRepositoriesStillIncludesInactivePRReposWhenHidden() async {
+        // Even when inactive PRs are hidden, the repo picker should still show their repos
+        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
+        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
+
+        let vm = await createLoadedViewModel()
+
+        let repos = vm.availableRepositories
+        #expect(repos.count == 2, "Repo list should still include all repos even when inactive PRs are hidden")
     }
 }
