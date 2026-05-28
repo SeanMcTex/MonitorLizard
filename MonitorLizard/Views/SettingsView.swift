@@ -243,7 +243,7 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 4)
 
-                    Text("Kaijian Ding · John T McIntosh · Luke Labonte · Buqian Zheng")
+                    Text("Kaijian Ding · John T McIntosh · Luke LaBonte · Buqian Zheng")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
