@@ -9,6 +9,9 @@ import SwiftUI
 
 enum CheckStatus: String, Codable {
     case pending
+    case queued
+    case running
+    case waiting
     case success
     case failure
     case error
@@ -18,6 +21,12 @@ enum CheckStatus: String, Codable {
         switch self {
         case .pending:
             return "⏳"
+        case .queued:
+            return "⏳"
+        case .running:
+            return "🔄"
+        case .waiting:
+            return "⏸"
         case .success:
             return "✅"
         case .failure:
@@ -32,6 +41,12 @@ enum CheckStatus: String, Codable {
     var color: Color {
         switch self {
         case .pending:
+            return .orange
+        case .queued:
+            return .blue
+        case .running:
+            return .blue
+        case .waiting:
             return .orange
         case .success:
             return .green
@@ -50,11 +65,15 @@ struct StatusCheck: Identifiable, Codable, Hashable {
     let name: String
     let status: CheckStatus
     let detailsUrl: String?
+    let isRequired: Bool?
+    let isNonBlocking: Bool
 
-    init(id: String, name: String, status: CheckStatus, detailsUrl: String?) {
+    init(id: String, name: String, status: CheckStatus, detailsUrl: String?, isRequired: Bool? = nil, isNonBlocking: Bool = false) {
         self.id = id
         self.name = name
         self.status = status
         self.detailsUrl = detailsUrl
+        self.isRequired = isRequired
+        self.isNonBlocking = isNonBlocking
     }
 }

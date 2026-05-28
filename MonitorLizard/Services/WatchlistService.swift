@@ -43,8 +43,8 @@ class WatchlistService {
         for pr in currentPRs {
             guard let watched = watchedPRs[pr.id] else { continue }
 
-            // Check if status changed from pending to any completed state
-            let wasIncomplete = watched.lastStatus == .pending || watched.lastStatus == .unknown
+            // Check if status changed from incomplete to any completed state
+            let wasIncomplete = watched.lastStatus == .notStarted || watched.lastStatus == .pending || watched.lastStatus == .unknown
             let isNowComplete = pr.buildStatus == .success || pr.buildStatus == .failure || pr.buildStatus == .error
 
             if wasIncomplete && isNowComplete {
