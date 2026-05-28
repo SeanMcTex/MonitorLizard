@@ -277,6 +277,10 @@ Please keep pull requests focused on a single feature, bug fix, or improvement. 
 
 AI-assisted and AI-authored contributions are welcome, but the human submitting the PR is responsible for reviewing the changes, understanding what they do, and verifying that the app builds and works correctly before opening the PR. Unvetted AI output will not be merged.
 
+### Feature Requests & Bug Reports
+
+Have an idea or found a bug? [Open a GitHub issue](https://github.com/SeanMcTex/MonitorLizard/issues/new) — it's the best way to suggest features, report problems, or start a discussion before writing code.
+
 ### What to Contribute
 
 - Bug fixes and reliability improvements
