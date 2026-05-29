@@ -68,10 +68,7 @@ struct PRRowView: View {
 
     private var daysSinceUpdateText: String {
         if daysSinceUpdate == 0 {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm:ss"
-            formatter.timeZone = .current
-            return "updated today \(formatter.string(from: pr.updatedAt))"
+            return "updated today \(pr.updatedAt.formatted(.dateTime.hour().minute()))"
         } else if daysSinceUpdate == 1 {
             return "updated 1 day ago"
         } else {
