@@ -759,7 +759,7 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func hideInactivePRsFiltersInactiveFromOtherPRs() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
+        let (watchlist, otherPRs, _) = makeIsolatedServices()
         UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
         UserDefaults.standard.set(true, forKey: "hideInactivePRs")
         UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
@@ -784,7 +784,7 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func hideInactivePRsHidesStaleConflictPR() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
+        let (watchlist, otherPRs, _) = makeIsolatedServices()
         UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
         UserDefaults.standard.set(true, forKey: "hideInactivePRs")
         UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
@@ -808,7 +808,7 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func hideInactivePRsDoesNotHideActiveConflictPR() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
+        let (watchlist, otherPRs, _) = makeIsolatedServices()
         UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
         UserDefaults.standard.set(true, forKey: "hideInactivePRs")
         UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
@@ -831,7 +831,7 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func hideInactivePRsExcludesInactiveFromReposWithIssues() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
+        let (watchlist, otherPRs, _) = makeIsolatedServices()
         UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
         UserDefaults.standard.set(true, forKey: "hideInactivePRs")
         UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
@@ -856,7 +856,7 @@ struct PRMonitorViewModelTests {
     }
 
     @Test func hideInactivePRsOffStillShowsInactiveInReposWithIssues() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
+        let (watchlist, otherPRs, _) = makeIsolatedServices()
         UserDefaults.standard.set(false, forKey: "hideInactivePRs")
         defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
 
