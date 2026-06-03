@@ -302,14 +302,25 @@ class PRMonitorViewModel: ObservableObject {
     private func fetchAllOtherPRs() async -> [PullRequest] {
         let ids = otherPRsService.all()
         var results: [PullRequest] = []
+        var staleIDs: [OtherPRIdentifier] = []
         for id in ids {
-            if let pr = await githubService.fetchOtherPR(
-                id,
-                enableInactiveDetection: enableInactiveBranchDetection,
-                inactiveThresholdDays: inactiveBranchThresholdDays
-            ) {
-                results.append(pr)
+            do {
+                if let pr = try await githubService.fetchOtherPR(
+                    id,
+                    enableInactiveDetection: enableInactiveBranchDetection,
+                    inactiveThresholdDays: inactiveBranchThresholdDays
+                ) {
+                    results.append(pr)
+                } else {
+                    staleIDs.append(id)
+                }
+            } catch {
+                print("Transient error fetching Other PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
             }
+        }
+        for id in staleIDs {
+            otherPRsService.remove(id)
+            customNamesService.removeName(for: "\(id.owner)/\(id.repo)#\(id.number)")
         }
         return results
     }
@@ -356,7 +367,7 @@ class PRMonitorViewModel: ObservableObject {
         }) else {
             throw OtherPRError.alreadyTracked
         }
-        guard let pr = await githubService.fetchOtherPR(
+        guard let pr = try await githubService.fetchOtherPR(
             id,
             enableInactiveDetection: enableInactiveBranchDetection,
             inactiveThresholdDays: inactiveBranchThresholdDays

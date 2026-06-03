@@ -954,7 +954,9 @@ class GitHubService: ObservableObject {
 
     /// Fetches a single Other PR by its identifier.
     /// Returns `nil` if the PR is closed/merged, not found, or inaccessible.
-    func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async -> PullRequest? {
+    /// Throws on transient errors (network, auth) so callers can distinguish
+    /// "permanently gone" from "temporarily unavailable".
+    func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> PullRequest? {
         let host = id.host
         let owner = id.owner
         let repo = id.repo
@@ -1020,9 +1022,11 @@ class GitHubService: ObservableObject {
                 reviewDecision: reviewDecision,
                 host: host
             )
-        } catch {
-            print("Error fetching Other PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
-            return nil
+        } catch let error as ShellError {
+            if case .executionFailed = error {
+                return nil
+            }
+            throw error
         }
     }
 
