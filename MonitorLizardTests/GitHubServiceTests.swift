@@ -1525,6 +1525,114 @@ struct GitHubServiceBatchIntegrationTests {
         #expect(pr.nonBlockingCheckSummary?.segments.map(\.text) == ["1 waiting for approval"])
     }
 
+    @Test func fetchOtherPRReturnsNilWhenPRNotFound() async throws {
+        let notFoundJSON = """
+        {
+          "data": {
+            "pr0": {
+              "pullRequest": null
+            }
+          }
+        }
+        """
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(notFoundJSON))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 99)
+
+        let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
+        #expect(result == nil)
+    }
+
+    @Test func fetchOtherPRReturnsNilWhenPRIsClosed() async throws {
+        let closedPRJSON = """
+        {
+          "data": {
+            "pr0": {
+              "pullRequest": {
+                "number": 42,
+                "title": "Closed PR",
+                "url": "https://github.com/alice/repo/pull/42",
+                "author": { "login": "alice" },
+                "updatedAt": "2024-01-01T00:00:00Z",
+                "labels": { "nodes": [] },
+                "isDraft": false,
+                "state": "CLOSED",
+                "headRefName": "feature/closed",
+                "statusCheckRollup": { "state": "SUCCESS", "contexts": { "nodes": [] } },
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "reviewDecision": null,
+                "latestReviews": { "nodes": [] },
+                "reviewRequests": { "nodes": [] },
+                "baseRef": {
+                  "branchProtectionRule": null
+                }
+              }
+            }
+          }
+        }
+        """
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(closedPRJSON))
+            ]
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
+
+        let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
+        #expect(result == nil)
+    }
+
+    @Test func fetchOtherPRReturnsNilOnExecutionFailure() async throws {
+        let mock = MockShellExecutor(
+            executeResponse: .failure(ShellError.executionFailed("gh: Could not resolve to a Repository with the name 'owner/repo'."))
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
+
+        let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
+        #expect(result == nil, "executionFailed (repo/PR not found) should return nil, not throw")
+    }
+
+    @Test func fetchOtherPRThrowsOnNetworkError() async throws {
+        let mock = MockShellExecutor(
+            executeResponse: .failure(ShellError.networkError("error connecting to api.github.com"))
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
+
+        do {
+            _ = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
+            Issue.record("Expected networkError to be thrown")
+        } catch is ShellError {
+            // Expected: transient error is thrown, not silently swallowed
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
+    @Test func fetchOtherPRThrowsOnInvalidOutput() async throws {
+        let mock = MockShellExecutor(
+            executeResponse: .failure(ShellError.invalidOutput)
+        )
+        let service = GitHubService(shellExecutor: mock)
+        let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
+
+        do {
+            _ = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
+            Issue.record("Expected invalidOutput to be thrown")
+        } catch is ShellError {
+            // Expected: transient error is thrown
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+
     // MARK: - Comment 1: required WAITING non-approval check must not be hidden
 
     private static let requiredWaitingNonApprovalCheckResult = """
