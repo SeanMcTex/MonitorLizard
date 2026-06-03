@@ -40,6 +40,14 @@
 		AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0002222F103E3200F0ABCD /* OtherPRsService.swift */; };
 		AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0004442F103E3200F0ABCD /* AddPRView.swift */; };
 		BB0001112F103E3200F0ABCD /* CustomNamesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0002222F103E3200F0ABCD /* CustomNamesService.swift */; };
+		235E0478 /* MockShellExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45CC9D4B /* MockShellExecutor.swift */; };
+		13419D7D /* BuildStatusPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 441DD199 /* BuildStatusPresentationTests.swift */; };
+		9F127D03 /* NonBlockingCheckSummaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 142D966A /* NonBlockingCheckSummaryTests.swift */; };
+		7E88E540 /* GitHubServiceHostCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C6FB3B /* GitHubServiceHostCacheTests.swift */; };
+		F2894FB9 /* GitHubServiceFetchErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DA0FB79 /* GitHubServiceFetchErrorTests.swift */; };
+		063C7C99 /* GitHubServiceBatchQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFC005C /* GitHubServiceBatchQueryTests.swift */; };
+		E37C4485 /* GitHubServiceBatchResponseParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64D70C3A /* GitHubServiceBatchResponseParsingTests.swift */; };
+		5DA2FC27 /* GitHubServiceFetchOtherPRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BE17EA /* GitHubServiceFetchOtherPRTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,6 +95,14 @@
 		PKEY00022F6E000000000001 /* PreferenceKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceKeys.swift; sourceTree = "<group>"; };
 		DI000022F6E000000000001 /* DependencyRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyRegistration.swift; sourceTree = "<group>"; };
 		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
+		45CC9D4B /* MockShellExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockShellExecutor.swift; sourceTree = "<group>"; };
+		441DD199 /* BuildStatusPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildStatusPresentationTests.swift; sourceTree = "<group>"; };
+		142D966A /* NonBlockingCheckSummaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NonBlockingCheckSummaryTests.swift; sourceTree = "<group>"; };
+		A3C6FB3B /* GitHubServiceHostCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceHostCacheTests.swift; sourceTree = "<group>"; };
+		1DA0FB79 /* GitHubServiceFetchErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceFetchErrorTests.swift; sourceTree = "<group>"; };
+		9FFC005C /* GitHubServiceBatchQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceBatchQueryTests.swift; sourceTree = "<group>"; };
+		64D70C3A /* GitHubServiceBatchResponseParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceBatchResponseParsingTests.swift; sourceTree = "<group>"; };
+		B5BE17EA /* GitHubServiceFetchOtherPRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceFetchOtherPRTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,6 +211,14 @@
 		32TESTS012F4A000000000002 /* MonitorLizardTests */ = {
 			isa = PBXGroup;
 			children = (
+				45CC9D4B /* MockShellExecutor.swift */,
+				441DD199 /* BuildStatusPresentationTests.swift */,
+				142D966A /* NonBlockingCheckSummaryTests.swift */,
+				A3C6FB3B /* GitHubServiceHostCacheTests.swift */,
+				1DA0FB79 /* GitHubServiceFetchErrorTests.swift */,
+				9FFC005C /* GitHubServiceBatchQueryTests.swift */,
+				64D70C3A /* GitHubServiceBatchResponseParsingTests.swift */,
+				B5BE17EA /* GitHubServiceFetchOtherPRTests.swift */,
 				32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */,
 				32TESTS022F4A000000000000 /* UpdateServiceTests.swift */,
 				32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */,
@@ -347,6 +371,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				235E0478 /* MockShellExecutor.swift in Sources */,
+				13419D7D /* BuildStatusPresentationTests.swift in Sources */,
+				9F127D03 /* NonBlockingCheckSummaryTests.swift in Sources */,
+				7E88E540 /* GitHubServiceHostCacheTests.swift in Sources */,
+				F2894FB9 /* GitHubServiceFetchErrorTests.swift in Sources */,
+				063C7C99 /* GitHubServiceBatchQueryTests.swift in Sources */,
+				E37C4485 /* GitHubServiceBatchResponseParsingTests.swift in Sources */,
+				5DA2FC27 /* GitHubServiceFetchOtherPRTests.swift in Sources */,
 				32TESTS012F4A000000000001 /* PRMonitorViewModelTests.swift in Sources */,
 				32TESTS022F4A000000000001 /* UpdateServiceTests.swift in Sources */,
 				32TESTS032F4A000000000001 /* WindowOcclusionObserverTests.swift in Sources */,
