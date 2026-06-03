@@ -1,16 +1,81 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("refreshInterval") private var refreshInterval = Constants.defaultRefreshInterval
-    @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst = false
-    @AppStorage("showReviewPRs") private var showReviewPRs = true
-    @AppStorage("enableSounds") private var enableSounds = true
-    @AppStorage("enableVoice") private var enableVoice = true
-    @AppStorage("voiceAnnouncementText") private var voiceAnnouncementText = Constants.defaultVoiceAnnouncementText
-    @AppStorage("showNotifications") private var showNotifications = true
-    @AppStorage("enableInactiveBranchDetection") private var enableInactiveBranchDetection = false
-    @AppStorage("hideInactivePRs") private var hideInactivePRs = false
-    @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays = Constants.defaultInactiveBranchThreshold
+    private let defaults: UserDefaultsStore
+
+    init(defaults: UserDefaultsStore = .liveValue) {
+        self.defaults = defaults
+    }
+
+    private var refreshInterval: Binding<Int> {
+        Binding(
+            get: { defaults.object(forKey: PreferenceKeys.refreshInterval) as? Int ?? Constants.defaultRefreshInterval },
+            set: { defaults.set($0, forKey: PreferenceKeys.refreshInterval) }
+        )
+    }
+
+    private var sortNonSuccessFirst: Binding<Bool> {
+        Binding(
+            get: { defaults.bool(forKey: PreferenceKeys.sortNonSuccessFirst) },
+            set: { defaults.set($0, forKey: PreferenceKeys.sortNonSuccessFirst) }
+        )
+    }
+
+    private var showReviewPRs: Binding<Bool> {
+        Binding(
+            get: { defaults.object(forKey: PreferenceKeys.showReviewPRs) as? Bool ?? true },
+            set: { defaults.set($0, forKey: PreferenceKeys.showReviewPRs) }
+        )
+    }
+
+    private var enableSounds: Binding<Bool> {
+        Binding(
+            get: { defaults.object(forKey: PreferenceKeys.enableSounds) as? Bool ?? true },
+            set: { defaults.set($0, forKey: PreferenceKeys.enableSounds) }
+        )
+    }
+
+    private var enableVoice: Binding<Bool> {
+        Binding(
+            get: { defaults.object(forKey: PreferenceKeys.enableVoice) as? Bool ?? true },
+            set: { defaults.set($0, forKey: PreferenceKeys.enableVoice) }
+        )
+    }
+
+    private var voiceAnnouncementText: Binding<String> {
+        Binding(
+            get: { defaults.string(forKey: PreferenceKeys.voiceAnnouncementText) ?? Constants.defaultVoiceAnnouncementText },
+            set: { defaults.set($0, forKey: PreferenceKeys.voiceAnnouncementText) }
+        )
+    }
+
+    private var showNotifications: Binding<Bool> {
+        Binding(
+            get: { defaults.object(forKey: PreferenceKeys.showNotifications) as? Bool ?? true },
+            set: { defaults.set($0, forKey: PreferenceKeys.showNotifications) }
+        )
+    }
+
+    private var enableInactiveBranchDetection: Binding<Bool> {
+        Binding(
+            get: { defaults.bool(forKey: PreferenceKeys.enableInactiveBranchDetection) },
+            set: { defaults.set($0, forKey: PreferenceKeys.enableInactiveBranchDetection) }
+        )
+    }
+
+    private var hideInactivePRs: Binding<Bool> {
+        Binding(
+            get: { defaults.bool(forKey: PreferenceKeys.hideInactivePRs) },
+            set: { defaults.set($0, forKey: PreferenceKeys.hideInactivePRs) }
+        )
+    }
+
+    private var inactiveBranchThresholdDays: Binding<Int> {
+        Binding(
+            get: { defaults.object(forKey: PreferenceKeys.inactiveBranchThresholdDays) as? Int ?? Constants.defaultInactiveBranchThreshold },
+            set: { defaults.set($0, forKey: PreferenceKeys.inactiveBranchThresholdDays) }
+        )
+    }
 
     var body: some View {
         TabView {
@@ -42,11 +107,11 @@ struct SettingsView: View {
 
                     HStack {
                         Slider(value: Binding(
-                            get: { Double(refreshInterval) },
-                            set: { refreshInterval = Int($0) }
+                            get: { Double(refreshInterval.wrappedValue) },
+                            set: { refreshInterval.wrappedValue = Int($0) }
                         ), in: Double(Constants.minRefreshInterval)...Double(Constants.maxRefreshInterval), step: Double(Constants.refreshIntervalStep))
 
-                        Text("\(refreshInterval)s")
+                        Text("\(refreshInterval.wrappedValue)s")
                             .frame(width: 50, alignment: .trailing)
                             .foregroundColor(.secondary)
                     }
@@ -60,7 +125,7 @@ struct SettingsView: View {
 
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Sort non-success PRs first", isOn: $sortNonSuccessFirst)
+                    Toggle("Sort non-success PRs first", isOn: sortNonSuccessFirst)
                         .help("Show PRs with pending, failed, or error status at the top of the list")
 
                     Text("Success (green) PRs will appear at the bottom")
@@ -72,7 +137,7 @@ struct SettingsView: View {
 
             Section {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Show PRs awaiting my review", isOn: $showReviewPRs)
+                    Toggle("Show PRs awaiting my review", isOn: showReviewPRs)
                         .help("Display pull requests where you are a requested reviewer")
 
                     Text("Review PRs appear at the top to prioritize unblocking teammates")
@@ -84,21 +149,21 @@ struct SettingsView: View {
 
             Section("Inactive Branch Detection") {
                 VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Enable inactive branch detection", isOn: $enableInactiveBranchDetection)
+                    Toggle("Enable inactive branch detection", isOn: enableInactiveBranchDetection)
                         .help("Highlight PRs that haven't been updated in a while")
 
-                    if enableInactiveBranchDetection {
-                        Stepper("Days without update: \(inactiveBranchThresholdDays)",
-                                value: $inactiveBranchThresholdDays,
+                    if enableInactiveBranchDetection.wrappedValue {
+                        Stepper("Days without update: \(inactiveBranchThresholdDays.wrappedValue)",
+                                value: inactiveBranchThresholdDays,
                                 in: Constants.minInactiveBranchThreshold...Constants.maxInactiveBranchThreshold)
                             .padding(.top, 4)
 
-                        Text("PRs not updated for \(inactiveBranchThresholdDays) days will show as inactive")
+                        Text("PRs not updated for \(inactiveBranchThresholdDays.wrappedValue) days will show as inactive")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
 
-                        Toggle("Hide inactive PRs", isOn: $hideInactivePRs)
+                        Toggle("Hide inactive PRs", isOn: hideInactivePRs)
                             .help("Completely hide inactive PRs from the list instead of showing them with a warning")
                             .padding(.top, 4)
                     }
@@ -111,7 +176,7 @@ struct SettingsView: View {
                     Text("About Polling")
                         .font(.headline)
 
-                    Text("MonitorLizard polls GitHub every \(refreshInterval) seconds to check the build status of your open pull requests. Lower values provide faster updates but may consume more resources.")
+                    Text("MonitorLizard polls GitHub every \(refreshInterval.wrappedValue) seconds to check the build status of your open pull requests. Lower values provide faster updates but may consume more resources.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -125,22 +190,22 @@ struct SettingsView: View {
     private var notificationSettings: some View {
         Form {
             Section {
-                Toggle("Show notifications", isOn: $showNotifications)
+                Toggle("Show notifications", isOn: showNotifications)
                     .help("Display macOS notifications when watched builds complete")
 
-                Toggle("Play sounds", isOn: $enableSounds)
+                Toggle("Play sounds", isOn: enableSounds)
                     .help("Play sound effects when builds complete")
 
-                Toggle("Voice announcements", isOn: $enableVoice)
+                Toggle("Voice announcements", isOn: enableVoice)
                     .help("Speak announcement text when successful builds complete")
 
-                if enableVoice {
+                if enableVoice.wrappedValue {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Announcement text")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
-                        TextField("", text: $voiceAnnouncementText, prompt: Text("Build ready for Q A"))
+                        TextField("", text: voiceAnnouncementText, prompt: Text("Build ready for Q A"))
                             .textFieldStyle(.roundedBorder)
                             .help("The text that will be spoken when a watched build completes successfully")
                     }
@@ -280,7 +345,6 @@ struct SettingsView: View {
     }
 }
 
-// Preview
 #if DEBUG
 struct SettingsView_Previews: PreviewProvider {
     static var previews: some View {

@@ -1,17 +1,17 @@
+import Dependencies
 import Foundation
 
-struct OtherPRIdentifier: Codable, Equatable {
+struct OtherPRIdentifier: Codable, Equatable, Sendable {
     let host: String
     let owner: String
     let repo: String
     let number: Int
 }
 
-class OtherPRsService {
-    private let defaults: UserDefaults
-    private let otherPRsKey = "pinnedPRs"  // key kept for backward compatibility
+final class OtherPRsService: @unchecked Sendable {
+    private let defaults: UserDefaultsStore
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaultsStore = .liveValue) {
         self.defaults = defaults
     }
 
@@ -29,7 +29,7 @@ class OtherPRsService {
     }
 
     func all() -> [OtherPRIdentifier] {
-        guard let data = defaults.data(forKey: otherPRsKey),
+        guard let data = defaults.data(forKey: PreferenceKeys.pinnedPRs),
               let ids = try? JSONDecoder().decode([OtherPRIdentifier].self, from: data) else {
             return []
         }
@@ -46,7 +46,7 @@ class OtherPRsService {
 
     private func save(_ ids: [OtherPRIdentifier]) {
         if let data = try? JSONEncoder().encode(ids) {
-            defaults.set(data, forKey: otherPRsKey)
+            defaults.set(data, forKey: PreferenceKeys.pinnedPRs)
         }
     }
 }

@@ -1,19 +1,17 @@
+import Dependencies
 import Foundation
 
-class WatchlistService {
-    static let shared = WatchlistService()
-
-    private let defaults: UserDefaults
-    private let watchlistKey = "watchedPRs"
+final class WatchlistService: @unchecked Sendable {
+    private let defaults: UserDefaultsStore
 
     private var watchedPRs: [String: WatchedPRInfo] = [:]
 
-    struct WatchedPRInfo {
+    struct WatchedPRInfo: Sendable {
         let lastStatus: BuildStatus
         let timestamp: Date
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaultsStore = .liveValue) {
         self.defaults = defaults
         load()
     }
@@ -35,15 +33,12 @@ class WatchlistService {
         watchedPRs[pr.id] != nil
     }
 
-    /// Check for PRs that have completed builds (transitioned from pending to complete)
-    /// Returns PRs that completed since last check
     func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest] {
         var completed: [PullRequest] = []
 
         for pr in currentPRs {
             guard let watched = watchedPRs[pr.id] else { continue }
 
-            // Check if status changed from incomplete to any completed state
             let wasIncomplete = watched.lastStatus == .notStarted || watched.lastStatus == .pending || watched.lastStatus == .unknown
             let isNowComplete = pr.buildStatus == .success || pr.buildStatus == .failure || pr.buildStatus == .error
 
@@ -51,7 +46,6 @@ class WatchlistService {
                 completed.append(pr)
             }
 
-            // Update stored status if changed
             if watched.lastStatus != pr.buildStatus {
                 watchedPRs[pr.id] = WatchedPRInfo(
                     lastStatus: pr.buildStatus,
@@ -60,7 +54,6 @@ class WatchlistService {
             }
         }
 
-        // Clean up watched PRs that are no longer open
         let currentPRIds = Set(currentPRs.map { $0.id })
         let watchedPRIds = Set(watchedPRs.keys)
         let closedPRIds = watchedPRIds.subtracting(currentPRIds)
@@ -78,7 +71,6 @@ class WatchlistService {
     }
 
     private func save() {
-        // Convert to simple dictionary for storage
         var dict: [String: [String: Any]] = [:]
         for (key, info) in watchedPRs {
             dict[key] = [
@@ -86,11 +78,11 @@ class WatchlistService {
                 "timestamp": info.timestamp.timeIntervalSince1970
             ]
         }
-        defaults.set(dict, forKey: watchlistKey)
+        defaults.set(dict, forKey: PreferenceKeys.watchedPRs)
     }
 
     private func load() {
-        if let dict = defaults.dictionary(forKey: watchlistKey) as? [String: [String: Any]] {
+        if let dict = defaults.dictionary(forKey: PreferenceKeys.watchedPRs) as? [String: [String: Any]] {
             watchedPRs.removeAll()
             for (key, value) in dict {
                 if let statusRaw = value["status"] as? String,

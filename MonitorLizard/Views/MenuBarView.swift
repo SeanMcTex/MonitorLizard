@@ -64,7 +64,7 @@ struct MenuBarView: View {
             Text("Pull Requests for")
                 .font(.headline)
 
-            Picker("", selection: $viewModel.selectedRepository) {
+            Picker("", selection: viewModel.selectedRepositoryBinding) {
                 Text("All Repositories").tag("All Repositories")
                 Divider()
                 ForEach(viewModel.availableRepositories, id: \.self) { repo in

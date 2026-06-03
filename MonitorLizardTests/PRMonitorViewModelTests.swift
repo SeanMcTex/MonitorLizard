@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 @testable import MonitorLizard
 
 struct ResolveReviewDecisionTests {
@@ -163,38 +163,33 @@ struct ParsePRURLTests {
 @MainActor
 struct OtherPRsServiceTests {
 
-    private func makeService() -> OtherPRsService {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return OtherPRsService(defaults: suite)
-    }
-
-    private func makeID(number: Int = 1) -> OtherPRIdentifier {
-        OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: number)
-    }
-
-    @Test func startsEmpty() {
-        let service = makeService()
+    @Test
+    func startsEmpty() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         #expect(service.all().isEmpty)
     }
 
-    @Test func addAndContains() {
-        let service = makeService()
+    @Test
+    func addAndContains() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         let id = makeID()
         service.add(id)
         #expect(service.contains(id))
         #expect(service.all().count == 1)
     }
 
-    @Test func addDuplicateIsIdempotent() {
-        let service = makeService()
+    @Test
+    func addDuplicateIsIdempotent() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         let id = makeID()
         service.add(id)
         service.add(id)
         #expect(service.all().count == 1)
     }
 
-    @Test func removeExisting() {
-        let service = makeService()
+    @Test
+    func removeExisting() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         let id = makeID()
         service.add(id)
         service.remove(id)
@@ -202,26 +197,33 @@ struct OtherPRsServiceTests {
         #expect(service.all().isEmpty)
     }
 
-    @Test func removeNonExistentIsNoop() {
-        let service = makeService()
+    @Test
+    func removeNonExistentIsNoop() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         service.remove(makeID())
         #expect(service.all().isEmpty)
     }
 
-    @Test func addMultiple() {
-        let service = makeService()
+    @Test
+    func addMultiple() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         service.add(makeID(number: 1))
         service.add(makeID(number: 2))
         service.add(makeID(number: 3))
         #expect(service.all().count == 3)
     }
 
-    @Test func clearAll() {
-        let service = makeService()
+    @Test
+    func clearAll() {
+        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
         service.add(makeID(number: 1))
         service.add(makeID(number: 2))
         service.clearAll()
         #expect(service.all().isEmpty)
+    }
+
+    private func makeID(number: Int = 1) -> OtherPRIdentifier {
+        OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: number)
     }
 }
 
@@ -247,31 +249,30 @@ struct PRTypeDisplayTitleTests {
 @MainActor
 struct CustomNamesServiceTests {
 
-    private func makeService() -> CustomNamesService {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return CustomNamesService(defaults: suite)
-    }
-
-    @Test func startsEmpty() {
-        let service = makeService()
+    @Test
+    func startsEmpty() {
+        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
         #expect(service.allNames().isEmpty)
     }
 
-    @Test func setAndGet() {
-        let service = makeService()
+    @Test
+    func setAndGet() {
+        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
         service.setName("My PR", for: "owner/repo#1")
         #expect(service.name(for: "owner/repo#1") == "My PR")
     }
 
-    @Test func removeRestoresNil() {
-        let service = makeService()
+    @Test
+    func removeRestoresNil() {
+        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
         service.setName("My PR", for: "owner/repo#1")
         service.removeName(for: "owner/repo#1")
         #expect(service.name(for: "owner/repo#1") == nil)
     }
 
-    @Test func pruneStaleRemovesInactiveEntries() {
-        let service = makeService()
+    @Test
+    func pruneStaleRemovesInactiveEntries() {
+        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
         service.setName("Active PR", for: "owner/repo#1")
         service.setName("Stale PR", for: "owner/repo#2")
 
@@ -281,8 +282,9 @@ struct CustomNamesServiceTests {
         #expect(service.name(for: "owner/repo#2") == nil)
     }
 
-    @Test func pruneStaleKeepsAllWhenAllActive() {
-        let service = makeService()
+    @Test
+    func pruneStaleKeepsAllWhenAllActive() {
+        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
         service.setName("PR One", for: "owner/repo#1")
         service.setName("PR Two", for: "owner/repo#2")
 
@@ -291,8 +293,9 @@ struct CustomNamesServiceTests {
         #expect(service.allNames().count == 2)
     }
 
-    @Test func pruneStaleWithEmptySetClearsAll() {
-        let service = makeService()
+    @Test
+    func pruneStaleWithEmptySetClearsAll() {
+        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
         service.setName("PR One", for: "owner/repo#1")
 
         service.pruneStale(keeping: [])
@@ -304,11 +307,6 @@ struct CustomNamesServiceTests {
 @MainActor
 @Suite(.serialized)
 struct OtherPRsViewModelTests {
-
-    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite), PRCacheService(defaults: suite))
-    }
 
     private func makePR(number: Int, nameWithOwner: String, type: PRType = .other) -> PullRequest {
         let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
@@ -331,9 +329,9 @@ struct OtherPRsViewModelTests {
         )
     }
 
-    @Test func addOtherPRThrowsInvalidURL() async {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func addOtherPRThrowsInvalidURL() async {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
         do {
             try await vm.addOtherPR(urlString: "not-a-valid-url")
@@ -345,9 +343,9 @@ struct OtherPRsViewModelTests {
         }
     }
 
-    @Test func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -369,9 +367,9 @@ struct OtherPRsViewModelTests {
         }
     }
 
-    @Test func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -398,11 +396,10 @@ struct OtherPRsViewModelTests {
         }
     }
 
-    @Test func filteredOtherPRsRespectSelectedRepository() {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func filteredOtherPRsRespectSelectedRepository() {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
-        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         vm.otherPullRequests = [
             makePR(number: 1, nameWithOwner: "acme/widget"),
@@ -417,11 +414,10 @@ struct OtherPRsViewModelTests {
         #expect(vm.filteredOtherPRs.count == 2)
     }
 
-    @Test func removeOtherPRResetsRepoSelectionWhenLastRemoved() {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func removeOtherPRResetsRepoSelectionWhenLastRemoved() {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
-        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         let pr = makePR(number: 99, nameWithOwner: "acme/widget")
         vm.otherPullRequests = [pr]
@@ -432,9 +428,9 @@ struct OtherPRsViewModelTests {
         #expect(vm.selectedRepository == "All Repositories")
     }
 
-    @Test func toggleWatchUpdatesOtherPullRequests() {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func toggleWatchUpdatesOtherPullRequests() {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
 
         var pr = makePR(number: 1, nameWithOwner: "acme/widget")
@@ -448,9 +444,9 @@ struct OtherPRsViewModelTests {
         #expect(vm.otherPullRequests[0].isWatched == false)
     }
 
-    @Test func clearAllWatchedResetsOtherPullRequests() {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func clearAllWatchedResetsOtherPullRequests() {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
 
         var pr = makePR(number: 1, nameWithOwner: "acme/widget")
@@ -462,33 +458,27 @@ struct OtherPRsViewModelTests {
         #expect(vm.otherPullRequests[0].isWatched == false)
     }
 
-    @Test func removeOtherPRClearsCustomName() {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        let customNames = CustomNamesService(defaults: suite)
-        let (watchlist, otherPRs) = (WatchlistService(defaults: suite), OtherPRsService(defaults: suite))
-        let vm = PRMonitorViewModel(
-            isDemoMode: true,
-            watchlistService: watchlist,
-            otherPRsService: otherPRs,
-            customNamesService: customNames,
-            cacheService: PRCacheService(defaults: suite)
-        )
+    @Test
+    func removeOtherPRClearsCustomName() {
+        let defaults = UserDefaultsStore.testSuite()
+        let customNames = CustomNamesService(defaults: defaults)
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: defaults)
         vm.stopPolling()
 
         let pr = makePR(number: 99, nameWithOwner: "acme/widget")
         vm.otherPullRequests = [pr]
-        customNames.setName("Custom Name", for: pr.id)
+
+        vm.renamePR(pr, to: "Custom Name")
 
         vm.removeOtherPR(pr)
 
         #expect(customNames.name(for: pr.id) == nil)
     }
 
-    @Test func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func removeOtherPRKeepsRepoSelectionWhenOthersRemain() {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
-        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         let pr1 = makePR(number: 1, nameWithOwner: "acme/widget")
         let pr2 = makePR(number: 2, nameWithOwner: "acme/widget")
@@ -504,11 +494,6 @@ struct OtherPRsViewModelTests {
 @MainActor
 @Suite(.serialized)
 struct PRMonitorViewModelTests {
-
-    private func makeIsolatedServices() -> (WatchlistService, OtherPRsService, PRCacheService) {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return (WatchlistService(defaults: suite), OtherPRsService(defaults: suite), PRCacheService(defaults: suite))
-    }
 
     private func makePR(number: Int = 1, nameWithOwner: String = "acme/widget", buildStatus: BuildStatus) -> PullRequest {
         let name = String(nameWithOwner.split(separator: "/").last ?? "repo")
@@ -552,11 +537,8 @@ struct PRMonitorViewModelTests {
         )
     }
 
-    private func createLoadedViewModel() async -> PRMonitorViewModel {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
-        // Poll until demo data is loaded rather than using a fixed sleep,
-        // so the test doesn't flake under parallel load.
+    private func createLoadedViewModel(defaults: UserDefaultsStore = UserDefaultsStore.testSuite()) async -> PRMonitorViewModel {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: defaults)
         for _ in 0..<40 {
             if !vm.authoredPRs.isEmpty { break }
             try? await Task.sleep(for: .milliseconds(100))
@@ -564,7 +546,8 @@ struct PRMonitorViewModelTests {
         return vm
     }
 
-    @Test func availableRepositories() async {
+    @Test
+    func availableRepositories() async {
         let vm = await createLoadedViewModel()
 
         let repos = vm.availableRepositories
@@ -572,15 +555,16 @@ struct PRMonitorViewModelTests {
         #expect(repos == ["feline-federation/cat-show-tracker", "fromagerie/cheese-cellar-manager"])
     }
 
-    @Test func defaultSelectedRepository() async {
+    @Test
+    func defaultSelectedRepository() async {
         let vm = await createLoadedViewModel()
 
         #expect(vm.selectedRepository == "All Repositories")
     }
 
-    @Test func reposWithIssuesIncludesNotStartedPRs() {
-        let (watchlist, otherPRs, cache) = makeIsolatedServices()
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs, cacheService: cache)
+    @Test
+    func reposWithIssuesIncludesNotStartedPRs() {
+        let vm = PRMonitorViewModel(isDemoMode: true, defaults: UserDefaultsStore.testSuite())
         vm.stopPolling()
 
         vm.otherPullRequests = [makePR(buildStatus: .notStarted)]
@@ -588,8 +572,9 @@ struct PRMonitorViewModelTests {
         #expect(vm.reposWithIssues == ["acme/widget"])
     }
 
-    @Test func watchlistReportsCompletionFromNotStarted() {
-        let (watchlist, _, _) = makeIsolatedServices()
+    @Test
+    func watchlistReportsCompletionFromNotStarted() {
+        let watchlist = WatchlistService(defaults: UserDefaultsStore.testSuite())
         let pendingPR = makePR(buildStatus: .notStarted)
         var completedPR = pendingPR
         completedPR.buildStatus = .success
@@ -599,63 +584,57 @@ struct PRMonitorViewModelTests {
         #expect(watchlist.checkForCompletions(currentPRs: [completedPR]).map(\.id) == [pendingPR.id])
     }
 
-    @Test func filterByRepository() async {
+    @Test
+    func filterByRepository() async {
         let vm = await createLoadedViewModel()
-        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         vm.selectedRepository = "fromagerie/cheese-cellar-manager"
 
-        // All authored PRs should be from cheese-cellar-manager
         #expect(!vm.authoredPRs.isEmpty)
         #expect(vm.authoredPRs.allSatisfy { $0.repository.nameWithOwner == "fromagerie/cheese-cellar-manager" })
 
-        // No review PRs should appear (review PRs are all from cat-show-tracker)
         #expect(vm.reviewPRs.isEmpty)
     }
 
-    @Test func filterByRepositoryShowsReviewPRs() async {
+    @Test
+    func filterByRepositoryShowsReviewPRs() async {
         let vm = await createLoadedViewModel()
-        defer { UserDefaults.standard.removeObject(forKey: "selectedRepository") }
 
         vm.selectedRepository = "feline-federation/cat-show-tracker"
 
-        // Review PRs should appear from cat-show-tracker
         #expect(!vm.reviewPRs.isEmpty)
         #expect(vm.reviewPRs.allSatisfy { $0.repository.nameWithOwner == "feline-federation/cat-show-tracker" })
 
-        // No authored PRs should appear (authored PRs are all from cheese-cellar-manager)
         #expect(vm.authoredPRs.isEmpty)
     }
 
-    @Test func allRepositoriesShowsEverything() async {
-        UserDefaults.standard.set(false, forKey: "hideInactivePRs")
-        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
-
-        let vm = await createLoadedViewModel()
+    @Test
+    func allRepositoriesShowsEverything() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(false, forKey: .hideInactivePRs)
+        let vm = await createLoadedViewModel(defaults: suite)
 
         vm.selectedRepository = "All Repositories"
 
         let totalPRs = vm.authoredPRs.count + vm.reviewPRs.count
-        // Demo data has 6 authored + 2 reviewing = 8 total
         #expect(totalPRs == 8)
     }
 
-    @Test func selectedRepoResetOnRefresh() async {
+    @Test
+    func selectedRepoResetOnRefresh() async {
         let vm = await createLoadedViewModel()
 
-        // Set to a repo that exists
         vm.selectedRepository = "feline-federation/cat-show-tracker"
         #expect(vm.selectedRepository == "feline-federation/cat-show-tracker")
 
-        // Now set to a repo that doesn't exist in the data
         vm.selectedRepository = "nonexistent/repo"
 
-        // After refresh, it should reset to "All Repositories"
         await vm.refresh()
         #expect(vm.selectedRepository == "All Repositories")
     }
 
-    @Test func renamePRUpdatesDisplayTitleInMemory() async {
+    @Test
+    func renamePRUpdatesDisplayTitleInMemory() async {
         let vm = await createLoadedViewModel()
 
         guard let pr = vm.authoredPRs.first else {
@@ -668,10 +647,11 @@ struct PRMonitorViewModelTests {
         let updated = vm.authoredPRs.first { $0.id == pr.id }
         #expect(updated?.customName == "My Custom Name")
         #expect(updated?.displayTitle == "My Custom Name")
-        #expect(updated?.title == pr.title) // GitHub title unchanged
+        #expect(updated?.title == pr.title)
     }
 
-    @Test func renamePRNilRestoresGitHubTitle() async {
+    @Test
+    func renamePRNilRestoresGitHubTitle() async {
         let vm = await createLoadedViewModel()
 
         guard let pr = vm.authoredPRs.first else {
@@ -687,7 +667,8 @@ struct PRMonitorViewModelTests {
         #expect(updated?.displayTitle == pr.title)
     }
 
-    @Test func renamePREmptyStringActsAsNil() async {
+    @Test
+    func renamePREmptyStringActsAsNil() async {
         let vm = await createLoadedViewModel()
 
         guard let pr = vm.authoredPRs.first else {
@@ -703,16 +684,13 @@ struct PRMonitorViewModelTests {
         #expect(updated?.displayTitle == pr.title)
     }
 
-    @Test func sortPutsChangesRequestedFirst() async {
-        // Demo PR #421 has buildStatus: .success and reviewDecision: .changesRequested
-        // It should sort before pure-success PRs (e.g., no reviewDecision) when sorting is on.
-        UserDefaults.standard.set(true, forKey: "sortNonSuccessFirst")
-        defer { UserDefaults.standard.removeObject(forKey: "sortNonSuccessFirst") }
-
-        let vm = await createLoadedViewModel()
+    @Test
+    func sortPutsChangesRequestedFirst() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .sortNonSuccessFirst)
+        let vm = await createLoadedViewModel(defaults: suite)
 
         let authored = vm.authoredPRs
-        // changesRequested PR (#421) should appear before any pure-success PR with no review issues
         let changesRequestedIndex = authored.firstIndex(where: { $0.reviewDecision == .changesRequested })
         let pureSuccessIndex = authored.firstIndex(where: { $0.buildStatus == .success && $0.reviewDecision == nil })
 
@@ -723,54 +701,45 @@ struct PRMonitorViewModelTests {
 
     // MARK: - Hide Inactive PRs
 
-    @Test func inactivePRsVisibleByDefault() async {
+    @Test
+    func inactivePRsVisibleByDefault() async {
         let vm = await createLoadedViewModel()
 
         let authoredInactive = vm.authoredPRs.filter { $0.buildStatus == .inactive }
         #expect(!authoredInactive.isEmpty, "Inactive PRs should be visible when hideInactivePRs is off")
     }
 
-    @Test func hideInactivePRsFiltersInactiveFromAuthored() async {
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
-
-        let vm = await createLoadedViewModel()
+    @Test
+    func hideInactivePRsFiltersInactiveFromAuthored() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .hideInactivePRs)
+        let vm = await createLoadedViewModel(defaults: suite)
 
         let authoredInactive = vm.authoredPRs.filter { $0.buildStatus == .inactive }
         #expect(authoredInactive.isEmpty, "Inactive authored PRs should be hidden when hideInactivePRs is on")
     }
 
-    @Test func hideInactivePRsDoesNotFilterReviewPRs() async {
-        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
-            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
-            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
-        }
+    @Test
+    func hideInactivePRsDoesNotFilterReviewPRs() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .enableInactiveBranchDetection)
+        suite.set(true, forKey: .hideInactivePRs)
+        suite.set(3, forKey: .inactiveBranchThresholdDays)
+        let vm = await createLoadedViewModel(defaults: suite)
 
-        let vm = await createLoadedViewModel()
-
-        let reviewInactive = vm.reviewPRs.filter { $0.buildStatus == .inactive }
-        // Review PRs should never be hidden regardless of stale status
         let allReview = vm.reviewPRs
         #expect(!allReview.isEmpty, "Review PRs should still appear when hideInactivePRs is on")
     }
 
-    @Test func hideInactivePRsFiltersInactiveFromOtherPRs() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
-            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
-            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
-        }
-
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+    @Test
+    func hideInactivePRsFiltersInactiveFromOtherPRs() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .enableInactiveBranchDetection)
+        suite.set(true, forKey: .hideInactivePRs)
+        suite.set(3, forKey: .inactiveBranchThresholdDays)
+        let vm = PRMonitorViewModel(defaults: suite)
         vm.stopPolling()
+        try? await Task.sleep(for: .milliseconds(100))
 
         var inactivePR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date().addingTimeInterval(-4 * 24 * 60 * 60))
         inactivePR.buildStatus = .inactive
@@ -783,22 +752,16 @@ struct PRMonitorViewModelTests {
         #expect(vm.filteredOtherPRs[0].buildStatus == .success)
     }
 
-    @Test func hideInactivePRsHidesStaleConflictPR() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
-            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
-            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
-        }
-
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+    @Test
+    func hideInactivePRsHidesStaleConflictPR() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .enableInactiveBranchDetection)
+        suite.set(true, forKey: .hideInactivePRs)
+        suite.set(3, forKey: .inactiveBranchThresholdDays)
+        let vm = PRMonitorViewModel(defaults: suite)
         vm.stopPolling()
+        try? await Task.sleep(for: .milliseconds(100))
 
-        // A PR that is both stale and has conflicts — buildStatus is .conflict (higher priority),
-        // but it should still be hidden because it's old enough to be inactive
         var staleConflictPR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date().addingTimeInterval(-4 * 24 * 60 * 60))
         staleConflictPR.buildStatus = .conflict
 
@@ -807,21 +770,16 @@ struct PRMonitorViewModelTests {
         #expect(vm.filteredOtherPRs.isEmpty, "Stale PR with conflict status should be hidden when hideInactivePRs is on")
     }
 
-    @Test func hideInactivePRsDoesNotHideActiveConflictPR() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
-            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
-            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
-        }
-
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+    @Test
+    func hideInactivePRsDoesNotHideActiveConflictPR() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .enableInactiveBranchDetection)
+        suite.set(true, forKey: .hideInactivePRs)
+        suite.set(3, forKey: .inactiveBranchThresholdDays)
+        let vm = PRMonitorViewModel(defaults: suite)
         vm.stopPolling()
+        try? await Task.sleep(for: .milliseconds(100))
 
-        // A PR with conflicts but recently updated — should NOT be hidden
         var activeConflictPR = makePR(number: 1, nameWithOwner: "acme/widget", updatedAt: Date())
         activeConflictPR.buildStatus = .conflict
 
@@ -830,19 +788,15 @@ struct PRMonitorViewModelTests {
         #expect(vm.filteredOtherPRs.count == 1, "Recently-updated conflict PR should not be hidden")
     }
 
-    @Test func hideInactivePRsExcludesInactiveFromReposWithIssues() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        UserDefaults.standard.set(true, forKey: "enableInactiveBranchDetection")
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        UserDefaults.standard.set(3, forKey: "inactiveBranchThresholdDays")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "enableInactiveBranchDetection")
-            UserDefaults.standard.removeObject(forKey: "hideInactivePRs")
-            UserDefaults.standard.removeObject(forKey: "inactiveBranchThresholdDays")
-        }
-
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+    @Test
+    func hideInactivePRsExcludesInactiveFromReposWithIssues() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .enableInactiveBranchDetection)
+        suite.set(true, forKey: .hideInactivePRs)
+        suite.set(3, forKey: .inactiveBranchThresholdDays)
+        let vm = PRMonitorViewModel(defaults: suite)
         vm.stopPolling()
+        try? await Task.sleep(for: .milliseconds(100))
 
         var successPR = makePR(number: 999, nameWithOwner: "acme/success-only")
         successPR.buildStatus = .success
@@ -855,13 +809,13 @@ struct PRMonitorViewModelTests {
         #expect(!vm.reposWithIssues.contains("acme/widget"), "Repo with only inactive PR should not show issues when hidden")
     }
 
-    @Test func hideInactivePRsOffStillShowsInactiveInReposWithIssues() {
-        let (watchlist, otherPRs) = makeIsolatedServices()
-        UserDefaults.standard.set(false, forKey: "hideInactivePRs")
-        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
-
-        let vm = PRMonitorViewModel(isDemoMode: true, watchlistService: watchlist, otherPRsService: otherPRs)
+    @Test
+    func hideInactivePRsOffStillShowsInactiveInReposWithIssues() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(false, forKey: .hideInactivePRs)
+        let vm = PRMonitorViewModel(defaults: suite)
         vm.stopPolling()
+        try? await Task.sleep(for: .milliseconds(100))
 
         var inactivePR = makePR(number: 1, nameWithOwner: "acme/widget")
         inactivePR.buildStatus = .inactive
@@ -871,22 +825,21 @@ struct PRMonitorViewModelTests {
         #expect(vm.reposWithIssues.contains("acme/widget"), "Repo with inactive PR shows issues when hideInactivePRs is off")
     }
 
-    @Test func hideInactivePRsDoesNotAffectSuccessPRs() async {
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
-
-        let vm = await createLoadedViewModel()
+    @Test
+    func hideInactivePRsDoesNotAffectSuccessPRs() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .hideInactivePRs)
+        let vm = await createLoadedViewModel(defaults: suite)
 
         let authoredSuccess = vm.authoredPRs.filter { $0.buildStatus == .success }
         #expect(!authoredSuccess.isEmpty, "Success PRs should still be visible when hideInactivePRs is on")
     }
 
-    @Test func availableRepositoriesStillIncludesInactivePRReposWhenHidden() async {
-        // Even when inactive PRs are hidden, the repo picker should still show their repos
-        UserDefaults.standard.set(true, forKey: "hideInactivePRs")
-        defer { UserDefaults.standard.removeObject(forKey: "hideInactivePRs") }
-
-        let vm = await createLoadedViewModel()
+    @Test
+    func availableRepositoriesStillIncludesInactivePRReposWhenHidden() async {
+        let suite = UserDefaultsStore.testSuite()
+        suite.set(true, forKey: .hideInactivePRs)
+        let vm = await createLoadedViewModel(defaults: suite)
 
         let repos = vm.availableRepositories
         #expect(repos.count == 2, "Repo list should still include all repos even when inactive PRs are hidden")

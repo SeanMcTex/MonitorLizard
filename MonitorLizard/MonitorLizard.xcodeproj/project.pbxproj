@@ -11,6 +11,10 @@
 		32364F9E2F1143E100493ED7 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32364F9D2F1143E100493ED7 /* Constants.swift */; };
 		324376112F5DB275009B7E2D /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 324376102F5DB275009B7E2D /* UpdateService.swift */; };
 		3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 324376122F5DB2A0009B7E2D /* Sparkle */; };
+		PKEY00012F6E000000000001 /* PreferenceKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = PKEY00022F6E000000000001 /* PreferenceKeys.swift */; };
+		DI000012F6E000000000001 /* DependencyRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DI000022F6E000000000001 /* DependencyRegistration.swift */; };
+		DEP000012F6E000000000001 /* Dependencies in Frameworks */ = {isa = PBXBuildFile; productRef = DEP000022F6E000000000001 /* Dependencies */; };
+		DEP000032F6E000000000001 /* DependenciesTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = DEP000042F6E000000000001 /* DependenciesTestSupport */; };
 		329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */; };
 		329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDF2F103E3200F0E6EA /* PullRequest.swift */; };
 		329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */; };
@@ -80,6 +84,8 @@
 		AA0002222F103E3200F0ABCD /* OtherPRsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherPRsService.swift; sourceTree = "<group>"; };
 		AA0004442F103E3200F0ABCD /* AddPRView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPRView.swift; sourceTree = "<group>"; };
 		BB0002222F103E3200F0ABCD /* CustomNamesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomNamesService.swift; sourceTree = "<group>"; };
+		PKEY00022F6E000000000001 /* PreferenceKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferenceKeys.swift; sourceTree = "<group>"; };
+		DI000022F6E000000000001 /* DependencyRegistration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyRegistration.swift; sourceTree = "<group>"; };
 		F1EE91F749D44258AE659F6C /* WindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -89,6 +95,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */,
+				DEP000012F6E000000000001 /* Dependencies in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -96,6 +103,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DEP000032F6E000000000001 /* DependenciesTestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -106,6 +114,8 @@
 			isa = PBXGroup;
 			children = (
 				32364F9D2F1143E100493ED7 /* Constants.swift */,
+				PKEY00022F6E000000000001 /* PreferenceKeys.swift */,
+				DI000022F6E000000000001 /* DependencyRegistration.swift */,
 				329D9EDD2F103E3200F0E6EA /* Info.plist */,
 				329D9EFA2F103E4500F0E6EA /* MonitorLizard.entitlements */,
 				329D9EE02F103E3200F0E6EA /* Models */,
@@ -215,6 +225,7 @@
 			name = MonitorLizard;
 			packageProductDependencies = (
 				324376122F5DB2A0009B7E2D /* Sparkle */,
+				DEP000022F6E000000000001 /* Dependencies */,
 			);
 			productName = MonitorLizard;
 			productReference = 329D9EB32F103DF700F0E6EA /* MonitorLizard.app */;
@@ -235,6 +246,7 @@
 			);
 			name = MonitorLizardTests;
 			packageProductDependencies = (
+				DEP000042F6E000000000001 /* DependenciesTestSupport */,
 			);
 			productName = MonitorLizardTests;
 			productReference = 329D9EC02F103DF800F0E6EA /* MonitorLizardTests.xctest */;
@@ -270,6 +282,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				3243760F2F5DB1B8009B7E2D /* XCRemoteSwiftPackageReference "Sparkle" */,
+				DEP000052F6E000000000001 /* XCRemoteSwiftPackageReference "swift-dependencies" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 329D9EB42F103DF700F0E6EA /* Products */;
@@ -306,6 +319,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */,
+				PKEY00012F6E000000000001 /* PreferenceKeys.swift in Sources */,
+				DI000012F6E000000000001 /* DependencyRegistration.swift in Sources */,
 				329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */,
 				324376112F5DB275009B7E2D /* UpdateService.swift in Sources */,
 				32DEMO9E2F103E3200F0E6EB /* DemoData.swift in Sources */,
@@ -622,6 +637,14 @@
 				minimumVersion = 2.9.0;
 			};
 		};
+		DEP000052F6E000000000001 /* XCRemoteSwiftPackageReference "swift-dependencies" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-dependencies";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -629,6 +652,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3243760F2F5DB1B8009B7E2D /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		DEP000022F6E000000000001 /* Dependencies */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DEP000052F6E000000000001 /* XCRemoteSwiftPackageReference "swift-dependencies" */;
+			productName = Dependencies;
+		};
+		DEP000042F6E000000000001 /* DependenciesTestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DEP000052F6E000000000001 /* XCRemoteSwiftPackageReference "swift-dependencies" */;
+			productName = DependenciesTestSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

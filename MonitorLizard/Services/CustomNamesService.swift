@@ -1,10 +1,10 @@
+import Dependencies
 import Foundation
 
-class CustomNamesService {
-    private let defaults: UserDefaults
-    private let key = "customPRNames"
+final class CustomNamesService: @unchecked Sendable {
+    private let defaults: UserDefaultsStore
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaultsStore = .liveValue) {
         self.defaults = defaults
     }
 
@@ -25,7 +25,7 @@ class CustomNamesService {
     }
 
     func allNames() -> [String: String] {
-        guard let data = defaults.data(forKey: key),
+        guard let data = defaults.data(forKey: PreferenceKeys.customPRNames),
               let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
             return [:]
         }
@@ -39,7 +39,7 @@ class CustomNamesService {
 
     private func save(_ names: [String: String]) {
         if let data = try? JSONEncoder().encode(names) {
-            defaults.set(data, forKey: key)
+            defaults.set(data, forKey: PreferenceKeys.customPRNames)
         }
     }
 }
