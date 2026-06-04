@@ -8,12 +8,20 @@ struct OtherPRIdentifier: Codable, Equatable, Sendable {
     let number: Int
 }
 
+protocol OtherPRsServicing: Sendable {
+    func add(_ id: OtherPRIdentifier)
+    func remove(_ id: OtherPRIdentifier)
+    func all() -> [OtherPRIdentifier]
+    func contains(_ id: OtherPRIdentifier) -> Bool
+    func clearAll()
+}
+
 /// Manages the list of "Other PRs" the user has pinned.
 ///
 /// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
 ///   exclusively from the main thread. Calling mutating methods from a background thread
 ///   will trigger an assertion failure in debug builds.
-final class OtherPRsService: @unchecked Sendable {
+final class OtherPRsService: OtherPRsServicing, @unchecked Sendable {
     @Dependency(UserDefaultsStore.self) private var defaults
 
     init() {}

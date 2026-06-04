@@ -30,12 +30,12 @@ class PRMonitorViewModel: ObservableObject {
     @Published var showWarningIcon = false
 
     @Dependency(UserDefaultsStore.self) private var defaults
-    @Dependency(WatchlistService.self) private var watchlistService
-    @Dependency(NotificationService.self) private var notificationService
-    @Dependency(OtherPRsService.self) private var otherPRsService
-    @Dependency(CustomNamesService.self) private var customNamesService
-    @Dependency(PRCacheService.self) private var cacheService
-    @Dependency(GitHubService.self) private var githubService
+    @Dependency(WatchlistServiceKey.self) private var watchlistService
+    @Dependency(NotificationServiceKey.self) private var notificationService
+    @Dependency(OtherPRsServiceKey.self) private var otherPRsService
+    @Dependency(CustomNamesServiceKey.self) private var customNamesService
+    @Dependency(PRCacheServiceKey.self) private var cacheService
+    @Dependency(GitHubServiceKey.self) private var githubService
 
     private let isDemoMode: Bool
 

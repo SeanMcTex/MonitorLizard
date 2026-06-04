@@ -4,12 +4,17 @@ import Dependencies
 import Foundation
 import UserNotifications
 
+protocol NotificationServicing: Sendable {
+    func requestAuthorization() async throws
+    func notifyBuildComplete(pr: PullRequest, status: BuildStatus)
+}
+
 /// Posts system notifications, plays sounds, and speaks announcements for build completions.
 ///
 /// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
 ///   exclusively from the main thread. Calling from a background thread will trigger an
 ///   assertion failure in debug builds.
-final class NotificationService: @unchecked Sendable {
+final class NotificationService: NotificationServicing, @unchecked Sendable {
     @Dependency(UserDefaultsStore.self) private var defaults
 
     init() {}

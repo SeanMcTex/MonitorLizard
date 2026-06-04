@@ -1,12 +1,18 @@
 import Dependencies
 import Foundation
 
+protocol PRCacheServicing: Sendable {
+    func save(mainPRs: [PullRequest], otherPRs: [PullRequest])
+    func loadMainPRs() -> [PullRequest]
+    func loadOtherPRs() -> [PullRequest]
+}
+
 /// Caches PR data to UserDefaults for fast restoration on app launch.
 ///
 /// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
 ///   exclusively from the main thread. Calling mutating methods from a background thread
 ///   will trigger an assertion failure in debug builds.
-final class PRCacheService: @unchecked Sendable {
+final class PRCacheService: PRCacheServicing, @unchecked Sendable {
     @Dependency(UserDefaultsStore.self) private var defaults
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()

@@ -2,6 +2,14 @@ import Combine
 import Dependencies
 import Foundation
 
+protocol GitHubServicing: Sendable {
+    func checkGHAvailable() async throws
+    func invalidateHostsCache()
+    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool) async throws -> PRFetchResult
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?)
+    func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> PullRequest?
+}
+
 /// Result of fetching PRs, including whether the results may be incomplete.
 /// When one fetch (authored or review) fails while the other succeeds,
 /// `isPartial` is true, signaling that the repo filter should not be reset
@@ -37,7 +45,7 @@ struct PRFetchResult {
 /// - Actual API calls like `gh search prs` give proper "error connecting" messages
 /// - We skip upfront auth checks at startup and let PR fetches determine the error type
 @MainActor
-class GitHubService: ObservableObject {
+class GitHubService: GitHubServicing, ObservableObject {
     @Dependency(ShellExecutorKey.self) private var shellExecutor
     private let dateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()

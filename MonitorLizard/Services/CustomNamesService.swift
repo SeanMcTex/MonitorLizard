@@ -1,12 +1,20 @@
 import Dependencies
 import Foundation
 
+protocol CustomNamesServicing: Sendable {
+    func setName(_ name: String, for prID: String)
+    func removeName(for prID: String)
+    func name(for prID: String) -> String?
+    func allNames() -> [String: String]
+    func pruneStale(keeping activeIDs: Set<String>)
+}
+
 /// Stores user-provided custom display names for pull requests.
 ///
 /// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
 ///   exclusively from the main thread. Calling mutating methods from a background thread
 ///   will trigger an assertion failure in debug builds.
-final class CustomNamesService: @unchecked Sendable {
+final class CustomNamesService: CustomNamesServicing, @unchecked Sendable {
     @Dependency(UserDefaultsStore.self) private var defaults
 
     init() {}

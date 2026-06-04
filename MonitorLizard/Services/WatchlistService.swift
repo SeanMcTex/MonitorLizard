@@ -1,13 +1,21 @@
 import Dependencies
 import Foundation
 
+protocol WatchlistServicing: Sendable {
+    func watch(_ pr: PullRequest)
+    func unwatch(_ pr: PullRequest)
+    func isWatched(_ pr: PullRequest) -> Bool
+    func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest]
+    func clearAll()
+}
+
 /// Manages the user's watched PR list.
 ///
 /// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
 ///   exclusively from the main thread (via `@MainActor` callers in `PRMonitorViewModel`).
 ///   Calling mutating methods from a background thread will trigger an assertion failure
 ///   in debug builds and produces undefined behavior in release.
-final class WatchlistService: @unchecked Sendable {
+final class WatchlistService: WatchlistServicing, @unchecked Sendable {
     @Dependency(UserDefaultsStore.self) private var defaults
 
     private var watchedPRs: [String: WatchedPRInfo] = [:]

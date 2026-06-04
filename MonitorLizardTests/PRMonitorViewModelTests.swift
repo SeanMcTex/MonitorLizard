@@ -350,6 +350,12 @@ struct OtherPRsViewModelTests {
         let defaults = defaults ?? UserDefaultsStore.testSuite()
         return withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -375,6 +381,12 @@ struct OtherPRsViewModelTests {
         let defaults = UserDefaultsStore.testSuite()
         let vm = withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -404,6 +416,12 @@ struct OtherPRsViewModelTests {
         let defaults = UserDefaultsStore.testSuite()
         let vm = withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -501,7 +519,12 @@ struct OtherPRsViewModelTests {
         }
         let vm = withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
             $0.customNamesService = customNames
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -583,6 +606,12 @@ struct PRMonitorViewModelTests {
         let d = defaults ?? UserDefaultsStore.testSuite()
         let vm = withDependencies {
             $0.userDefaults = d
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -597,6 +626,12 @@ struct PRMonitorViewModelTests {
         let defaults = UserDefaultsStore.testSuite()
         return withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -797,6 +832,12 @@ struct PRMonitorViewModelTests {
         configure(defaults)
         return withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService()
+            $0.notificationService = NotificationService()
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = GitHubService()
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: false)
             vm.stopPolling()
