@@ -1,5 +1,15 @@
 import Foundation
 
+/// Asserts that the current thread is the main thread.
+/// Fires in debug builds only; compiles to a no-op in release.
+@_transparent
+func assertMainThread(
+    file: StaticString = #file,
+    line: UInt = #line
+) {
+    assert(Thread.isMainThread, "Main-thread-only API accessed off the main thread", file: file, line: line)
+}
+
 enum Constants {
     // Time intervals
     static let secondsPerDay: TimeInterval = 24 * 60 * 60

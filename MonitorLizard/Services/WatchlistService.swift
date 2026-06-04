@@ -1,25 +1,37 @@
+import Dependencies
 import Foundation
 
-class WatchlistService {
-    static let shared = WatchlistService()
+protocol WatchlistServicing: Sendable {
+    func watch(_ pr: PullRequest)
+    func unwatch(_ pr: PullRequest)
+    func isWatched(_ pr: PullRequest) -> Bool
+    func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest]
+    func clearAll()
+}
 
-    private let defaults: UserDefaults
-    private let watchlistKey = "watchedPRs"
+/// Manages the user's watched PR list.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread (via `@MainActor` callers in `PRMonitorViewModel`).
+///   Calling mutating methods from a background thread will trigger an assertion failure
+///   in debug builds and produces undefined behavior in release.
+final class WatchlistService: WatchlistServicing, @unchecked Sendable {
+    @Dependency(UserDefaultsStore.self) private var defaults
 
     private var watchedPRs: [String: WatchedPRInfo] = [:]
 
-    struct WatchedPRInfo {
+    struct WatchedPRInfo: Sendable {
         let lastStatus: BuildStatus
         let timestamp: Date
         let lastUpdatedAt: Date
     }
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    init() {
         load()
     }
 
     func watch(_ pr: PullRequest) {
+        assertMainThread()
         watchedPRs[pr.id] = WatchedPRInfo(
             lastStatus: pr.buildStatus,
             timestamp: Date(),
@@ -29,23 +41,23 @@ class WatchlistService {
     }
 
     func unwatch(_ pr: PullRequest) {
+        assertMainThread()
         watchedPRs.removeValue(forKey: pr.id)
         save()
     }
 
     func isWatched(_ pr: PullRequest) -> Bool {
-        watchedPRs[pr.id] != nil
+        assertMainThread()
+        return watchedPRs[pr.id] != nil
     }
 
-    /// Check for PRs that have completed builds (transitioned from pending to complete)
-    /// Returns PRs that completed since last check
     func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest] {
+        assertMainThread()
         var completed: [PullRequest] = []
 
         for pr in currentPRs {
             guard let watched = watchedPRs[pr.id] else { continue }
 
-            // Check if status changed from incomplete to any completed state
             let wasIncomplete = watched.lastStatus == .notStarted || watched.lastStatus == .pending || watched.lastStatus == .unknown
             let isNowComplete = pr.buildStatus == .success || pr.buildStatus == .failure || pr.buildStatus == .error
 
@@ -53,7 +65,6 @@ class WatchlistService {
                 completed.append(pr)
             }
 
-            // Update stored status and updatedAt if changed
             if watched.lastStatus != pr.buildStatus || watched.lastUpdatedAt != pr.updatedAt {
                 watchedPRs[pr.id] = WatchedPRInfo(
                     lastStatus: pr.buildStatus,
@@ -63,7 +74,6 @@ class WatchlistService {
             }
         }
 
-        // Clean up watched PRs that are no longer open
         let currentPRIds = Set(currentPRs.map { $0.id })
         let watchedPRIds = Set(watchedPRs.keys)
         let closedPRIds = watchedPRIds.subtracting(currentPRIds)
@@ -77,11 +87,11 @@ class WatchlistService {
     }
 
     func getWatchedStatus(for prId: String) -> WatchedPRInfo? {
-        watchedPRs[prId]
+        assertMainThread()
+        return watchedPRs[prId]
     }
 
     private func save() {
-        // Convert to simple dictionary for storage
         var dict: [String: [String: Any]] = [:]
         for (key, info) in watchedPRs {
             dict[key] = [
@@ -90,11 +100,11 @@ class WatchlistService {
                 "lastUpdatedAt": info.lastUpdatedAt.timeIntervalSince1970
             ]
         }
-        defaults.set(dict, forKey: watchlistKey)
+        defaults.set(dict, forKey: PreferenceKeys.watchedPRs)
     }
 
     private func load() {
-        if let dict = defaults.dictionary(forKey: watchlistKey) as? [String: [String: Any]] {
+        if let dict = defaults.dictionary(forKey: PreferenceKeys.watchedPRs) as? [String: [String: Any]] {
             watchedPRs.removeAll()
             for (key, value) in dict {
                 if let statusRaw = value["status"] as? String,
@@ -112,6 +122,7 @@ class WatchlistService {
     }
 
     func clearAll() {
+        assertMainThread()
         watchedPRs.removeAll()
         save()
     }

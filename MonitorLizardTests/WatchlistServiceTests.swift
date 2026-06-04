@@ -1,3 +1,4 @@
+import Dependencies
 import Testing
 import Foundation
 @testable import MonitorLizard
@@ -6,8 +7,21 @@ import Foundation
 struct WatchlistServiceTests {
 
     private func makeService() -> WatchlistService {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return WatchlistService(defaults: suite)
+        withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+        } operation: {
+            WatchlistService()
+        }
+    }
+
+    private func makeServiceWithSharedSuite() -> (WatchlistService, UserDefaultsStore) {
+        let defaults = UserDefaultsStore.testSuite()
+        let service = withDependencies {
+            $0.userDefaults = defaults
+        } operation: {
+            WatchlistService()
+        }
+        return (service, defaults)
     }
 
     private func makePR(
@@ -99,13 +113,11 @@ struct WatchlistServiceTests {
         let pr = makePR(number: 1, buildStatus: .success, updatedAt: t1)
         service.watch(pr)
 
-        // Same build status, but updatedAt changed — stored entry must be refreshed
         let updatedPR = makePR(number: 1, buildStatus: .success, updatedAt: t2)
         _ = service.checkForCompletions(currentPRs: [updatedPR])
 
         let info = service.getWatchedStatus(for: pr.id)
         #expect(info?.lastStatus == .success)
-        // The timestamp recorded should be after t1 (i.e. the watch entry was refreshed)
         #expect((info?.timestamp ?? Date.distantPast) >= t1)
     }
 
@@ -128,7 +140,6 @@ struct WatchlistServiceTests {
         let pr = makePR(number: 1, buildStatus: .success)
         service.watch(pr)
 
-        // Status was already success when watched — no transition
         let completions = service.checkForCompletions(currentPRs: [pr])
 
         #expect(completions.isEmpty)
@@ -137,13 +148,20 @@ struct WatchlistServiceTests {
     // MARK: - Persistence round-trip
 
     @Test func watchedStateRoundTripsViaUserDefaults() {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        let service1 = WatchlistService(defaults: suite)
+        let defaults = UserDefaultsStore.testSuite()
+        let service1 = withDependencies {
+            $0.userDefaults = defaults
+        } operation: {
+            WatchlistService()
+        }
         let pr = makePR(number: 42, buildStatus: .pending)
         service1.watch(pr)
 
-        // New service instance reads from the same UserDefaults suite
-        let service2 = WatchlistService(defaults: suite)
+        let service2 = withDependencies {
+            $0.userDefaults = defaults
+        } operation: {
+            WatchlistService()
+        }
         #expect(service2.isWatched(pr))
         #expect(service2.getWatchedStatus(for: pr.id)?.lastStatus == .pending)
         #expect(service2.getWatchedStatus(for: pr.id)?.lastUpdatedAt == Date(timeIntervalSince1970: 1_000_000))
