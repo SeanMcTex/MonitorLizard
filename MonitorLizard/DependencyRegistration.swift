@@ -207,6 +207,11 @@ private struct UnimplementedWatchlistService: WatchlistServicing {
         return []
     }
 
+    func getWatchedStatus(for prId: String) -> WatchlistService.WatchedPRInfo? {
+        reportIssue("Unimplemented: WatchlistServicing.getWatchedStatus called without a test override")
+        return nil
+    }
+
     func clearAll() {
         reportIssue("Unimplemented: WatchlistServicing.clearAll called without a test override")
     }

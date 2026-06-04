@@ -7,6 +7,7 @@ protocol WatchlistServicing: Sendable {
     func isWatched(_ pr: PullRequest) -> Bool
     func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest]
     func clearAll()
+    func getWatchedStatus(for prId: String) -> WatchlistService.WatchedPRInfo?
 }
 
 /// Manages the user's watched PR list.

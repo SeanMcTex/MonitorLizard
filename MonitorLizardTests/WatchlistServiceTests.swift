@@ -14,16 +14,6 @@ struct WatchlistServiceTests {
         }
     }
 
-    private func makeServiceWithSharedSuite() -> (WatchlistService, UserDefaultsStore) {
-        let defaults = UserDefaultsStore.testSuite()
-        let service = withDependencies {
-            $0.userDefaults = defaults
-        } operation: {
-            WatchlistService()
-        }
-        return (service, defaults)
-    }
-
     private func makePR(
         number: Int,
         buildStatus: BuildStatus = .success,
