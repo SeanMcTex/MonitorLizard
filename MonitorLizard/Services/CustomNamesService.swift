@@ -2,9 +2,9 @@ import Dependencies
 import Foundation
 
 final class CustomNamesService: @unchecked Sendable {
-    private let defaults: UserDefaultsStore
+    let defaults: UserDefaultsStore
 
-    init(defaults: UserDefaultsStore = .liveValue) {
+    init(defaults: UserDefaultsStore) {
         self.defaults = defaults
     }
 

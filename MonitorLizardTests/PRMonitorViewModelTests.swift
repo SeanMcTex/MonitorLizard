@@ -331,8 +331,14 @@ struct OtherPRsViewModelTests {
     }
 
     private func makeVM(defaults: UserDefaultsStore? = nil) -> PRMonitorViewModel {
-        withDependencies {
-            $0.userDefaults = defaults ?? UserDefaultsStore.testValue
+        let defaults = defaults ?? UserDefaultsStore.testSuite()
+        return withDependencies {
+            $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService(defaults: defaults)
+            $0.cacheService = PRCacheService(defaults: defaults)
+            $0.otherPRsService = OtherPRsService(defaults: defaults)
+            $0.customNamesService = CustomNamesService(defaults: defaults)
+            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -355,8 +361,14 @@ struct OtherPRsViewModelTests {
 
     @Test
     func addOtherPRThrowsAlreadyTrackedForAuthoredPR() async {
+        let defaults = UserDefaultsStore.testSuite()
         let vm = withDependencies {
-            $0.userDefaults = UserDefaultsStore.testValue
+            $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService(defaults: defaults)
+            $0.cacheService = PRCacheService(defaults: defaults)
+            $0.otherPRsService = OtherPRsService(defaults: defaults)
+            $0.customNamesService = CustomNamesService(defaults: defaults)
+            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -383,8 +395,14 @@ struct OtherPRsViewModelTests {
 
     @Test
     func addOtherPRAlreadyTrackedIsCaseInsensitive() async {
+        let defaults = UserDefaultsStore.testSuite()
         let vm = withDependencies {
-            $0.userDefaults = UserDefaultsStore.testValue
+            $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService(defaults: defaults)
+            $0.cacheService = PRCacheService(defaults: defaults)
+            $0.otherPRsService = OtherPRsService(defaults: defaults)
+            $0.customNamesService = CustomNamesService(defaults: defaults)
+            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -557,10 +575,14 @@ struct PRMonitorViewModelTests {
     }
 
     private func createLoadedViewModel(defaults: UserDefaultsStore? = nil) async -> PRMonitorViewModel {
+        let d = defaults ?? UserDefaultsStore.testSuite()
         let vm = withDependencies {
-            if let defaults {
-                $0.userDefaults = defaults
-            }
+            $0.userDefaults = d
+            $0.watchlistService = WatchlistService(defaults: d)
+            $0.cacheService = PRCacheService(defaults: d)
+            $0.otherPRsService = OtherPRsService(defaults: d)
+            $0.customNamesService = CustomNamesService(defaults: d)
+            $0.notificationService = NotificationService(defaults: d)
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -572,8 +594,14 @@ struct PRMonitorViewModelTests {
     }
 
     private func makeVM() -> PRMonitorViewModel {
-        withDependencies {
-            $0.userDefaults = UserDefaultsStore.testValue
+        let defaults = UserDefaultsStore.testSuite()
+        return withDependencies {
+            $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService(defaults: defaults)
+            $0.cacheService = PRCacheService(defaults: defaults)
+            $0.otherPRsService = OtherPRsService(defaults: defaults)
+            $0.customNamesService = CustomNamesService(defaults: defaults)
+            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -770,6 +798,11 @@ struct PRMonitorViewModelTests {
         configure(defaults)
         return withDependencies {
             $0.userDefaults = defaults
+            $0.watchlistService = WatchlistService(defaults: defaults)
+            $0.cacheService = PRCacheService(defaults: defaults)
+            $0.otherPRsService = OtherPRsService(defaults: defaults)
+            $0.customNamesService = CustomNamesService(defaults: defaults)
+            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: false)
             vm.stopPolling()

@@ -2,69 +2,69 @@ import Dependencies
 import Foundation
 
 final class UserDefaultsStore: @unchecked Sendable {
-    nonisolated(unsafe) private let defaults: UserDefaults
+    private let defaults: UserDefaults
 
-    nonisolated init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
-    nonisolated static func testSuite() -> UserDefaultsStore {
+    static func testSuite() -> UserDefaultsStore {
         UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test.\(UUID().uuidString)")!)
     }
 
-    nonisolated func bool(forKey key: PreferenceKeys) -> Bool {
+    func bool(forKey key: PreferenceKeys) -> Bool {
         defaults.bool(forKey: key.rawValue)
     }
 
-    nonisolated func object(forKey key: PreferenceKeys) -> Any? {
+    func object(forKey key: PreferenceKeys) -> Any? {
         defaults.object(forKey: key.rawValue)
     }
 
-    nonisolated func string(forKey key: PreferenceKeys) -> String? {
+    func string(forKey key: PreferenceKeys) -> String? {
         defaults.string(forKey: key.rawValue)
     }
 
-    nonisolated func integer(forKey key: PreferenceKeys) -> Int {
+    func integer(forKey key: PreferenceKeys) -> Int {
         defaults.integer(forKey: key.rawValue)
     }
 
-    nonisolated func data(forKey key: PreferenceKeys) -> Data? {
+    func data(forKey key: PreferenceKeys) -> Data? {
         defaults.data(forKey: key.rawValue)
     }
 
-    nonisolated func dictionary(forKey key: PreferenceKeys) -> [String: Any]? {
+    func dictionary(forKey key: PreferenceKeys) -> [String: Any]? {
         defaults.dictionary(forKey: key.rawValue)
     }
 
-    nonisolated func set(_ value: Bool, forKey key: PreferenceKeys) {
+    func set(_ value: Bool, forKey key: PreferenceKeys) {
         defaults.set(value, forKey: key.rawValue)
     }
 
-    nonisolated func set(_ value: Int, forKey key: PreferenceKeys) {
+    func set(_ value: Int, forKey key: PreferenceKeys) {
         defaults.set(value, forKey: key.rawValue)
     }
 
-    nonisolated func set(_ value: String, forKey key: PreferenceKeys) {
+    func set(_ value: String, forKey key: PreferenceKeys) {
         defaults.set(value, forKey: key.rawValue)
     }
 
-    nonisolated func set(_ value: Data, forKey key: PreferenceKeys) {
+    func set(_ value: Data, forKey key: PreferenceKeys) {
         defaults.set(value, forKey: key.rawValue)
     }
 
-    nonisolated func set(_ value: [String: Any], forKey key: PreferenceKeys) {
+    func set(_ value: [String: Any], forKey key: PreferenceKeys) {
         defaults.set(value, forKey: key.rawValue)
     }
 
-    nonisolated func removeObject(forKey key: PreferenceKeys) {
+    func removeObject(forKey key: PreferenceKeys) {
         defaults.removeObject(forKey: key.rawValue)
     }
 
-    nonisolated func register(defaults registration: [String: Any]) {
+    func register(defaults registration: [String: Any]) {
         defaults.register(defaults: registration)
     }
 
-    nonisolated var underlyingDefaults: UserDefaults {
+    var underlyingDefaults: UserDefaults {
         defaults
     }
 }
@@ -72,66 +72,52 @@ final class UserDefaultsStore: @unchecked Sendable {
 // MARK: - DependencyKey registrations
 
 extension UserDefaultsStore: DependencyKey {
-    public static var liveValue: UserDefaultsStore {
-        UserDefaultsStore(defaults: .standard)
-    }
+    public static let liveValue = UserDefaultsStore(defaults: .standard)
 
     public static var testValue: UserDefaultsStore {
-        UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test.\(UUID().uuidString)")!)
+        UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test")!)
     }
 
-    public static var previewValue: UserDefaultsStore {
-        UserDefaultsStore(defaults: .standard)
-    }
+    public static let previewValue = UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.preview")!)
 }
 
 extension WatchlistService: DependencyKey {
-    public static var liveValue: WatchlistService {
-        WatchlistService(defaults: .liveValue)
-    }
+    public static let liveValue = WatchlistService(defaults: UserDefaultsStore.liveValue)
 
     public static var testValue: WatchlistService {
-        WatchlistService(defaults: .testValue)
+        WatchlistService(defaults: UserDefaultsStore.testValue)
     }
 }
 
 extension NotificationService: DependencyKey {
-    public static var liveValue: NotificationService {
-        NotificationService(defaults: .liveValue)
-    }
+    public static let liveValue = NotificationService(defaults: UserDefaultsStore.liveValue)
 
     public static var testValue: NotificationService {
-        NotificationService(defaults: .testValue)
+        NotificationService(defaults: UserDefaultsStore.testValue)
     }
 }
 
 extension PRCacheService: DependencyKey {
-    public static var liveValue: PRCacheService {
-        PRCacheService(defaults: .liveValue)
-    }
+    public static let liveValue = PRCacheService(defaults: UserDefaultsStore.liveValue)
 
     public static var testValue: PRCacheService {
-        PRCacheService(defaults: .testValue)
+        PRCacheService(defaults: UserDefaultsStore.testValue)
     }
 }
 
 extension OtherPRsService: DependencyKey {
-    public static var liveValue: OtherPRsService {
-        OtherPRsService(defaults: .liveValue)
-    }
+    public static let liveValue = OtherPRsService(defaults: UserDefaultsStore.liveValue)
 
     public static var testValue: OtherPRsService {
-        OtherPRsService(defaults: .testValue)
+        OtherPRsService(defaults: UserDefaultsStore.testValue)
     }
 }
 
 extension CustomNamesService: DependencyKey {
-    public static var liveValue: CustomNamesService {
-        CustomNamesService(defaults: .liveValue)
-    }
+    public static let liveValue = CustomNamesService(defaults: UserDefaultsStore.liveValue)
 
     public static var testValue: CustomNamesService {
-        CustomNamesService(defaults: .testValue)
+        CustomNamesService(defaults: UserDefaultsStore.testValue)
     }
 }
 
@@ -142,6 +128,14 @@ enum ShellExecutorKey: DependencyKey {
 
     public static var testValue: any ShellExecuting {
         ShellExecutor()
+    }
+}
+
+extension GitHubService: DependencyKey {
+    public static let liveValue = GitHubService()
+
+    public static var testValue: GitHubService {
+        GitHubService()
     }
 }
 
@@ -181,5 +175,10 @@ extension DependencyValues {
     var shellExecutor: any ShellExecuting {
         get { self[ShellExecutorKey.self] }
         set { self[ShellExecutorKey.self] = newValue }
+    }
+
+    var githubService: GitHubService {
+        get { self[GitHubService.self] }
+        set { self[GitHubService.self] = newValue }
     }
 }

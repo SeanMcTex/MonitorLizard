@@ -2,7 +2,7 @@ import Dependencies
 import Foundation
 
 final class WatchlistService: @unchecked Sendable {
-    private let defaults: UserDefaultsStore
+    let defaults: UserDefaultsStore
 
     private var watchedPRs: [String: WatchedPRInfo] = [:]
 
@@ -11,7 +11,7 @@ final class WatchlistService: @unchecked Sendable {
         let timestamp: Date
     }
 
-    init(defaults: UserDefaultsStore = .liveValue) {
+    init(defaults: UserDefaultsStore) {
         self.defaults = defaults
         load()
     }

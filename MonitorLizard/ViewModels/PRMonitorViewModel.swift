@@ -35,8 +35,8 @@ class PRMonitorViewModel: ObservableObject {
     @Dependency(OtherPRsService.self) private var otherPRsService
     @Dependency(CustomNamesService.self) private var customNamesService
     @Dependency(PRCacheService.self) private var cacheService
+    @Dependency(GitHubService.self) private var githubService
 
-    private let githubService: GitHubService
     private let isDemoMode: Bool
 
     private var refreshTimer: Timer?
@@ -127,7 +127,6 @@ class PRMonitorViewModel: ObservableObject {
 
     init(isDemoMode: Bool = false) {
         self.isDemoMode = isDemoMode
-        self.githubService = GitHubService(isDemoMode: isDemoMode)
         restoreFromCache()
         setupNotifications()
         startPolling()

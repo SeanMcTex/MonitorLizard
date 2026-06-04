@@ -2,14 +2,14 @@ import Dependencies
 import Foundation
 
 final class PRCacheService: @unchecked Sendable {
-    private let defaults: UserDefaultsStore
+    let defaults: UserDefaultsStore
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
     private var lastMainHash: Int?
     private var lastOtherHash: Int?
 
-    init(defaults: UserDefaultsStore = .liveValue) {
+    init(defaults: UserDefaultsStore) {
         self.defaults = defaults
     }
 

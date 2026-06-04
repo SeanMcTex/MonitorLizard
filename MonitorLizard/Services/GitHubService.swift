@@ -39,7 +39,6 @@ struct PRFetchResult {
 @MainActor
 class GitHubService: ObservableObject {
     @Dependency(ShellExecutorKey.self) private var shellExecutor
-    private let isDemoMode: Bool
     private let dateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -50,9 +49,7 @@ class GitHubService: ObservableObject {
     // Cache for the session to avoid a redundant `gh auth status` call every 30 s.
     private var cachedHosts: [String]?
 
-    init(isDemoMode: Bool = false) {
-        self.isDemoMode = isDemoMode
-    }
+    init() {}
 
     func checkGHAvailable() async throws {
         let isInstalled = try await shellExecutor.checkGHInstalled()
