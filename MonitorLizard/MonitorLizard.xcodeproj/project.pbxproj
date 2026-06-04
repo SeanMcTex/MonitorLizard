@@ -15,6 +15,7 @@
 		DI000012F6E000000000001 /* DependencyRegistration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DI000022F6E000000000001 /* DependencyRegistration.swift */; };
 		DEP000012F6E000000000001 /* Dependencies in Frameworks */ = {isa = PBXBuildFile; productRef = DEP000022F6E000000000001 /* Dependencies */; };
 		DEP000032F6E000000000001 /* DependenciesTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = DEP000042F6E000000000001 /* DependenciesTestSupport */; };
+		DEP000062F6E000000000001 /* DependenciesMacros in Frameworks */ = {isa = PBXBuildFile; productRef = DEP000072F6E000000000001 /* DependenciesMacros */; };
 		329D9EEE2F103E3200F0E6EA /* BuildStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */; };
 		329D9EEF2F103E3200F0E6EA /* PullRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EDF2F103E3200F0E6EA /* PullRequest.swift */; };
 		329D9EF02F103E3200F0E6EA /* MonitorLizardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329D9EE12F103E3200F0E6EA /* MonitorLizardApp.swift */; };
@@ -112,6 +113,7 @@
 			files = (
 				3273F7A72F6DD65A005F7B77 /* Sparkle in Frameworks */,
 				DEP000012F6E000000000001 /* Dependencies in Frameworks */,
+				DEP000062F6E000000000001 /* DependenciesMacros in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -250,6 +252,7 @@
 			packageProductDependencies = (
 				324376122F5DB2A0009B7E2D /* Sparkle */,
 				DEP000022F6E000000000001 /* Dependencies */,
+				DEP000072F6E000000000001 /* DependenciesMacros */,
 			);
 			productName = MonitorLizard;
 			productReference = 329D9EB32F103DF700F0E6EA /* MonitorLizard.app */;
@@ -694,6 +697,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DEP000052F6E000000000001 /* XCRemoteSwiftPackageReference "swift-dependencies" */;
 			productName = DependenciesTestSupport;
+		};
+		DEP000072F6E000000000001 /* DependenciesMacros */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DEP000052F6E000000000001 /* XCRemoteSwiftPackageReference "swift-dependencies" */;
+			productName = DependenciesMacros;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

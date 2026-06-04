@@ -1,3 +1,4 @@
+import Dependencies
 import Testing
 import Foundation
 @testable import MonitorLizard
@@ -513,7 +514,7 @@ struct GitHubServiceBatchIntegrationTests {
                 // --review-requested=@me falls through to default "[]"
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -533,7 +534,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.batchStatusResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -554,7 +555,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.rollupStateOnlyResult(state: state)))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -568,7 +569,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredSuccessOptionalPendingResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -582,7 +583,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredSuccessOptionalFailureResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -596,7 +597,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.branchProtectionRequirednessFallbackResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -618,7 +619,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.missingRequiredMetadataPendingResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -632,7 +633,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredContextMissingApprovalWaitingResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -653,7 +654,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredContextMissingErrorResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -673,7 +674,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.missingRequiredContextNotStartedResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -689,7 +690,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.missingRequiredContextWithRequiredWorkflowProgressResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -706,7 +707,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.optionalApprovalNamedStatusContextResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -722,7 +723,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.waitingCheckRunApprovalResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -741,7 +742,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredSuccessWaitingApprovalParentResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -758,7 +759,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.missingRequiredContextWithWaitingApprovalParentResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -775,7 +776,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredApprovalGateDoesNotSuppressOptionalParentResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -791,7 +792,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.emptyRollupRequiredContextResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
 
@@ -804,7 +805,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredContextMissingApprovalWaitingResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let status = try await service.fetchPRStatus(
             owner: "alice",
@@ -826,7 +827,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.missingRequiredContextNotStartedResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let status = try await service.fetchPRStatus(
             owner: "alice",
@@ -884,7 +885,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.requiredWaitingNonApprovalCheckResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -937,7 +938,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.legacyApprovalStatusContextMissingRequiredResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)
@@ -994,7 +995,7 @@ struct GitHubServiceBatchIntegrationTests {
                 ("graphql", .success(Self.nonRequiredWaitingNonApprovalWithMissingRequiredContextResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
 
         let result = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         let pr = try #require(result.pullRequests.first)

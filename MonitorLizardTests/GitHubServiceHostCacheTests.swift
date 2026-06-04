@@ -1,3 +1,4 @@
+import Dependencies
 import Testing
 import Foundation
 @testable import MonitorLizard
@@ -7,7 +8,11 @@ struct GitHubServiceHostCacheTests {
 
     @Test func hostsAreCachedAfterFirstFetch() async throws {
         let mock = MockShellExecutor()
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies {
+            $0.shellExecutor = mock
+        } operation: {
+            GitHubService()
+        }
 
         _ = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         #expect(await mock.getAuthenticatedHostsCallCount == 1)
@@ -18,7 +23,11 @@ struct GitHubServiceHostCacheTests {
 
     @Test func invalidateHostsCacheForcesRefetch() async throws {
         let mock = MockShellExecutor()
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies {
+            $0.shellExecutor = mock
+        } operation: {
+            GitHubService()
+        }
 
         _ = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
         #expect(await mock.getAuthenticatedHostsCallCount == 1)

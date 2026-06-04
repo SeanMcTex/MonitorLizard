@@ -1,4 +1,5 @@
 import Combine
+import Dependencies
 import Foundation
 import SwiftUI
 
@@ -28,14 +29,15 @@ class PRMonitorViewModel: ObservableObject {
     @Published var isGHAvailable = true
     @Published var showWarningIcon = false
 
-    private let defaults: UserDefaultsStore
+    @Dependency(UserDefaultsStore.self) private var defaults
+    @Dependency(WatchlistService.self) private var watchlistService
+    @Dependency(NotificationService.self) private var notificationService
+    @Dependency(OtherPRsService.self) private var otherPRsService
+    @Dependency(CustomNamesService.self) private var customNamesService
+    @Dependency(PRCacheService.self) private var cacheService
+
     private let githubService: GitHubService
     private let isDemoMode: Bool
-    private let watchlistService: WatchlistService
-    private let notificationService: NotificationService
-    private let otherPRsService: OtherPRsService
-    private let customNamesService: CustomNamesService
-    private let cacheService: PRCacheService
 
     private var refreshTimer: Timer?
     private var defaultsObserver: AnyCancellable?
@@ -123,21 +125,9 @@ class PRMonitorViewModel: ObservableObject {
         return daysSinceUpdate >= Double(inactiveBranchThresholdDays)
     }
 
-    init(isDemoMode: Bool = false,
-         defaults: UserDefaultsStore = .liveValue,
-         watchlistService: WatchlistService? = nil,
-         notificationService: NotificationService? = nil,
-         otherPRsService: OtherPRsService? = nil,
-         customNamesService: CustomNamesService? = nil,
-         cacheService: PRCacheService? = nil) {
+    init(isDemoMode: Bool = false) {
         self.isDemoMode = isDemoMode
-        self.defaults = defaults
         self.githubService = GitHubService(isDemoMode: isDemoMode)
-        self.watchlistService = watchlistService ?? WatchlistService(defaults: defaults)
-        self.notificationService = notificationService ?? NotificationService(defaults: defaults)
-        self.otherPRsService = otherPRsService ?? OtherPRsService(defaults: defaults)
-        self.customNamesService = customNamesService ?? CustomNamesService(defaults: defaults)
-        self.cacheService = cacheService ?? PRCacheService(defaults: defaults)
         restoreFromCache()
         setupNotifications()
         startPolling()

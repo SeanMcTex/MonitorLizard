@@ -1,5 +1,6 @@
-import Foundation
 import Combine
+import Dependencies
+import Foundation
 
 /// Result of fetching PRs, including whether the results may be incomplete.
 /// When one fetch (authored or review) fails while the other succeeds,
@@ -37,7 +38,7 @@ struct PRFetchResult {
 /// - We skip upfront auth checks at startup and let PR fetches determine the error type
 @MainActor
 class GitHubService: ObservableObject {
-    private let shellExecutor: any ShellExecuting
+    @Dependency(ShellExecutorKey.self) private var shellExecutor
     private let isDemoMode: Bool
     private let dateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
@@ -49,9 +50,8 @@ class GitHubService: ObservableObject {
     // Cache for the session to avoid a redundant `gh auth status` call every 30 s.
     private var cachedHosts: [String]?
 
-    init(isDemoMode: Bool = false, shellExecutor: (any ShellExecuting)? = nil) {
+    init(isDemoMode: Bool = false) {
         self.isDemoMode = isDemoMode
-        self.shellExecutor = shellExecutor ?? ShellExecutor()
     }
 
     func checkGHAvailable() async throws {
@@ -719,7 +719,7 @@ class GitHubService: ObservableObject {
                 return true
             }
 
-            if let status = check.status?.uppercased(), ["IN_PROGRESS", "WAITING"].contains(status), isWaitingForApprovalParent {
+            if let status = check.status?.uppercased(), ["IN_PROGRESS", "QUEUED", "WAITING", "PENDING"].contains(status), isWaitingForApprovalParent {
                 return false
             }
 
@@ -873,7 +873,7 @@ class GitHubService: ObservableObject {
             }()
             // Mirror hasActiveNonApprovalWork: only WAITING checks that name an approval step
             // (e.g. "deploy / approve") are excluded. A plain non-required WAITING check like
-            // "build" is active CI, so it stays aggregate work and is not marked non-blocking.
+            // "build" is active CI work, so it stays aggregate work and is not marked non-blocking.
             let isWaitingApprovalGate = check.__typename == "CheckRun"
                 && check.status?.uppercased() == "WAITING"
                 && isRequired == false

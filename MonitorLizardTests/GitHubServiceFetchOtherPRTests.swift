@@ -1,3 +1,4 @@
+import Dependencies
 import Testing
 import Foundation
 @testable import MonitorLizard
@@ -93,7 +94,7 @@ struct GitHubServiceFetchOtherPRTests {
                 ("graphql", .success(Self.otherPRGraphQLResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
 
         let pr = try #require(await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3))
@@ -114,7 +115,7 @@ struct GitHubServiceFetchOtherPRTests {
                 ("graphql", .success(Self.otherPRFailedRollupMissingRequiredContextResult))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
 
         let pr = try #require(await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3))
@@ -138,7 +139,7 @@ struct GitHubServiceFetchOtherPRTests {
                 ("graphql", .success(notFoundJSON))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 99)
 
         let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
@@ -179,7 +180,7 @@ struct GitHubServiceFetchOtherPRTests {
                 ("graphql", .success(closedPRJSON))
             ]
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
 
         let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
@@ -190,7 +191,7 @@ struct GitHubServiceFetchOtherPRTests {
         let mock = MockShellExecutor(
             executeResponse: .failure(ShellError.executionFailed("gh: Could not resolve to a Repository with the name 'owner/repo'."))
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
 
         let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
@@ -201,7 +202,7 @@ struct GitHubServiceFetchOtherPRTests {
         let mock = MockShellExecutor(
             executeResponse: .failure(ShellError.networkError("error connecting to api.github.com"))
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
 
         do {
@@ -218,7 +219,7 @@ struct GitHubServiceFetchOtherPRTests {
         let mock = MockShellExecutor(
             executeResponse: .failure(ShellError.invalidOutput)
         )
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
 
         do {

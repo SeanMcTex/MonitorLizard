@@ -69,25 +69,19 @@ final class UserDefaultsStore: @unchecked Sendable {
     }
 }
 
+// MARK: - DependencyKey registrations
+
 extension UserDefaultsStore: DependencyKey {
     public static var liveValue: UserDefaultsStore {
         UserDefaultsStore(defaults: .standard)
     }
 
     public static var testValue: UserDefaultsStore {
-        let suite = "co.pointfree.dependencies.test.\(UUID().uuidString)"
-        return UserDefaultsStore(defaults: UserDefaults(suiteName: suite)!)
+        UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test.\(UUID().uuidString)")!)
     }
 
     public static var previewValue: UserDefaultsStore {
         UserDefaultsStore(defaults: .standard)
-    }
-}
-
-extension DependencyValues {
-    var userDefaults: UserDefaultsStore {
-        get { self[UserDefaultsStore.self] }
-        set { self[UserDefaultsStore.self] = newValue }
     }
 }
 
@@ -101,13 +95,6 @@ extension WatchlistService: DependencyKey {
     }
 }
 
-extension DependencyValues {
-    var watchlistService: WatchlistService {
-        get { self[WatchlistService.self] }
-        set { self[WatchlistService.self] = newValue }
-    }
-}
-
 extension NotificationService: DependencyKey {
     public static var liveValue: NotificationService {
         NotificationService(defaults: .liveValue)
@@ -115,13 +102,6 @@ extension NotificationService: DependencyKey {
 
     public static var testValue: NotificationService {
         NotificationService(defaults: .testValue)
-    }
-}
-
-extension DependencyValues {
-    var notificationService: NotificationService {
-        get { self[NotificationService.self] }
-        set { self[NotificationService.self] = newValue }
     }
 }
 
@@ -135,13 +115,6 @@ extension PRCacheService: DependencyKey {
     }
 }
 
-extension DependencyValues {
-    var cacheService: PRCacheService {
-        get { self[PRCacheService.self] }
-        set { self[PRCacheService.self] = newValue }
-    }
-}
-
 extension OtherPRsService: DependencyKey {
     public static var liveValue: OtherPRsService {
         OtherPRsService(defaults: .liveValue)
@@ -149,13 +122,6 @@ extension OtherPRsService: DependencyKey {
 
     public static var testValue: OtherPRsService {
         OtherPRsService(defaults: .testValue)
-    }
-}
-
-extension DependencyValues {
-    var otherPRsService: OtherPRsService {
-        get { self[OtherPRsService.self] }
-        set { self[OtherPRsService.self] = newValue }
     }
 }
 
@@ -169,9 +135,51 @@ extension CustomNamesService: DependencyKey {
     }
 }
 
+enum ShellExecutorKey: DependencyKey {
+    public static var liveValue: any ShellExecuting {
+        ShellExecutor()
+    }
+
+    public static var testValue: any ShellExecuting {
+        ShellExecutor()
+    }
+}
+
+// MARK: - DependencyValues accessors
+
 extension DependencyValues {
+    var userDefaults: UserDefaultsStore {
+        get { self[UserDefaultsStore.self] }
+        set { self[UserDefaultsStore.self] = newValue }
+    }
+
+    var watchlistService: WatchlistService {
+        get { self[WatchlistService.self] }
+        set { self[WatchlistService.self] = newValue }
+    }
+
+    var notificationService: NotificationService {
+        get { self[NotificationService.self] }
+        set { self[NotificationService.self] = newValue }
+    }
+
+    var cacheService: PRCacheService {
+        get { self[PRCacheService.self] }
+        set { self[PRCacheService.self] = newValue }
+    }
+
+    var otherPRsService: OtherPRsService {
+        get { self[OtherPRsService.self] }
+        set { self[OtherPRsService.self] = newValue }
+    }
+
     var customNamesService: CustomNamesService {
         get { self[CustomNamesService.self] }
         set { self[CustomNamesService.self] = newValue }
+    }
+
+    var shellExecutor: any ShellExecuting {
+        get { self[ShellExecutorKey.self] }
+        set { self[ShellExecutorKey.self] = newValue }
     }
 }

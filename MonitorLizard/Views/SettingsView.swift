@@ -1,11 +1,8 @@
+import Dependencies
 import SwiftUI
 
 struct SettingsView: View {
-    private let defaults: UserDefaultsStore
-
-    init(defaults: UserDefaultsStore = .liveValue) {
-        self.defaults = defaults
-    }
+    @Dependency(UserDefaultsStore.self) private var defaults
 
     private var refreshInterval: Binding<Int> {
         Binding(
@@ -346,9 +343,7 @@ struct SettingsView: View {
 }
 
 #if DEBUG
-struct SettingsView_Previews: PreviewProvider {
-    static var previews: some View {
-        SettingsView()
-    }
+#Preview {
+    SettingsView()
 }
 #endif

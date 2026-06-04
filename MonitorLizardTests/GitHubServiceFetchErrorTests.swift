@@ -1,3 +1,4 @@
+import Dependencies
 import Testing
 import Foundation
 @testable import MonitorLizard
@@ -32,7 +33,11 @@ struct GitHubServiceFetchErrorTests {
     /// ShellError should propagate — not be swallowed into GitHubError.networkError.
     @Test func executionFailureRethrowsAsShellError() async {
         let mock = MockShellExecutor(executeResponse: .failure(ShellError.executionFailed("token expired or invalid")))
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies {
+            $0.shellExecutor = mock
+        } operation: {
+            GitHubService()
+        }
 
         do {
             _ = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)
@@ -49,7 +54,11 @@ struct GitHubServiceFetchErrorTests {
     @Test(arguments: GitHubErrorMappingScenario.allCases)
     func shellFailureMapsToExpectedGitHubError(scenario: GitHubErrorMappingScenario) async {
         let mock = MockShellExecutor(executeResponse: .failure(scenario.shellError))
-        let service = GitHubService(shellExecutor: mock)
+        let service = withDependencies {
+            $0.shellExecutor = mock
+        } operation: {
+            GitHubService()
+        }
 
         do {
             _ = try await service.fetchAllOpenPRs(enableInactiveDetection: false, inactiveThresholdDays: 3)

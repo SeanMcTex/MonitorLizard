@@ -1,4 +1,5 @@
 import AppKit
+import Dependencies
 import SwiftUI
 
 #if DEBUG
@@ -27,19 +28,21 @@ struct MonitorLizardApp: App {
     private let updateService = UpdateService.shared
 
     init() {
-        UserDefaults.standard.register(defaults: [
-            PreferenceKeys.refreshInterval.rawValue: Constants.defaultRefreshInterval,
-            PreferenceKeys.sortNonSuccessFirst.rawValue: false,
-            PreferenceKeys.showReviewPRs.rawValue: true,
-            PreferenceKeys.enableSounds.rawValue: true,
-            PreferenceKeys.enableVoice.rawValue: true,
-            PreferenceKeys.showNotifications.rawValue: true,
-            PreferenceKeys.voiceAnnouncementText.rawValue: Constants.defaultVoiceAnnouncementText,
-            PreferenceKeys.enableInactiveBranchDetection.rawValue: false,
-            PreferenceKeys.hideInactivePRs.rawValue: false,
-            PreferenceKeys.inactiveBranchThresholdDays.rawValue: Constants.defaultInactiveBranchThreshold,
-            PreferenceKeys.selectedRepository.rawValue: "All Repositories",
-        ])
+        prepareDependencies {
+            $0.userDefaults.register(defaults: [
+                PreferenceKeys.refreshInterval.rawValue: Constants.defaultRefreshInterval,
+                PreferenceKeys.sortNonSuccessFirst.rawValue: false,
+                PreferenceKeys.showReviewPRs.rawValue: true,
+                PreferenceKeys.enableSounds.rawValue: true,
+                PreferenceKeys.enableVoice.rawValue: true,
+                PreferenceKeys.showNotifications.rawValue: true,
+                PreferenceKeys.voiceAnnouncementText.rawValue: Constants.defaultVoiceAnnouncementText,
+                PreferenceKeys.enableInactiveBranchDetection.rawValue: false,
+                PreferenceKeys.hideInactivePRs.rawValue: false,
+                PreferenceKeys.inactiveBranchThresholdDays.rawValue: Constants.defaultInactiveBranchThreshold,
+                PreferenceKeys.selectedRepository.rawValue: "All Repositories",
+            ])
+        }
     }
 
     var body: some Scene {
