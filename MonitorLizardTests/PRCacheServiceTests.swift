@@ -1,14 +1,10 @@
-import Testing
+import Dependencies
 import Foundation
+import Testing
 @testable import MonitorLizard
 
 @MainActor
 struct PRCacheServiceTests {
-
-    private func makeService() -> PRCacheService {
-        let suite = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
-        return PRCacheService(defaults: suite)
-    }
 
     private func makePR(number: Int, isWatched: Bool = false, type: PRType = .authored) -> PullRequest {
         PullRequest(
@@ -31,31 +27,39 @@ struct PRCacheServiceTests {
         )
     }
 
-    // MARK: Empty state
+    private func makeService() -> PRCacheService {
+        withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+        } operation: {
+            PRCacheService()
+        }
+    }
 
-    @Test func emptyOnFirstLaunch() {
+    @Test
+    func emptyOnFirstLaunch() {
         let service = makeService()
         #expect(service.loadMainPRs().isEmpty)
         #expect(service.loadOtherPRs().isEmpty)
     }
 
-    // MARK: Round-trip
-
-    @Test func roundTripMainPRs() {
+    @Test
+    func roundTripMainPRs() {
         let service = makeService()
         service.save(mainPRs: [makePR(number: 1), makePR(number: 2)], otherPRs: [])
         let loaded = service.loadMainPRs()
         #expect(loaded.map(\.number) == [1, 2])
     }
 
-    @Test func roundTripOtherPRs() {
+    @Test
+    func roundTripOtherPRs() {
         let service = makeService()
         service.save(mainPRs: [], otherPRs: [makePR(number: 3, type: .other)])
         let loaded = service.loadOtherPRs()
         #expect(loaded.map(\.number) == [3])
     }
 
-    @Test func preservesKeyFields() {
+    @Test
+    func preservesKeyFields() {
         let service = makeService()
         let pr = PullRequest(
             number: 42,
@@ -93,9 +97,8 @@ struct PRCacheServiceTests {
         #expect(loaded.customName == "My Custom Name")
     }
 
-    // MARK: Overwrite
-
-    @Test func subsequentSaveOverwritesPrevious() {
+    @Test
+    func subsequentSaveOverwritesPrevious() {
         let service = makeService()
         service.save(mainPRs: [makePR(number: 1)], otherPRs: [])
         service.save(mainPRs: [makePR(number: 2), makePR(number: 3)], otherPRs: [])
@@ -103,7 +106,8 @@ struct PRCacheServiceTests {
         #expect(loaded.map(\.number) == [2, 3])
     }
 
-    @Test func savingEmptyListClearsPreviousData() {
+    @Test
+    func savingEmptyListClearsPreviousData() {
         let service = makeService()
         service.save(mainPRs: [makePR(number: 1)], otherPRs: [makePR(number: 2)])
         service.save(mainPRs: [], otherPRs: [])
@@ -111,13 +115,12 @@ struct PRCacheServiceTests {
         #expect(service.loadOtherPRs().isEmpty)
     }
 
-    // MARK: Hash guard
-
-    @Test func hashGuardDoesNotCorruptDataOnRepeatedSave() {
+    @Test
+    func hashGuardDoesNotCorruptDataOnRepeatedSave() {
         let service = makeService()
         let prs = [makePR(number: 1)]
         service.save(mainPRs: prs, otherPRs: [])
-        service.save(mainPRs: prs, otherPRs: []) // same data — hash guard skips write
+        service.save(mainPRs: prs, otherPRs: [])
         #expect(service.loadMainPRs().map(\.number) == [1])
     }
 }

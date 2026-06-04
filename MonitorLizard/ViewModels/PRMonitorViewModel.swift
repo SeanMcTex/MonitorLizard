@@ -1,6 +1,7 @@
+import Combine
+import Dependencies
 import Foundation
 import SwiftUI
-import Combine
 
 enum OtherPRError: LocalizedError {
     case invalidURL
@@ -27,30 +28,60 @@ class PRMonitorViewModel: ObservableObject {
     @Published var lastRefreshTime: Date?
     @Published var isGHAvailable = true
     @Published var showWarningIcon = false
-    @AppStorage("selectedRepository") var selectedRepository: String = "All Repositories"
 
-    private let githubService: GitHubService
+    @Dependency(UserDefaultsStore.self) private var defaults
+    @Dependency(WatchlistServiceKey.self) private var watchlistService
+    @Dependency(NotificationServiceKey.self) private var notificationService
+    @Dependency(OtherPRsServiceKey.self) private var otherPRsService
+    @Dependency(CustomNamesServiceKey.self) private var customNamesService
+    @Dependency(PRCacheServiceKey.self) private var cacheService
+    @Dependency(GitHubServiceKey.self) private var githubService
+
     private let isDemoMode: Bool
-    private let watchlistService: WatchlistService
-    private let notificationService = NotificationService.shared
-    private let otherPRsService: OtherPRsService
-    private let customNamesService: CustomNamesService
-    private let cacheService: PRCacheService
 
     private var refreshTimer: Timer?
-    private var sortSettingObserver: AnyCancellable?
-    private var reviewPRsSettingObserver: AnyCancellable?
-    private var hideInactiveSettingObserver: AnyCancellable?
+    private var defaultsObserver: AnyCancellable?
     private var unsortedPullRequests: [PullRequest] = []
 
-    @AppStorage("refreshInterval") private var refreshInterval: Int = Constants.defaultRefreshInterval
-    @AppStorage("sortNonSuccessFirst") private var sortNonSuccessFirst: Bool = false
-    @AppStorage("enableInactiveBranchDetection") private var enableInactiveBranchDetection: Bool = false
-    @AppStorage("hideInactivePRs") private var hideInactivePRs: Bool = false
-    @AppStorage("inactiveBranchThresholdDays") private var inactiveBranchThresholdDays: Int = Constants.defaultInactiveBranchThreshold
-    @AppStorage("showReviewPRs") private var showReviewPRs: Bool = true
+    var selectedRepository: String {
+        get { defaults.string(forKey: PreferenceKeys.selectedRepository) ?? "All Repositories" }
+        set {
+            defaults.set(newValue, forKey: PreferenceKeys.selectedRepository)
+            objectWillChange.send()
+        }
+    }
 
-    // Computed property for available repositories
+    var selectedRepositoryBinding: Binding<String> {
+        Binding(
+            get: { self.selectedRepository },
+            set: { self.selectedRepository = $0 }
+        )
+    }
+
+    var refreshInterval: Int {
+        defaults.object(forKey: PreferenceKeys.refreshInterval) as? Int ?? Constants.defaultRefreshInterval
+    }
+
+    private var sortNonSuccessFirst: Bool {
+        defaults.bool(forKey: PreferenceKeys.sortNonSuccessFirst)
+    }
+
+    private var showReviewPRs: Bool {
+        defaults.object(forKey: PreferenceKeys.showReviewPRs) as? Bool ?? true
+    }
+
+    private var enableInactiveBranchDetection: Bool {
+        defaults.bool(forKey: PreferenceKeys.enableInactiveBranchDetection)
+    }
+
+    private var hideInactivePRs: Bool {
+        defaults.bool(forKey: PreferenceKeys.hideInactivePRs)
+    }
+
+    private var inactiveBranchThresholdDays: Int {
+        defaults.object(forKey: PreferenceKeys.inactiveBranchThresholdDays) as? Int ?? Constants.defaultInactiveBranchThreshold
+    }
+
     var availableRepositories: [String] {
         let mainRepos = Set(unsortedPullRequests.map { $0.repository.nameWithOwner })
         let otherRepos = Set(otherPullRequests.map { $0.repository.nameWithOwner })
@@ -69,7 +100,6 @@ class PRMonitorViewModel: ObservableObject {
         })
     }
 
-    // Computed properties for filtering PRs by type and repository
     var authoredPRs: [PullRequest] {
         let prs = pullRequests.filter { $0.type == .authored }
             .filter { selectedRepository == "All Repositories" || $0.repository.nameWithOwner == selectedRepository }
@@ -95,31 +125,18 @@ class PRMonitorViewModel: ObservableObject {
         return daysSinceUpdate >= Double(inactiveBranchThresholdDays)
     }
 
-    init(isDemoMode: Bool = false,
-         watchlistService: WatchlistService? = nil,
-         otherPRsService: OtherPRsService? = nil,
-         customNamesService: CustomNamesService? = nil,
-         cacheService: PRCacheService? = nil) {
+    init(isDemoMode: Bool = false) {
         self.isDemoMode = isDemoMode
-        self.githubService = GitHubService(isDemoMode: isDemoMode)
-        self.watchlistService = watchlistService ?? .shared
-        self.otherPRsService = otherPRsService ?? OtherPRsService()
-        self.customNamesService = customNamesService ?? CustomNamesService()
-        self.cacheService = cacheService ?? PRCacheService()
         restoreFromCache()
         setupNotifications()
         startPolling()
-        observeSortSetting()
-        observeReviewPRsSetting()
-        observeHideInactiveSetting()
+        observeDefaultsChanges()
     }
 
     deinit {
         MainActor.assumeIsolated {
             refreshTimer?.invalidate()
-            sortSettingObserver?.cancel()
-            reviewPRsSettingObserver?.cancel()
-            hideInactiveSettingObserver?.cancel()
+            defaultsObserver?.cancel()
         }
     }
 
@@ -136,41 +153,23 @@ class PRMonitorViewModel: ObservableObject {
         }
     }
 
-    private func observeSortSetting() {
-        sortSettingObserver = UserDefaults.standard
-            .publisher(for: \.sortNonSuccessFirst)
-            .dropFirst() // Skip initial value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.applySorting()
-            }
-    }
-
-    private func observeReviewPRsSetting() {
-        reviewPRsSettingObserver = UserDefaults.standard
-            .publisher(for: \.showReviewPRs)
-            .dropFirst() // Skip initial value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-    }
-
-    private func observeHideInactiveSetting() {
-        hideInactiveSettingObserver = UserDefaults.standard
-            .publisher(for: \.hideInactivePRs)
+    private func observeDefaultsChanges() {
+        let underlying = defaults.underlyingDefaults
+        defaultsObserver = underlying
+            .publisher(for: \.sortNonSuccessFirstDisplay)
+            .merge(with: underlying.publisher(for: \.showReviewPRsDisplay))
+            .merge(with: underlying.publisher(for: \.hideInactivePRsDisplay))
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+                self?.applySorting()
             }
     }
 
     func startPolling() {
-        // Cancel existing timer
         refreshTimer?.invalidate()
 
-        // Create new timer
         refreshTimer = Timer.scheduledTimer(
             withTimeInterval: TimeInterval(refreshInterval),
             repeats: true
@@ -180,10 +179,6 @@ class PRMonitorViewModel: ObservableObject {
             }
         }
 
-        // Initial fetch
-        // Note: We skip checkGHAvailability() here because gh auth status can give misleading
-        // errors when offline (reports "token is invalid" instead of network error).
-        // Instead, we let the actual PR fetch determine if there's a network or auth issue.
         Task {
             await refresh()
         }
@@ -195,15 +190,14 @@ class PRMonitorViewModel: ObservableObject {
     }
 
     func updateRefreshInterval(_ interval: Int) {
-        refreshInterval = interval
-        startPolling() // Restart timer with new interval
+        defaults.set(interval, forKey: PreferenceKeys.refreshInterval)
+        startPolling()
     }
 
     func refresh() async {
         isLoading = true
         errorMessage = nil
 
-        // Start both fetches concurrently
         async let mainFetchTask = githubService.fetchAllOpenPRs(
             enableInactiveDetection: enableInactiveBranchDetection,
             inactiveThresholdDays: inactiveBranchThresholdDays,
@@ -216,19 +210,15 @@ class PRMonitorViewModel: ObservableObject {
             let fetchedOther = await otherFetchTask
             let fetchedPRs = fetchResult.pullRequests
 
-            // Deduplicate: remove from main list any PR that's also in Other PRs
             let otherIDs = Set(fetchedOther.map { $0.id })
             let dedupedPRs = fetchedPRs.filter { !otherIDs.contains($0.id) }
 
-            // Check for watched PR completions across all PRs
             let completed = watchlistService.checkForCompletions(currentPRs: dedupedPRs + fetchedOther)
 
-            // Send notifications for completed builds
             for pr in completed {
                 notificationService.notifyBuildComplete(pr: pr, status: pr.buildStatus)
             }
 
-            // Update PRs with watch status and custom names
             unsortedPullRequests = applyCustomNames(dedupedPRs.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)
@@ -241,16 +231,11 @@ class PRMonitorViewModel: ObservableObject {
                 return updated
             })
 
-            // Prune stale custom names for PRs no longer visible
             let activeIDs = Set((dedupedPRs + fetchedOther).map { $0.id })
             customNamesService.pruneStale(keeping: activeIDs)
 
-            // Apply sorting (also updates warning icon)
             applySorting()
 
-            // Reset filter if the selected repo no longer exists, but only when
-            // we have a complete result set. Partial results (one fetch failed)
-            // may be missing repos that still have open PRs.
             if !fetchResult.isPartial &&
                 selectedRepository != "All Repositories" &&
                 !unsortedPullRequests.contains(where: { $0.repository.nameWithOwner == selectedRepository }) &&
@@ -266,11 +251,9 @@ class PRMonitorViewModel: ObservableObject {
         } catch let error as GitHubError {
             print("GitHubError: \(error)")
             errorMessage = error.localizedDescription
-            // Only mark as unavailable for installation/auth issues, not network errors
             if error == .notInstalled || error == .notAuthenticated {
                 isGHAvailable = false
             }
-            // Still update Other PRs even if main fetch failed
             let fetchedOther = await otherFetchTask
             otherPullRequests = applyCustomNames(fetchedOther.map { pr in
                 var updated = pr
@@ -312,37 +295,42 @@ class PRMonitorViewModel: ObservableObject {
     private func fetchAllOtherPRs() async -> [PullRequest] {
         let ids = otherPRsService.all()
         var results: [PullRequest] = []
+        var staleIDs: [OtherPRIdentifier] = []
         for id in ids {
-            if let pr = await githubService.fetchOtherPR(
-                id,
-                enableInactiveDetection: enableInactiveBranchDetection,
-                inactiveThresholdDays: inactiveBranchThresholdDays
-            ) {
-                results.append(pr)
+            do {
+                if let pr = try await githubService.fetchOtherPR(
+                    id,
+                    enableInactiveDetection: enableInactiveBranchDetection,
+                    inactiveThresholdDays: inactiveBranchThresholdDays
+                ) {
+                    results.append(pr)
+                } else {
+                    staleIDs.append(id)
+                }
+            } catch {
+                print("Transient error fetching Other PR \(id.owner)/\(id.repo)#\(id.number): \(error)")
             }
+        }
+        for id in staleIDs {
+            otherPRsService.remove(id)
+            customNamesService.removeName(for: "\(id.owner)/\(id.repo)#\(id.number)")
         }
         return results
     }
 
     private func applySorting() {
-        // Split PRs by type
         let authored = unsortedPullRequests.filter { $0.type == .authored }
         let review = unsortedPullRequests.filter { $0.type == .reviewing }
 
-        // Apply sorting independently within each section
         let sortedAuthored = sortNonSuccessFirst ? sort(authored) : authored
         let sortedReview = sortNonSuccessFirst ? sort(review) : review
 
-        // Concatenate with review PRs first (prioritize unblocking teammates)
         let newPullRequests = sortedReview + sortedAuthored
 
-        // Only update the @Published property if data actually changed, to avoid
-        // unnecessary SwiftUI re-renders (which can freeze mid-scroll)
         if newPullRequests != pullRequests {
             pullRequests = newPullRequests
         }
 
-        // Update warning icon indicator (failures, errors, conflicts, not-started/inactive PRs, changes requested, or any review PRs)
         var allDisplayed = newPullRequests + otherPullRequests
         if hideInactivePRs {
             allDisplayed = allDisplayed.filter { !isInactiveByAge($0) }
@@ -372,7 +360,7 @@ class PRMonitorViewModel: ObservableObject {
         }) else {
             throw OtherPRError.alreadyTracked
         }
-        guard let pr = await githubService.fetchOtherPR(
+        guard let pr = try await githubService.fetchOtherPR(
             id,
             enableInactiveDetection: enableInactiveBranchDetection,
             inactiveThresholdDays: inactiveBranchThresholdDays
@@ -384,7 +372,6 @@ class PRMonitorViewModel: ObservableObject {
         updated.isWatched = watchlistService.isWatched(pr)
         updated.customName = customNamesService.name(for: pr.id)
         otherPullRequests.append(updated)
-        // Deduplicate from main list if this PR appeared there
         unsortedPullRequests.removeAll { $0.id == pr.id }
         pullRequests.removeAll { $0.id == pr.id }
         applySorting()
@@ -435,12 +422,10 @@ class PRMonitorViewModel: ObservableObject {
             let pr1NonSuccess = nonSuccessStatuses.contains(pr1.buildStatus) || pr1.reviewDecision == .changesRequested
             let pr2NonSuccess = nonSuccessStatuses.contains(pr2.buildStatus) || pr2.reviewDecision == .changesRequested
 
-            // If one is non-success and other isn't, non-success comes first
             if pr1NonSuccess != pr2NonSuccess {
                 return pr1NonSuccess
             }
 
-            // Otherwise maintain original order
             return false
         }
     }
@@ -452,7 +437,6 @@ class PRMonitorViewModel: ObservableObject {
             watchlistService.watch(pr)
         }
 
-        // Update all arrays
         if let index = unsortedPullRequests.firstIndex(where: { $0.id == pr.id }) {
             unsortedPullRequests[index].isWatched.toggle()
         }
@@ -483,7 +467,6 @@ class PRMonitorViewModel: ObservableObject {
             isGHAvailable = true
             errorMessage = nil
         } catch let error as GitHubError {
-            // Only mark as unavailable for installation/auth issues, not network errors
             if error == .notInstalled || error == .notAuthenticated {
                 isGHAvailable = false
             }
@@ -501,9 +484,8 @@ class PRMonitorViewModel: ObservableObject {
     }
 }
 
-// Extension to make UserDefaults keys observable
 extension UserDefaults {
-    @objc dynamic var sortNonSuccessFirst: Bool { bool(forKey: "sortNonSuccessFirst") }
-    @objc dynamic var showReviewPRs: Bool { bool(forKey: "showReviewPRs") }
-    @objc dynamic var hideInactivePRs: Bool { bool(forKey: "hideInactivePRs") }
+    @objc dynamic var sortNonSuccessFirstDisplay: Bool { bool(forKey: "sortNonSuccessFirst") }
+    @objc dynamic var showReviewPRsDisplay: Bool { bool(forKey: "showReviewPRs") }
+    @objc dynamic var hideInactivePRsDisplay: Bool { bool(forKey: "hideInactivePRs") }
 }

@@ -40,7 +40,7 @@ enum ShellError: Error {
 /// `Process`, so concurrent calls are safe. Marked as `final class`
 /// (not `actor`) to allow true parallelism in task groups.
 final class ShellExecutor: ShellExecuting {
-    nonisolated(unsafe) static let networkErrorPatterns = [
+    nonisolated static let networkErrorPatterns = [
         "error connecting",
         "check your internet connection",
         "could not resolve host",

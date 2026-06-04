@@ -1,21 +1,33 @@
+import Dependencies
 import Foundation
 
-struct OtherPRIdentifier: Codable, Equatable {
+struct OtherPRIdentifier: Codable, Equatable, Sendable {
     let host: String
     let owner: String
     let repo: String
     let number: Int
 }
 
-class OtherPRsService {
-    private let defaults: UserDefaults
-    private let otherPRsKey = "pinnedPRs"  // key kept for backward compatibility
+protocol OtherPRsServicing: Sendable {
+    func add(_ id: OtherPRIdentifier)
+    func remove(_ id: OtherPRIdentifier)
+    func all() -> [OtherPRIdentifier]
+    func contains(_ id: OtherPRIdentifier) -> Bool
+    func clearAll()
+}
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-    }
+/// Manages the list of "Other PRs" the user has pinned.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread. Calling mutating methods from a background thread
+///   will trigger an assertion failure in debug builds.
+final class OtherPRsService: OtherPRsServicing, @unchecked Sendable {
+    @Dependency(UserDefaultsStore.self) private var defaults
+
+    init() {}
 
     func add(_ id: OtherPRIdentifier) {
+        assertMainThread()
         var current = all()
         guard !current.contains(id) else { return }
         current.append(id)
@@ -23,13 +35,15 @@ class OtherPRsService {
     }
 
     func remove(_ id: OtherPRIdentifier) {
+        assertMainThread()
         var current = all()
         current.removeAll { $0 == id }
         save(current)
     }
 
     func all() -> [OtherPRIdentifier] {
-        guard let data = defaults.data(forKey: otherPRsKey),
+        assertMainThread()
+        guard let data = defaults.data(forKey: PreferenceKeys.pinnedPRs),
               let ids = try? JSONDecoder().decode([OtherPRIdentifier].self, from: data) else {
             return []
         }
@@ -37,16 +51,18 @@ class OtherPRsService {
     }
 
     func contains(_ id: OtherPRIdentifier) -> Bool {
-        all().contains(id)
+        assertMainThread()
+        return all().contains(id)
     }
 
     func clearAll() {
+        assertMainThread()
         save([])
     }
 
     private func save(_ ids: [OtherPRIdentifier]) {
         if let data = try? JSONEncoder().encode(ids) {
-            defaults.set(data, forKey: otherPRsKey)
+            defaults.set(data, forKey: PreferenceKeys.pinnedPRs)
         }
     }
 }

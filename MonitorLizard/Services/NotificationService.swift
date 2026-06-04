@@ -1,41 +1,42 @@
-import Foundation
-import UserNotifications
 import AppKit
 import AVFoundation
+import Dependencies
+import Foundation
+import UserNotifications
 
-class NotificationService {
-    static let shared = NotificationService()
+protocol NotificationServicing: Sendable {
+    func requestAuthorization() async throws
+    func notifyBuildComplete(pr: PullRequest, status: BuildStatus)
+}
+
+/// Posts system notifications, plays sounds, and speaks announcements for build completions.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread. Calling from a background thread will trigger an
+///   assertion failure in debug builds.
+final class NotificationService: NotificationServicing, @unchecked Sendable {
+    @Dependency(UserDefaultsStore.self) private var defaults
+
+    init() {}
 
     private var soundsEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "enableSounds")
+        assertMainThread()
+        return defaults.bool(forKey: PreferenceKeys.enableSounds)
     }
 
     private var voiceEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "enableVoice")
+        assertMainThread()
+        return defaults.bool(forKey: PreferenceKeys.enableVoice)
     }
 
     private var notificationsEnabled: Bool {
-        UserDefaults.standard.bool(forKey: "showNotifications")
+        assertMainThread()
+        return defaults.bool(forKey: PreferenceKeys.showNotifications)
     }
 
     private var voiceAnnouncementText: String {
-        UserDefaults.standard.string(forKey: "voiceAnnouncementText") ?? Constants.defaultVoiceAnnouncementText
-    }
-
-    private init() {
-        // Set default values
-        if UserDefaults.standard.object(forKey: "enableSounds") == nil {
-            UserDefaults.standard.set(true, forKey: "enableSounds")
-        }
-        if UserDefaults.standard.object(forKey: "enableVoice") == nil {
-            UserDefaults.standard.set(true, forKey: "enableVoice")
-        }
-        if UserDefaults.standard.object(forKey: "showNotifications") == nil {
-            UserDefaults.standard.set(true, forKey: "showNotifications")
-        }
-        if UserDefaults.standard.object(forKey: "voiceAnnouncementText") == nil {
-            UserDefaults.standard.set(Constants.defaultVoiceAnnouncementText, forKey: "voiceAnnouncementText")
-        }
+        assertMainThread()
+        return defaults.string(forKey: PreferenceKeys.voiceAnnouncementText) ?? Constants.defaultVoiceAnnouncementText
     }
 
     func requestAuthorization() async throws {
@@ -44,17 +45,14 @@ class NotificationService {
     }
 
     func notifyBuildComplete(pr: PullRequest, status: BuildStatus) {
-        // Show notification
         if notificationsEnabled {
             showNotification(pr: pr, status: status)
         }
 
-        // Play sound
         if soundsEnabled {
             playSound(for: status)
         }
 
-        // Speak announcement
         if voiceEnabled && status == .success {
             speak(text: voiceAnnouncementText)
         }
@@ -92,7 +90,6 @@ class NotificationService {
             return
         }
 
-        // Play system sound
         if let soundURL = NSSound(named: soundName) {
             soundURL.play()
         } else if let soundPath = Bundle.main.path(forResource: soundName, ofType: "aiff") {
@@ -100,7 +97,6 @@ class NotificationService {
             let sound = NSSound(contentsOf: soundURL, byReference: true)
             sound?.play()
         } else {
-            // Fallback to system sound path
             let soundPath = "/System/Library/Sounds/\(soundName).aiff"
             if let sound = NSSound(contentsOfFile: soundPath, byReference: true) {
                 sound.play()
