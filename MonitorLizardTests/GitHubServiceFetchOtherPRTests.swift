@@ -187,15 +187,21 @@ struct GitHubServiceFetchOtherPRTests {
         #expect(result == nil)
     }
 
-    @Test func fetchOtherPRReturnsNilOnExecutionFailure() async throws {
+    @Test func fetchOtherPRThrowsOnExecutionFailure() async throws {
         let mock = MockShellExecutor(
             executeResponse: .failure(ShellError.executionFailed("gh: Could not resolve to a Repository with the name 'owner/repo'."))
         )
         let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
         let id = OtherPRIdentifier(host: "github.com", owner: "owner", repo: "repo", number: 2)
 
-        let result = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
-        #expect(result == nil, "executionFailed (repo/PR not found) should return nil, not throw")
+        do {
+            _ = try await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3)
+            Issue.record("Expected executionFailed to be thrown")
+        } catch is ShellError {
+            // Expected: executionFailed is thrown as a transient error
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
     }
 
     @Test func fetchOtherPRThrowsOnNetworkError() async throws {

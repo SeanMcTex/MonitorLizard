@@ -154,8 +154,12 @@ class PRMonitorViewModel: ObservableObject {
     }
 
     private func observeDefaultsChanges() {
-        defaultsObserver = NotificationCenter.default
-            .publisher(for: UserDefaults.didChangeNotification, object: defaults.underlyingDefaults)
+        let underlying = defaults.underlyingDefaults
+        defaultsObserver = underlying
+            .publisher(for: \.sortNonSuccessFirstDisplay)
+            .merge(with: underlying.publisher(for: \.showReviewPRsDisplay))
+            .merge(with: underlying.publisher(for: \.hideInactivePRsDisplay))
+            .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -478,4 +482,10 @@ class PRMonitorViewModel: ObservableObject {
             try? await notificationService.requestAuthorization()
         }
     }
+}
+
+extension UserDefaults {
+    @objc dynamic var sortNonSuccessFirstDisplay: Bool { bool(forKey: "sortNonSuccessFirst") }
+    @objc dynamic var showReviewPRsDisplay: Bool { bool(forKey: "showReviewPRs") }
+    @objc dynamic var hideInactivePRsDisplay: Bool { bool(forKey: "hideInactivePRs") }
 }

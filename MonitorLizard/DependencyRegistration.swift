@@ -2,6 +2,7 @@ import Dependencies
 import Foundation
 
 final class UserDefaultsStore: @unchecked Sendable {
+    // @unchecked Sendable wraps UserDefaults, which is inherently thread-safe for all operations used here.
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -72,17 +73,23 @@ final class UserDefaultsStore: @unchecked Sendable {
 // MARK: - DependencyKey registrations
 
 extension UserDefaultsStore: DependencyKey {
-    public static let liveValue = UserDefaultsStore(defaults: .standard)
+    public static var liveValue: UserDefaultsStore {
+        UserDefaultsStore(defaults: .standard)
+    }
 
     public static var testValue: UserDefaultsStore {
         UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test")!)
     }
 
-    public static let previewValue = UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.preview")!)
+    public static var previewValue: UserDefaultsStore {
+        UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.preview")!)
+    }
 }
 
 extension WatchlistService: DependencyKey {
-    public static let liveValue = WatchlistService(defaults: UserDefaultsStore.liveValue)
+    public static var liveValue: WatchlistService {
+        WatchlistService(defaults: UserDefaultsStore.liveValue)
+    }
 
     public static var testValue: WatchlistService {
         WatchlistService(defaults: UserDefaultsStore.testValue)
@@ -90,7 +97,9 @@ extension WatchlistService: DependencyKey {
 }
 
 extension NotificationService: DependencyKey {
-    public static let liveValue = NotificationService(defaults: UserDefaultsStore.liveValue)
+    public static var liveValue: NotificationService {
+        NotificationService(defaults: UserDefaultsStore.liveValue)
+    }
 
     public static var testValue: NotificationService {
         NotificationService(defaults: UserDefaultsStore.testValue)
@@ -98,7 +107,9 @@ extension NotificationService: DependencyKey {
 }
 
 extension PRCacheService: DependencyKey {
-    public static let liveValue = PRCacheService(defaults: UserDefaultsStore.liveValue)
+    public static var liveValue: PRCacheService {
+        PRCacheService(defaults: UserDefaultsStore.liveValue)
+    }
 
     public static var testValue: PRCacheService {
         PRCacheService(defaults: UserDefaultsStore.testValue)
@@ -106,7 +117,9 @@ extension PRCacheService: DependencyKey {
 }
 
 extension OtherPRsService: DependencyKey {
-    public static let liveValue = OtherPRsService(defaults: UserDefaultsStore.liveValue)
+    public static var liveValue: OtherPRsService {
+        OtherPRsService(defaults: UserDefaultsStore.liveValue)
+    }
 
     public static var testValue: OtherPRsService {
         OtherPRsService(defaults: UserDefaultsStore.testValue)
@@ -114,7 +127,9 @@ extension OtherPRsService: DependencyKey {
 }
 
 extension CustomNamesService: DependencyKey {
-    public static let liveValue = CustomNamesService(defaults: UserDefaultsStore.liveValue)
+    public static var liveValue: CustomNamesService {
+        CustomNamesService(defaults: UserDefaultsStore.liveValue)
+    }
 
     public static var testValue: CustomNamesService {
         CustomNamesService(defaults: UserDefaultsStore.testValue)
@@ -127,15 +142,39 @@ enum ShellExecutorKey: DependencyKey {
     }
 
     public static var testValue: any ShellExecuting {
-        ShellExecutor()
+        UnimplementedShellExecutor()
     }
 }
 
 extension GitHubService: DependencyKey {
-    public static let liveValue = GitHubService()
+    public static var liveValue: GitHubService {
+        GitHubService()
+    }
 
     public static var testValue: GitHubService {
         GitHubService()
+    }
+}
+
+private struct UnimplementedShellExecutor: ShellExecuting {
+    func execute(command: String, arguments: [String], timeout: TimeInterval, host: String?) async throws -> String {
+        reportIssue("Unimplemented: ShellExecuting.execute called without a test override")
+        return ""
+    }
+
+    func getAuthenticatedHosts() async throws -> [String] {
+        reportIssue("Unimplemented: ShellExecuting.getAuthenticatedHosts called without a test override")
+        return []
+    }
+
+    func checkGHInstalled() async throws -> Bool {
+        reportIssue("Unimplemented: ShellExecuting.checkGHInstalled called without a test override")
+        return false
+    }
+
+    func checkGHAuthenticated() async throws -> Bool {
+        reportIssue("Unimplemented: ShellExecuting.checkGHAuthenticated called without a test override")
+        return false
     }
 }
 
