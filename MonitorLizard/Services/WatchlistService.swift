@@ -7,6 +7,7 @@ protocol WatchlistServicing: Sendable {
     func isWatched(_ pr: PullRequest) -> Bool
     func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest]
     func clearAll()
+    func getWatchedStatus(for prId: String) -> WatchlistService.WatchedPRInfo?
 }
 
 /// Manages the user's watched PR list.
@@ -23,6 +24,7 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
     struct WatchedPRInfo: Sendable {
         let lastStatus: BuildStatus
         let timestamp: Date
+        let lastUpdatedAt: Date
     }
 
     init() {
@@ -33,7 +35,8 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
         assertMainThread()
         watchedPRs[pr.id] = WatchedPRInfo(
             lastStatus: pr.buildStatus,
-            timestamp: Date()
+            timestamp: Date(),
+            lastUpdatedAt: pr.updatedAt
         )
         save()
     }
@@ -63,10 +66,11 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
                 completed.append(pr)
             }
 
-            if watched.lastStatus != pr.buildStatus {
+            if watched.lastStatus != pr.buildStatus || watched.lastUpdatedAt != pr.updatedAt {
                 watchedPRs[pr.id] = WatchedPRInfo(
                     lastStatus: pr.buildStatus,
-                    timestamp: Date()
+                    timestamp: Date(),
+                    lastUpdatedAt: pr.updatedAt
                 )
             }
         }
@@ -93,7 +97,8 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
         for (key, info) in watchedPRs {
             dict[key] = [
                 "status": info.lastStatus.rawValue,
-                "timestamp": info.timestamp.timeIntervalSince1970
+                "timestamp": info.timestamp.timeIntervalSince1970,
+                "lastUpdatedAt": info.lastUpdatedAt.timeIntervalSince1970
             ]
         }
         defaults.set(dict, forKey: PreferenceKeys.watchedPRs)
@@ -106,9 +111,11 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
                 if let statusRaw = value["status"] as? String,
                    let status = BuildStatus(rawValue: statusRaw),
                    let timestamp = value["timestamp"] as? TimeInterval {
+                    let lastUpdatedAt = (value["lastUpdatedAt"] as? TimeInterval).map { Date(timeIntervalSince1970: $0) } ?? Date(timeIntervalSince1970: timestamp)
                     watchedPRs[key] = WatchedPRInfo(
                         lastStatus: status,
-                        timestamp: Date(timeIntervalSince1970: timestamp)
+                        timestamp: Date(timeIntervalSince1970: timestamp),
+                        lastUpdatedAt: lastUpdatedAt
                     )
                 }
             }
