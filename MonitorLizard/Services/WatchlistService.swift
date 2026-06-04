@@ -100,7 +100,7 @@ class WatchlistService {
                 if let statusRaw = value["status"] as? String,
                    let status = BuildStatus(rawValue: statusRaw),
                    let timestamp = value["timestamp"] as? TimeInterval {
-                    let lastUpdatedAt = (value["lastUpdatedAt"] as? TimeInterval).map { Date(timeIntervalSince1970: $0) } ?? Date(timeIntervalSince1970: 0)
+                    let lastUpdatedAt = (value["lastUpdatedAt"] as? TimeInterval).map { Date(timeIntervalSince1970: $0) } ?? Date(timeIntervalSince1970: timestamp)
                     watchedPRs[key] = WatchedPRInfo(
                         lastStatus: status,
                         timestamp: Date(timeIntervalSince1970: timestamp),
