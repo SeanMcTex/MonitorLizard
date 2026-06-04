@@ -4,27 +4,34 @@ import Dependencies
 import Foundation
 import UserNotifications
 
+/// Posts system notifications, plays sounds, and speaks announcements for build completions.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread. Calling from a background thread will trigger an
+///   assertion failure in debug builds.
 final class NotificationService: @unchecked Sendable {
-    let defaults: UserDefaultsStore
+    @Dependency(UserDefaultsStore.self) private var defaults
 
-    init(defaults: UserDefaultsStore) {
-        self.defaults = defaults
-    }
+    init() {}
 
     private var soundsEnabled: Bool {
-        defaults.bool(forKey: PreferenceKeys.enableSounds)
+        assertMainThread()
+        return defaults.bool(forKey: PreferenceKeys.enableSounds)
     }
 
     private var voiceEnabled: Bool {
-        defaults.bool(forKey: PreferenceKeys.enableVoice)
+        assertMainThread()
+        return defaults.bool(forKey: PreferenceKeys.enableVoice)
     }
 
     private var notificationsEnabled: Bool {
-        defaults.bool(forKey: PreferenceKeys.showNotifications)
+        assertMainThread()
+        return defaults.bool(forKey: PreferenceKeys.showNotifications)
     }
 
     private var voiceAnnouncementText: String {
-        defaults.string(forKey: PreferenceKeys.voiceAnnouncementText) ?? Constants.defaultVoiceAnnouncementText
+        assertMainThread()
+        return defaults.string(forKey: PreferenceKeys.voiceAnnouncementText) ?? Constants.defaultVoiceAnnouncementText
     }
 
     func requestAuthorization() async throws {

@@ -1,8 +1,14 @@
 import Dependencies
 import Foundation
 
+/// Manages the user's watched PR list.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread (via `@MainActor` callers in `PRMonitorViewModel`).
+///   Calling mutating methods from a background thread will trigger an assertion failure
+///   in debug builds and produces undefined behavior in release.
 final class WatchlistService: @unchecked Sendable {
-    let defaults: UserDefaultsStore
+    @Dependency(UserDefaultsStore.self) private var defaults
 
     private var watchedPRs: [String: WatchedPRInfo] = [:]
 
@@ -11,12 +17,12 @@ final class WatchlistService: @unchecked Sendable {
         let timestamp: Date
     }
 
-    init(defaults: UserDefaultsStore) {
-        self.defaults = defaults
+    init() {
         load()
     }
 
     func watch(_ pr: PullRequest) {
+        assertMainThread()
         watchedPRs[pr.id] = WatchedPRInfo(
             lastStatus: pr.buildStatus,
             timestamp: Date()
@@ -25,15 +31,18 @@ final class WatchlistService: @unchecked Sendable {
     }
 
     func unwatch(_ pr: PullRequest) {
+        assertMainThread()
         watchedPRs.removeValue(forKey: pr.id)
         save()
     }
 
     func isWatched(_ pr: PullRequest) -> Bool {
-        watchedPRs[pr.id] != nil
+        assertMainThread()
+        return watchedPRs[pr.id] != nil
     }
 
     func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest] {
+        assertMainThread()
         var completed: [PullRequest] = []
 
         for pr in currentPRs {
@@ -67,7 +76,8 @@ final class WatchlistService: @unchecked Sendable {
     }
 
     func getWatchedStatus(for prId: String) -> WatchedPRInfo? {
-        watchedPRs[prId]
+        assertMainThread()
+        return watchedPRs[prId]
     }
 
     private func save() {
@@ -98,6 +108,7 @@ final class WatchlistService: @unchecked Sendable {
     }
 
     func clearAll() {
+        assertMainThread()
         watchedPRs.removeAll()
         save()
     }

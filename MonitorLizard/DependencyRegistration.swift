@@ -65,6 +65,12 @@ final class UserDefaultsStore: @unchecked Sendable {
         defaults.register(defaults: registration)
     }
 
+    /// Provides access to the underlying `UserDefaults` for APIs that require it directly,
+    /// such as KVO publishers (`publisher(for:)`) used to observe preference changes.
+    ///
+    /// - Important: This escape hatch exists solely for `UserDefaults` interop features that
+    ///   cannot be expressed through `UserDefaultsStore`'s typed interface. Do **not** use it
+    ///   to bypass `PreferenceKeys` — prefer adding a typed accessor to `UserDefaultsStore` instead.
     var underlyingDefaults: UserDefaults {
         defaults
     }
@@ -78,7 +84,7 @@ extension UserDefaultsStore: DependencyKey {
     }
 
     public static var testValue: UserDefaultsStore {
-        UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test")!)
+        UserDefaultsStore(defaults: UserDefaults(suiteName: "co.pointfree.dependencies.test.\(UUID().uuidString)")!)
     }
 
     public static var previewValue: UserDefaultsStore {
@@ -88,51 +94,51 @@ extension UserDefaultsStore: DependencyKey {
 
 extension WatchlistService: DependencyKey {
     public static var liveValue: WatchlistService {
-        WatchlistService(defaults: UserDefaultsStore.liveValue)
+        WatchlistService()
     }
 
     public static var testValue: WatchlistService {
-        WatchlistService(defaults: UserDefaultsStore.testValue)
+        WatchlistService()
     }
 }
 
 extension NotificationService: DependencyKey {
     public static var liveValue: NotificationService {
-        NotificationService(defaults: UserDefaultsStore.liveValue)
+        NotificationService()
     }
 
     public static var testValue: NotificationService {
-        NotificationService(defaults: UserDefaultsStore.testValue)
+        NotificationService()
     }
 }
 
 extension PRCacheService: DependencyKey {
     public static var liveValue: PRCacheService {
-        PRCacheService(defaults: UserDefaultsStore.liveValue)
+        PRCacheService()
     }
 
     public static var testValue: PRCacheService {
-        PRCacheService(defaults: UserDefaultsStore.testValue)
+        PRCacheService()
     }
 }
 
 extension OtherPRsService: DependencyKey {
     public static var liveValue: OtherPRsService {
-        OtherPRsService(defaults: UserDefaultsStore.liveValue)
+        OtherPRsService()
     }
 
     public static var testValue: OtherPRsService {
-        OtherPRsService(defaults: UserDefaultsStore.testValue)
+        OtherPRsService()
     }
 }
 
 extension CustomNamesService: DependencyKey {
     public static var liveValue: CustomNamesService {
-        CustomNamesService(defaults: UserDefaultsStore.liveValue)
+        CustomNamesService()
     }
 
     public static var testValue: CustomNamesService {
-        CustomNamesService(defaults: UserDefaultsStore.testValue)
+        CustomNamesService()
     }
 }
 

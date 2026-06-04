@@ -27,16 +27,24 @@ struct PRCacheServiceTests {
         )
     }
 
+    private func makeService() -> PRCacheService {
+        withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+        } operation: {
+            PRCacheService()
+        }
+    }
+
     @Test
     func emptyOnFirstLaunch() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         #expect(service.loadMainPRs().isEmpty)
         #expect(service.loadOtherPRs().isEmpty)
     }
 
     @Test
     func roundTripMainPRs() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.save(mainPRs: [makePR(number: 1), makePR(number: 2)], otherPRs: [])
         let loaded = service.loadMainPRs()
         #expect(loaded.map(\.number) == [1, 2])
@@ -44,7 +52,7 @@ struct PRCacheServiceTests {
 
     @Test
     func roundTripOtherPRs() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.save(mainPRs: [], otherPRs: [makePR(number: 3, type: .other)])
         let loaded = service.loadOtherPRs()
         #expect(loaded.map(\.number) == [3])
@@ -52,7 +60,7 @@ struct PRCacheServiceTests {
 
     @Test
     func preservesKeyFields() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         let pr = PullRequest(
             number: 42,
             title: "Important PR",
@@ -91,7 +99,7 @@ struct PRCacheServiceTests {
 
     @Test
     func subsequentSaveOverwritesPrevious() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.save(mainPRs: [makePR(number: 1)], otherPRs: [])
         service.save(mainPRs: [makePR(number: 2), makePR(number: 3)], otherPRs: [])
         let loaded = service.loadMainPRs()
@@ -100,7 +108,7 @@ struct PRCacheServiceTests {
 
     @Test
     func savingEmptyListClearsPreviousData() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.save(mainPRs: [makePR(number: 1)], otherPRs: [makePR(number: 2)])
         service.save(mainPRs: [], otherPRs: [])
         #expect(service.loadMainPRs().isEmpty)
@@ -109,7 +117,7 @@ struct PRCacheServiceTests {
 
     @Test
     func hashGuardDoesNotCorruptDataOnRepeatedSave() {
-        let service = PRCacheService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         let prs = [makePR(number: 1)]
         service.save(mainPRs: prs, otherPRs: [])
         service.save(mainPRs: prs, otherPRs: [])

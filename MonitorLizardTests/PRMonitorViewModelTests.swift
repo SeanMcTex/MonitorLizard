@@ -164,15 +164,23 @@ struct ParsePRURLTests {
 @MainActor
 struct OtherPRsServiceTests {
 
+    private func makeService() -> OtherPRsService {
+        withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+        } operation: {
+            OtherPRsService()
+        }
+    }
+
     @Test
     func startsEmpty() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         #expect(service.all().isEmpty)
     }
 
     @Test
     func addAndContains() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         let id = makeID()
         service.add(id)
         #expect(service.contains(id))
@@ -181,7 +189,7 @@ struct OtherPRsServiceTests {
 
     @Test
     func addDuplicateIsIdempotent() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         let id = makeID()
         service.add(id)
         service.add(id)
@@ -190,7 +198,7 @@ struct OtherPRsServiceTests {
 
     @Test
     func removeExisting() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         let id = makeID()
         service.add(id)
         service.remove(id)
@@ -200,14 +208,14 @@ struct OtherPRsServiceTests {
 
     @Test
     func removeNonExistentIsNoop() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.remove(makeID())
         #expect(service.all().isEmpty)
     }
 
     @Test
     func addMultiple() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.add(makeID(number: 1))
         service.add(makeID(number: 2))
         service.add(makeID(number: 3))
@@ -216,7 +224,7 @@ struct OtherPRsServiceTests {
 
     @Test
     func clearAll() {
-        let service = OtherPRsService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.add(makeID(number: 1))
         service.add(makeID(number: 2))
         service.clearAll()
@@ -250,22 +258,30 @@ struct PRTypeDisplayTitleTests {
 @MainActor
 struct CustomNamesServiceTests {
 
+    private func makeService() -> CustomNamesService {
+        withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+        } operation: {
+            CustomNamesService()
+        }
+    }
+
     @Test
     func startsEmpty() {
-        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         #expect(service.allNames().isEmpty)
     }
 
     @Test
     func setAndGet() {
-        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.setName("My PR", for: "owner/repo#1")
         #expect(service.name(for: "owner/repo#1") == "My PR")
     }
 
     @Test
     func removeRestoresNil() {
-        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.setName("My PR", for: "owner/repo#1")
         service.removeName(for: "owner/repo#1")
         #expect(service.name(for: "owner/repo#1") == nil)
@@ -273,7 +289,7 @@ struct CustomNamesServiceTests {
 
     @Test
     func pruneStaleRemovesInactiveEntries() {
-        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.setName("Active PR", for: "owner/repo#1")
         service.setName("Stale PR", for: "owner/repo#2")
 
@@ -285,7 +301,7 @@ struct CustomNamesServiceTests {
 
     @Test
     func pruneStaleKeepsAllWhenAllActive() {
-        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.setName("PR One", for: "owner/repo#1")
         service.setName("PR Two", for: "owner/repo#2")
 
@@ -296,7 +312,7 @@ struct CustomNamesServiceTests {
 
     @Test
     func pruneStaleWithEmptySetClearsAll() {
-        let service = CustomNamesService(defaults: UserDefaultsStore.testSuite())
+        let service = makeService()
         service.setName("PR One", for: "owner/repo#1")
 
         service.pruneStale(keeping: [])
@@ -334,11 +350,6 @@ struct OtherPRsViewModelTests {
         let defaults = defaults ?? UserDefaultsStore.testSuite()
         return withDependencies {
             $0.userDefaults = defaults
-            $0.watchlistService = WatchlistService(defaults: defaults)
-            $0.cacheService = PRCacheService(defaults: defaults)
-            $0.otherPRsService = OtherPRsService(defaults: defaults)
-            $0.customNamesService = CustomNamesService(defaults: defaults)
-            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -364,11 +375,6 @@ struct OtherPRsViewModelTests {
         let defaults = UserDefaultsStore.testSuite()
         let vm = withDependencies {
             $0.userDefaults = defaults
-            $0.watchlistService = WatchlistService(defaults: defaults)
-            $0.cacheService = PRCacheService(defaults: defaults)
-            $0.otherPRsService = OtherPRsService(defaults: defaults)
-            $0.customNamesService = CustomNamesService(defaults: defaults)
-            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -398,11 +404,6 @@ struct OtherPRsViewModelTests {
         let defaults = UserDefaultsStore.testSuite()
         let vm = withDependencies {
             $0.userDefaults = defaults
-            $0.watchlistService = WatchlistService(defaults: defaults)
-            $0.cacheService = PRCacheService(defaults: defaults)
-            $0.otherPRsService = OtherPRsService(defaults: defaults)
-            $0.customNamesService = CustomNamesService(defaults: defaults)
-            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -493,7 +494,11 @@ struct OtherPRsViewModelTests {
     @Test
     func removeOtherPRClearsCustomName() {
         let defaults = UserDefaultsStore.testSuite()
-        let customNames = CustomNamesService(defaults: defaults)
+        let customNames = withDependencies {
+            $0.userDefaults = defaults
+        } operation: {
+            CustomNamesService()
+        }
         let vm = withDependencies {
             $0.userDefaults = defaults
             $0.customNamesService = customNames
@@ -578,11 +583,6 @@ struct PRMonitorViewModelTests {
         let d = defaults ?? UserDefaultsStore.testSuite()
         let vm = withDependencies {
             $0.userDefaults = d
-            $0.watchlistService = WatchlistService(defaults: d)
-            $0.cacheService = PRCacheService(defaults: d)
-            $0.otherPRsService = OtherPRsService(defaults: d)
-            $0.customNamesService = CustomNamesService(defaults: d)
-            $0.notificationService = NotificationService(defaults: d)
         } operation: {
             PRMonitorViewModel(isDemoMode: true)
         }
@@ -597,11 +597,6 @@ struct PRMonitorViewModelTests {
         let defaults = UserDefaultsStore.testSuite()
         return withDependencies {
             $0.userDefaults = defaults
-            $0.watchlistService = WatchlistService(defaults: defaults)
-            $0.cacheService = PRCacheService(defaults: defaults)
-            $0.otherPRsService = OtherPRsService(defaults: defaults)
-            $0.customNamesService = CustomNamesService(defaults: defaults)
-            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -636,7 +631,11 @@ struct PRMonitorViewModelTests {
 
     @Test
     func watchlistReportsCompletionFromNotStarted() {
-        let watchlist = WatchlistService(defaults: UserDefaultsStore.testSuite())
+        let watchlist = withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+        } operation: {
+            WatchlistService()
+        }
         let pendingPR = makePR(buildStatus: .notStarted)
         var completedPR = pendingPR
         completedPR.buildStatus = .success
@@ -798,11 +797,6 @@ struct PRMonitorViewModelTests {
         configure(defaults)
         return withDependencies {
             $0.userDefaults = defaults
-            $0.watchlistService = WatchlistService(defaults: defaults)
-            $0.cacheService = PRCacheService(defaults: defaults)
-            $0.otherPRsService = OtherPRsService(defaults: defaults)
-            $0.customNamesService = CustomNamesService(defaults: defaults)
-            $0.notificationService = NotificationService(defaults: defaults)
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: false)
             vm.stopPolling()

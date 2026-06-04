@@ -8,14 +8,18 @@ struct OtherPRIdentifier: Codable, Equatable, Sendable {
     let number: Int
 }
 
+/// Manages the list of "Other PRs" the user has pinned.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread. Calling mutating methods from a background thread
+///   will trigger an assertion failure in debug builds.
 final class OtherPRsService: @unchecked Sendable {
-    let defaults: UserDefaultsStore
+    @Dependency(UserDefaultsStore.self) private var defaults
 
-    init(defaults: UserDefaultsStore) {
-        self.defaults = defaults
-    }
+    init() {}
 
     func add(_ id: OtherPRIdentifier) {
+        assertMainThread()
         var current = all()
         guard !current.contains(id) else { return }
         current.append(id)
@@ -23,12 +27,14 @@ final class OtherPRsService: @unchecked Sendable {
     }
 
     func remove(_ id: OtherPRIdentifier) {
+        assertMainThread()
         var current = all()
         current.removeAll { $0 == id }
         save(current)
     }
 
     func all() -> [OtherPRIdentifier] {
+        assertMainThread()
         guard let data = defaults.data(forKey: PreferenceKeys.pinnedPRs),
               let ids = try? JSONDecoder().decode([OtherPRIdentifier].self, from: data) else {
             return []
@@ -37,10 +43,12 @@ final class OtherPRsService: @unchecked Sendable {
     }
 
     func contains(_ id: OtherPRIdentifier) -> Bool {
-        all().contains(id)
+        assertMainThread()
+        return all().contains(id)
     }
 
     func clearAll() {
+        assertMainThread()
         save([])
     }
 

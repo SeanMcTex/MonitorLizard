@@ -1,30 +1,37 @@
 import Dependencies
 import Foundation
 
+/// Stores user-provided custom display names for pull requests.
+///
+/// - Important: This type is `@unchecked Sendable` because all mutable state is accessed
+///   exclusively from the main thread. Calling mutating methods from a background thread
+///   will trigger an assertion failure in debug builds.
 final class CustomNamesService: @unchecked Sendable {
-    let defaults: UserDefaultsStore
+    @Dependency(UserDefaultsStore.self) private var defaults
 
-    init(defaults: UserDefaultsStore) {
-        self.defaults = defaults
-    }
+    init() {}
 
     func setName(_ name: String, for prID: String) {
+        assertMainThread()
         var names = allNames()
         names[prID] = name
         save(names)
     }
 
     func removeName(for prID: String) {
+        assertMainThread()
         var names = allNames()
         names.removeValue(forKey: prID)
         save(names)
     }
 
     func name(for prID: String) -> String? {
-        allNames()[prID]
+        assertMainThread()
+        return allNames()[prID]
     }
 
     func allNames() -> [String: String] {
+        assertMainThread()
         guard let data = defaults.data(forKey: PreferenceKeys.customPRNames),
               let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
             return [:]
@@ -33,6 +40,7 @@ final class CustomNamesService: @unchecked Sendable {
     }
 
     func pruneStale(keeping activeIDs: Set<String>) {
+        assertMainThread()
         let pruned = allNames().filter { activeIDs.contains($0.key) }
         save(pruned)
     }
