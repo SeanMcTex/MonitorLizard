@@ -186,6 +186,20 @@ enum GitHubServiceKey: DependencyKey {
     }
 }
 
+enum PasteboardClientKey: DependencyKey {
+    public static var liveValue: any PasteboardClient {
+        LivePasteboardClient()
+    }
+
+    public static var testValue: any PasteboardClient {
+        TestPasteboardClient()
+    }
+
+    public static var previewValue: any PasteboardClient {
+        LivePasteboardClient()
+    }
+}
+
 // MARK: - Unimplemented test doubles
 
 private struct UnimplementedWatchlistService: WatchlistServicing {
@@ -379,5 +393,10 @@ extension DependencyValues {
     var githubService: any GitHubServicing {
         get { self[GitHubServiceKey.self] }
         set { self[GitHubServiceKey.self] = newValue }
+    }
+
+    var pasteboardClient: any PasteboardClient {
+        get { self[PasteboardClientKey.self] }
+        set { self[PasteboardClientKey.self] = newValue }
     }
 }

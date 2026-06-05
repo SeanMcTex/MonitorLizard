@@ -1,11 +1,14 @@
+import Clocks
 import Dependencies
-import Testing
+import DependenciesTestSupport
 import Foundation
-import AppKit
+import Testing
 @testable import MonitorLizard
 
 @MainActor
 struct CopyPRLinkTests {
+
+    private let pasteboard = TestPasteboardClient()
 
     private func makePR(url: String = "https://github.com/owner/repo/pull/1") -> PullRequest {
         PullRequest(
@@ -29,6 +32,7 @@ struct CopyPRLinkTests {
 
     private func makeViewModel() -> PRMonitorViewModel {
         withDependencies {
+            $0.continuousClock = .immediate
             $0.userDefaults = UserDefaultsStore.testSuite()
             $0.watchlistService = WatchlistService()
             $0.notificationService = NotificationService()
@@ -36,6 +40,7 @@ struct CopyPRLinkTests {
             $0.customNamesService = CustomNamesService()
             $0.cacheService = PRCacheService()
             $0[GitHubServiceKey.self] = GitHubService()
+            $0[PasteboardClientKey.self] = pasteboard
         } operation: {
             let vm = PRMonitorViewModel(isDemoMode: true)
             vm.stopPolling()
@@ -49,8 +54,7 @@ struct CopyPRLinkTests {
 
         vm.copyPRLink(for: pr)
 
-        let clipboard = NSPasteboard.general.string(forType: .string)
-        #expect(clipboard == "https://github.com/owner/repo/pull/42")
+        #expect(pasteboard.read() == "https://github.com/owner/repo/pull/42")
     }
 
     @Test func copiedPRIDSetImmediately() {
@@ -74,8 +78,7 @@ struct CopyPRLinkTests {
         vm.copyPRLink(for: pr)
         #expect(vm.copiedPRID == pr.id)
 
-        // Wait for auto-dismiss (2s timeout + small buffer)
-        try? await Task.sleep(for: .milliseconds(2200))
+        try? await Task.sleep(for: .milliseconds(50))
         #expect(vm.copiedPRID == nil)
     }
 
@@ -88,7 +91,6 @@ struct CopyPRLinkTests {
         vm.copyPRLink(for: pr2)
 
         #expect(vm.copiedPRID == pr2.id)
-        let clipboard = NSPasteboard.general.string(forType: .string)
-        #expect(clipboard == pr2.url)
+        #expect(pasteboard.read() == pr2.url)
     }
 }

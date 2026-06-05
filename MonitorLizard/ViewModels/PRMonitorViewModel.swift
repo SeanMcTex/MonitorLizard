@@ -1,3 +1,4 @@
+import Clocks
 import Combine
 import Dependencies
 import Foundation
@@ -37,6 +38,8 @@ class PRMonitorViewModel: ObservableObject {
     @Dependency(CustomNamesServiceKey.self) private var customNamesService
     @Dependency(PRCacheServiceKey.self) private var cacheService
     @Dependency(GitHubServiceKey.self) private var githubService
+    @Dependency(PasteboardClientKey.self) private var pasteboard
+    @Dependency(\.continuousClock) private var clock
 
     private let isDemoMode: Bool
 
@@ -463,11 +466,10 @@ class PRMonitorViewModel: ObservableObject {
     }
 
     func copyPRLink(for pr: PullRequest) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(pr.url, forType: .string)
+        pasteboard.copy(pr.url)
         copiedPRID = pr.id
-        Task { [weak self] in
-            try? await Task.sleep(for: .seconds(2))
+        Task { [weak self, clock] in
+            try? await clock.sleep(for: .seconds(2))
             self?.copiedPRID = nil
         }
     }
