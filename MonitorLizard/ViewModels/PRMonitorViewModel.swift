@@ -46,6 +46,9 @@ class PRMonitorViewModel: ObservableObject {
     private var refreshTimer: Timer?
     private var defaultsObserver: AnyCancellable?
     private var unsortedPullRequests: [PullRequest] = []
+    private var copiedPRLinkTask: Task<Void, Never>?
+
+    var copyClearTask: Task<Void, Never>? { copiedPRLinkTask }
 
     var selectedRepository: String {
         get { defaults.string(forKey: PreferenceKeys.selectedRepository) ?? "All Repositories" }
@@ -468,11 +471,11 @@ class PRMonitorViewModel: ObservableObject {
     func copyPRLink(for pr: PullRequest) {
         pasteboard.copy(pr.url)
         copiedPRID = pr.id
-    }
-
-    func clearCopiedPRLinkFeedback() async {
-        try? await clock.sleep(for: .seconds(2))
-        copiedPRID = nil
+        copiedPRLinkTask?.cancel()
+        copiedPRLinkTask = Task { [weak self, clock] in
+            try? await clock.sleep(for: .seconds(2))
+            self?.copiedPRID = nil
+        }
     }
 
     private func checkGHAvailability() async {

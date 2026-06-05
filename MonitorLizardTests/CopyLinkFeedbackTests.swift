@@ -79,9 +79,8 @@ struct CopyPRLinkTests {
         vm.copyPRLink(for: pr)
         #expect(vm.copiedPRID == pr.id)
 
-        let clearTask = Task { await vm.clearCopiedPRLinkFeedback() }
         await clock.advance(by: .seconds(2))
-        await clearTask.value
+        await vm.copyClearTask?.value
         #expect(vm.copiedPRID == nil)
     }
 
@@ -95,5 +94,22 @@ struct CopyPRLinkTests {
 
         #expect(vm.copiedPRID == pr2.id)
         #expect(pasteboard.read() == pr2.url)
+    }
+
+    @Test func copyingNewRPCancelsPreviousClear() async {
+        let clock = TestClock()
+        let pr1 = makePR(url: "https://github.com/owner/repo/pull/1")
+        let pr2 = makePR(url: "https://github.com/owner/repo/pull/2")
+        let vm = makeViewModel(clock: clock)
+
+        vm.copyPRLink(for: pr1)
+        #expect(vm.copiedPRID == pr1.id)
+
+        vm.copyPRLink(for: pr2)
+        #expect(vm.copiedPRID == pr2.id)
+
+        await clock.advance(by: .seconds(2))
+        await vm.copyClearTask?.value
+        #expect(vm.copiedPRID == nil)
     }
 }

@@ -375,7 +375,6 @@ struct PRRowView: View {
 
                         Button(action: {
                             viewModel.copyPRLink(for: pr)
-                            Task { await viewModel.clearCopiedPRLinkFeedback() }
                         }) {
                             Image(systemName: "link")
                                 .font(.system(size: 11, weight: .bold))
