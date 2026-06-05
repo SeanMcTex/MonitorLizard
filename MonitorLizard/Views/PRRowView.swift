@@ -319,6 +319,7 @@ struct PRRowView: View {
                         if pr.hasStatusChecks {
                             Button(action: { viewModel.toggleWatch(for: pr) }) {
                                 Image(systemName: pr.isWatched ? "eye.fill" : "eye")
+                                    .font(.system(size: 13))
                                     .foregroundColor(pr.isWatched ? .blue : .gray)
                             }
                             .buttonStyle(.plain)
@@ -332,6 +333,7 @@ struct PRRowView: View {
                         // Open in browser
                         Button(action: openPRURL) {
                             Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 13))
                                 .foregroundColor(.gray)
                         }
                         .buttonStyle(.plain)
@@ -339,8 +341,10 @@ struct PRRowView: View {
                         .opacity(isHovering ? 1.0 : 0.0)
                         .frame(width: 16, height: 16)
                     }
+                    .frame(width: 64, alignment: .trailing)
 
-                    // Bottom row: Delete (Other PRs only) + Rename
+                    // Bottom row: Delete (Other PRs only) + Copy Link + Rename
+                    // Right-aligned to match top row's rightmost icon
                     HStack(spacing: 8) {
                         if pr.type == .other {
                             Button(action: {
@@ -360,18 +364,45 @@ struct PRRowView: View {
                                 }
                             }) {
                                 Image(systemName: "trash")
+                                    .font(.system(size: 13))
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.plain)
                             .help("Remove from Other PRs")
                             .opacity(isHovering ? 1.0 : 0.0)
                             .frame(width: 16, height: 16)
-                        } else {
-                            Color.clear.frame(width: 16, height: 16)
                         }
+
+                        Button(action: {
+                            viewModel.copyPRLink(for: pr)
+                        }) {
+                            Image(systemName: "link")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.gray)
+                        }
+                        .buttonStyle(.plain)
+                        .help(viewModel.copiedPRID == pr.id ? "Copied!" : "Copy PR link")
+                        .opacity(isHovering ? 1.0 : 0.0)
+                        .frame(width: 16, height: 16)
+                        .overlay(
+                            Text("Copied")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(Color.black.opacity(0.75))
+                                .cornerRadius(4)
+                                .fixedSize()
+                                .offset(y: 22)
+                                .opacity(viewModel.copiedPRID == pr.id ? 1.0 : 0.0)
+                                .animation(.easeInOut(duration: 0.15), value: viewModel.copiedPRID),
+                            alignment: .bottom
+                        )
 
                         Button(action: showRenameDialog) {
                             Image(systemName: "pencil")
+                                .font(.system(size: 13))
                                 .foregroundColor(pr.customName != nil ? .blue : .gray)
                         }
                         .buttonStyle(.plain)
@@ -379,10 +410,11 @@ struct PRRowView: View {
                         .opacity(isHovering ? 1.0 : 0.0)
                         .frame(width: 16, height: 16)
                     }
+                    .frame(width: 64, alignment: .trailing)
                 }
                 Spacer(minLength: 0)
             }
-            .frame(width: 44) // Fixed width to prevent layout shift
+            .frame(width: 64, alignment: .trailing) // Fixed width: fits 3-icon row (Other PRs)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

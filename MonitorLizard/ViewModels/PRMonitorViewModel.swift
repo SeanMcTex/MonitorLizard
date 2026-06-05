@@ -1,3 +1,4 @@
+import Clocks
 import Combine
 import Dependencies
 import Foundation
@@ -28,6 +29,7 @@ class PRMonitorViewModel: ObservableObject {
     @Published var lastRefreshTime: Date?
     @Published var isGHAvailable = true
     @Published var showWarningIcon = false
+    @Published private(set) var copiedPRID: String? = nil
 
     @Dependency(UserDefaultsStore.self) private var defaults
     @Dependency(WatchlistServiceKey.self) private var watchlistService
@@ -36,12 +38,17 @@ class PRMonitorViewModel: ObservableObject {
     @Dependency(CustomNamesServiceKey.self) private var customNamesService
     @Dependency(PRCacheServiceKey.self) private var cacheService
     @Dependency(GitHubServiceKey.self) private var githubService
+    @Dependency(PasteboardClientKey.self) private var pasteboard
+    @Dependency(\.continuousClock) private var clock
 
     private let isDemoMode: Bool
 
     private var refreshTimer: Timer?
     private var defaultsObserver: AnyCancellable?
     private var unsortedPullRequests: [PullRequest] = []
+    private var copiedPRLinkTask: Task<Void, Never>?
+
+    var copyClearTask: Task<Void, Never>? { copiedPRLinkTask }
 
     var selectedRepository: String {
         get { defaults.string(forKey: PreferenceKeys.selectedRepository) ?? "All Repositories" }
@@ -458,6 +465,16 @@ class PRMonitorViewModel: ObservableObject {
         }
         for index in otherPullRequests.indices {
             otherPullRequests[index].isWatched = false
+        }
+    }
+
+    func copyPRLink(for pr: PullRequest) {
+        pasteboard.copy(pr.url)
+        copiedPRID = pr.id
+        copiedPRLinkTask?.cancel()
+        copiedPRLinkTask = Task { [weak self, clock] in
+            try? await clock.sleep(for: .seconds(2))
+            self?.copiedPRID = nil
         }
     }
 
