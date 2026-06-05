@@ -28,6 +28,7 @@ class PRMonitorViewModel: ObservableObject {
     @Published var lastRefreshTime: Date?
     @Published var isGHAvailable = true
     @Published var showWarningIcon = false
+    @Published private(set) var copiedPRID: String? = nil
 
     @Dependency(UserDefaultsStore.self) private var defaults
     @Dependency(WatchlistServiceKey.self) private var watchlistService
@@ -458,6 +459,16 @@ class PRMonitorViewModel: ObservableObject {
         }
         for index in otherPullRequests.indices {
             otherPullRequests[index].isWatched = false
+        }
+    }
+
+    func copyPRLink(for pr: PullRequest) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(pr.url, forType: .string)
+        copiedPRID = pr.id
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            self?.copiedPRID = nil
         }
     }
 

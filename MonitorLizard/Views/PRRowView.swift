@@ -41,7 +41,6 @@ struct PRRowView: View {
     @Environment(\.scrollViewHovered) private var scrollViewHovered
 
     @State private var isHovering = false
-    @State private var showCopied = false
 
     static func daysSinceUpdate(from date: Date, now: Date = Date(), calendar: Calendar = .current) -> Int {
         let today = calendar.startOfDay(for: now)
@@ -375,19 +374,14 @@ struct PRRowView: View {
                         }
 
                         Button(action: {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(pr.url, forType: .string)
-                            showCopied = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                showCopied = false
-                            }
+                            viewModel.copyPRLink(for: pr)
                         }) {
                             Image(systemName: "link")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.gray)
                         }
                         .buttonStyle(.plain)
-                        .help(showCopied ? "Copied!" : "Copy PR link")
+                        .help(viewModel.copiedPRID == pr.id ? "Copied!" : "Copy PR link")
                         .opacity(isHovering ? 1.0 : 0.0)
                         .frame(width: 16, height: 16)
                         .overlay(
@@ -401,8 +395,8 @@ struct PRRowView: View {
                                 .cornerRadius(4)
                                 .fixedSize()
                                 .offset(y: 22)
-                                .opacity(showCopied ? 1.0 : 0.0)
-                                .animation(.easeInOut(duration: 0.15), value: showCopied),
+                                .opacity(viewModel.copiedPRID == pr.id ? 1.0 : 0.0)
+                                .animation(.easeInOut(duration: 0.15), value: viewModel.copiedPRID),
                             alignment: .bottom
                         )
 
