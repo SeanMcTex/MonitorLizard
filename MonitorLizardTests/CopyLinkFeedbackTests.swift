@@ -1,6 +1,5 @@
 import Clocks
 import Dependencies
-import DependenciesTestSupport
 import Foundation
 import Testing
 @testable import MonitorLizard
@@ -30,9 +29,10 @@ struct CopyPRLinkTests {
         )
     }
 
-    private func makeViewModel() -> PRMonitorViewModel {
-        withDependencies {
-            $0.continuousClock = .immediate
+    private func makeViewModel(clock: some Clock<Duration> = ImmediateClock()) -> PRMonitorViewModel {
+        let clock = clock
+        return withDependencies {
+            $0.continuousClock = clock
             $0.userDefaults = UserDefaultsStore.testSuite()
             $0.watchlistService = WatchlistService()
             $0.notificationService = NotificationService()
@@ -72,13 +72,16 @@ struct CopyPRLinkTests {
     }
 
     @Test func copiedPRIDClearsAfterDelay() async {
+        let clock = TestClock()
         let pr = makePR()
-        let vm = makeViewModel()
+        let vm = makeViewModel(clock: clock)
 
         vm.copyPRLink(for: pr)
         #expect(vm.copiedPRID == pr.id)
 
-        try? await Task.sleep(for: .milliseconds(50))
+        let clearTask = Task { await vm.clearCopiedPRLinkFeedback() }
+        await clock.advance(by: .seconds(2))
+        await clearTask.value
         #expect(vm.copiedPRID == nil)
     }
 

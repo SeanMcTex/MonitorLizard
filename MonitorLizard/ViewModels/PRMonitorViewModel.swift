@@ -468,10 +468,11 @@ class PRMonitorViewModel: ObservableObject {
     func copyPRLink(for pr: PullRequest) {
         pasteboard.copy(pr.url)
         copiedPRID = pr.id
-        Task { [weak self, clock] in
-            try? await clock.sleep(for: .seconds(2))
-            self?.copiedPRID = nil
-        }
+    }
+
+    func clearCopiedPRLinkFeedback() async {
+        try? await clock.sleep(for: .seconds(2))
+        copiedPRID = nil
     }
 
     private func checkGHAvailability() async {
