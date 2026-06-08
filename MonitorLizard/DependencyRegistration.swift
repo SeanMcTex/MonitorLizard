@@ -221,6 +221,11 @@ private struct UnimplementedWatchlistService: WatchlistServicing {
         return []
     }
 
+    func checkForUpdates(currentPRs: [PullRequest]) -> [PullRequest] {
+        reportIssue("Unimplemented: WatchlistServicing.checkForUpdates called without a test override")
+        return []
+    }
+
     func getWatchedStatus(for prId: String) -> WatchlistService.WatchedPRInfo? {
         reportIssue("Unimplemented: WatchlistServicing.getWatchedStatus called without a test override")
         return nil
@@ -238,6 +243,10 @@ private struct UnimplementedNotificationService: NotificationServicing {
 
     func notifyBuildComplete(pr: PullRequest, status: BuildStatus) {
         reportIssue("Unimplemented: NotificationServicing.notifyBuildComplete called without a test override")
+    }
+
+    func notifyPRUpdated(pr: PullRequest) {
+        reportIssue("Unimplemented: NotificationServicing.notifyPRUpdated called without a test override")
     }
 }
 

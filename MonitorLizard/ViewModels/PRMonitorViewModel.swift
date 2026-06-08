@@ -226,6 +226,14 @@ class PRMonitorViewModel: ObservableObject {
                 notificationService.notifyBuildComplete(pr: pr, status: pr.buildStatus)
             }
 
+            // Check for watched PR updates (new comments, reviews, pushes, etc.)
+            // Exclude PRs that already triggered a build completion notification.
+            let completedIDs = Set(completed.map { $0.id })
+            let updated = watchlistService.checkForUpdates(currentPRs: dedupedPRs + fetchedOther)
+            for pr in updated where !completedIDs.contains(pr.id) {
+                notificationService.notifyPRUpdated(pr: pr)
+            }
+
             unsortedPullRequests = applyCustomNames(dedupedPRs.map { pr in
                 var updated = pr
                 updated.isWatched = watchlistService.isWatched(pr)

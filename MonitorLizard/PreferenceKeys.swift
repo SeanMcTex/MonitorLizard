@@ -6,7 +6,8 @@ enum PreferenceKeys: String, Sendable {
     case showReviewPRs
     case enableSounds
     case enableVoice
-    case voiceAnnouncementText
+    case voiceAnnouncementTextBuildComplete
+    case voiceAnnouncementTextPRUpdated
     case showNotifications
     case enableInactiveBranchDetection
     case hideInactivePRs

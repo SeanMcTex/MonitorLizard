@@ -33,5 +33,6 @@ enum Constants {
     static let settingsWindowHeight = 500.0
 
     // Voice announcement
-    static let defaultVoiceAnnouncementText = "Build ready for Q A"
+    static let defaultVoiceAnnouncementTextBuildComplete = "Build ready for Q A"
+    static let defaultVoiceAnnouncementTextPRUpdated = "PR updated"
 }
