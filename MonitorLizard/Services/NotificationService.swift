@@ -7,6 +7,7 @@ import UserNotifications
 protocol NotificationServicing: Sendable {
     func requestAuthorization() async throws
     func notifyBuildComplete(pr: PullRequest, status: BuildStatus)
+    func notifyPRUpdated(pr: PullRequest)
 }
 
 /// Posts system notifications, plays sounds, and speaks announcements for build completions.
@@ -34,9 +35,14 @@ final class NotificationService: NotificationServicing, @unchecked Sendable {
         return defaults.bool(forKey: PreferenceKeys.showNotifications)
     }
 
-    private var voiceAnnouncementText: String {
+    private var voiceAnnouncementTextBuildComplete: String {
         assertMainThread()
-        return defaults.string(forKey: PreferenceKeys.voiceAnnouncementText) ?? Constants.defaultVoiceAnnouncementText
+        return defaults.string(forKey: PreferenceKeys.voiceAnnouncementTextBuildComplete) ?? Constants.defaultVoiceAnnouncementTextBuildComplete
+    }
+
+    private var voiceAnnouncementTextPRUpdated: String {
+        assertMainThread()
+        return defaults.string(forKey: PreferenceKeys.voiceAnnouncementTextPRUpdated) ?? Constants.defaultVoiceAnnouncementTextPRUpdated
     }
 
     func requestAuthorization() async throws {
@@ -44,52 +50,65 @@ final class NotificationService: NotificationServicing, @unchecked Sendable {
         try await center.requestAuthorization(options: [.alert, .sound, .badge])
     }
 
-    func notifyBuildComplete(pr: PullRequest, status: BuildStatus) {
-        if notificationsEnabled {
-            showNotification(pr: pr, status: status)
-        }
+    func notifyPRUpdated(pr: PullRequest) {
+        let content = UNMutableNotificationContent()
+        content.title = "PR Updated"
+        content.subtitle = pr.displayTitle
+        content.body = "\(pr.repository.name) #\(pr.number)"
+        content.sound = .default
 
-        if soundsEnabled {
-            playSound(for: status)
-        }
-
-        if voiceEnabled && status == .success {
-            speak(text: voiceAnnouncementText)
-        }
+        notify(
+            identifier: "\(pr.id)-updated",
+            content: content,
+            soundName: "Glass",
+            speakText: voiceAnnouncementTextPRUpdated
+        )
     }
 
-    private func showNotification(pr: PullRequest, status: BuildStatus) {
+    func notifyBuildComplete(pr: PullRequest, status: BuildStatus) {
         let content = UNMutableNotificationContent()
         content.title = "\(status.icon) Build \(status.displayName)"
         content.subtitle = pr.title
         content.body = "PR #\(pr.number) in \(pr.repository.name)"
         content.sound = status == .success ? .default : .defaultCritical
 
-        let request = UNNotificationRequest(
-            identifier: pr.id,
-            content: content,
-            trigger: nil
-        )
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Error showing notification: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    private func playSound(for status: BuildStatus) {
-        let soundName: String
-
+        let soundName: String?
         switch status {
         case .success:
             soundName = "Glass"
         case .failure, .error:
             soundName = "Basso"
         default:
-            return
+            soundName = nil
         }
 
+        notify(
+            identifier: "\(pr.id)-build",
+            content: content,
+            soundName: soundName,
+            speakText: status == .success ? voiceAnnouncementTextBuildComplete : nil
+        )
+    }
+
+    private func notify(identifier: String, content: UNMutableNotificationContent, soundName: String?, speakText: String?) {
+        if notificationsEnabled {
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Error showing notification: \(error.localizedDescription)")
+                }
+            }
+        }
+        if soundsEnabled, let soundName {
+            play(soundNamed: soundName)
+        }
+        if voiceEnabled, let speakText {
+            speak(text: speakText)
+        }
+    }
+
+
+    private func play(soundNamed soundName: String) {
         if let soundURL = NSSound(named: soundName) {
             soundURL.play()
         } else if let soundPath = Bundle.main.path(forResource: soundName, ofType: "aiff") {

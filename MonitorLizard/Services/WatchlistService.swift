@@ -6,6 +6,7 @@ protocol WatchlistServicing: Sendable {
     func unwatch(_ pr: PullRequest)
     func isWatched(_ pr: PullRequest) -> Bool
     func checkForCompletions(currentPRs: [PullRequest]) -> [PullRequest]
+    func checkForUpdates(currentPRs: [PullRequest]) -> [PullRequest]
     func clearAll()
     func getWatchedStatus(for prId: String) -> WatchlistService.WatchedPRInfo?
 }
@@ -66,7 +67,7 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
                 completed.append(pr)
             }
 
-            if watched.lastStatus != pr.buildStatus || watched.lastUpdatedAt != pr.updatedAt {
+            if watched.lastStatus != pr.buildStatus {
                 watchedPRs[pr.id] = WatchedPRInfo(
                     lastStatus: pr.buildStatus,
                     timestamp: Date(),
@@ -85,6 +86,24 @@ final class WatchlistService: WatchlistServicing, @unchecked Sendable {
 
         save()
         return completed
+    }
+
+    /// Check for watched PRs whose updatedAt has changed since last check.
+    /// Returns PRs that were updated (new comment, push, review, etc.)
+    func checkForUpdates(currentPRs: [PullRequest]) -> [PullRequest] {
+        var updated: [PullRequest] = []
+        for pr in currentPRs {
+            guard let watched = watchedPRs[pr.id] else { continue }
+            if pr.updatedAt > watched.lastUpdatedAt {
+                updated.append(pr)
+                watchedPRs[pr.id] = WatchedPRInfo(
+                    lastStatus: watched.lastStatus,
+                    timestamp: watched.timestamp,
+                    lastUpdatedAt: pr.updatedAt
+                )
+            }
+        }
+        return updated
     }
 
     func getWatchedStatus(for prId: String) -> WatchedPRInfo? {

@@ -72,7 +72,7 @@ struct WatchlistServiceTests {
         #expect(service.getWatchedStatus(for: pr.id)?.lastUpdatedAt == t)
     }
 
-    @Test func lastUpdatedAtUpdatesAfterCheckForCompletions() {
+    @Test func lastUpdatedAtNotUpdatesAfterCheckForCompletions() {
         let service = makeService()
         let t1 = Date(timeIntervalSince1970: 1_000_000)
         let t2 = Date(timeIntervalSince1970: 2_000_000)
@@ -81,7 +81,7 @@ struct WatchlistServiceTests {
 
         _ = service.checkForCompletions(currentPRs: [makePR(number: 1, updatedAt: t2)])
 
-        #expect(service.getWatchedStatus(for: pr.id)?.lastUpdatedAt == t2)
+        #expect(service.getWatchedStatus(for: pr.id)?.lastUpdatedAt == t1)
     }
 
     @Test func statusChangeUpdatesStoredStatus() {
@@ -104,10 +104,11 @@ struct WatchlistServiceTests {
         service.watch(pr)
 
         let updatedPR = makePR(number: 1, buildStatus: .success, updatedAt: t2)
-        _ = service.checkForCompletions(currentPRs: [updatedPR])
+        _ = service.checkForUpdates(currentPRs: [updatedPR])
 
         let info = service.getWatchedStatus(for: pr.id)
         #expect(info?.lastStatus == .success)
+        #expect(info?.lastUpdatedAt == t2)
         #expect((info?.timestamp ?? Date.distantPast) >= t1)
     }
 
@@ -155,5 +156,40 @@ struct WatchlistServiceTests {
         #expect(service2.isWatched(pr))
         #expect(service2.getWatchedStatus(for: pr.id)?.lastStatus == .pending)
         #expect(service2.getWatchedStatus(for: pr.id)?.lastUpdatedAt == Date(timeIntervalSince1970: 1_000_000))
+    }
+
+    // MARK: - Update detection
+
+    @Test func updatedAtChangedIsReportedAsUpdate() {
+        let service = makeService()
+        let t1 = Date(timeIntervalSince1970: 1_000_000)
+        let t2 = Date(timeIntervalSince1970: 2_000_000)
+        let pr = makePR(number: 1, updatedAt: t1)
+        service.watch(pr)
+
+        let updated = service.checkForUpdates(currentPRs: [makePR(number: 1, updatedAt: t2)])
+
+        #expect(updated.count == 1)
+        #expect(updated[0].number == 1)
+    }
+
+    @Test func unchangedUpdatedAtIsNotReportedAsUpdate() {
+        let service = makeService()
+        let t = Date(timeIntervalSince1970: 1_000_000)
+        let pr = makePR(number: 1, updatedAt: t)
+        service.watch(pr)
+
+        let updated = service.checkForUpdates(currentPRs: [makePR(number: 1, updatedAt: t)])
+
+        #expect(updated.isEmpty)
+    }
+
+    @Test func unwatchedPRIsNotReportedAsUpdate() {
+        let service = makeService()
+        let t2 = Date(timeIntervalSince1970: 2_000_000)
+
+        let updated = service.checkForUpdates(currentPRs: [makePR(number: 1, updatedAt: t2)])
+
+        #expect(updated.isEmpty)
     }
 }

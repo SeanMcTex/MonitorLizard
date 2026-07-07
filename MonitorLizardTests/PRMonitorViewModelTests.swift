@@ -948,4 +948,128 @@ struct PRMonitorViewModelTests {
         let repos = vm.availableRepositories
         #expect(repos.count == 2, "Repo list should still include all repos even when inactive PRs are hidden")
     }
+
+    // MARK: - Notification deduplication
+
+    @Test
+    func buildCompleteDoesNotAlsoTriggerPRUpdatedNotification() async {
+        let t1 = Date(timeIntervalSince1970: 1_000_000)
+        let t2 = Date(timeIntervalSince1970: 2_000_000)
+
+        // PR watched while pending at t1
+        let pendingPR = makePR(number: 1, nameWithOwner: "acme/widget", buildStatus: .pending)
+        let watchlist = withDependencies { $0.userDefaults = UserDefaultsStore.testSuite() } operation: { WatchlistService() }
+        watchlist.watch(pendingPR)
+
+        // Same PR now completed (success) and updatedAt changed to t2
+        let completedPR = makePR(number: 1, nameWithOwner: "acme/widget", type: .authored, updatedAt: t2)
+
+        let spy = SpyNotificationService()
+        let github = StubGitHubService(prs: [completedPR])
+
+        let vm = withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+            $0.watchlistService = watchlist
+            $0.notificationService = spy
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = github
+        } operation: {
+            let vm = PRMonitorViewModel(isDemoMode: false)
+            vm.stopPolling()
+            return vm
+        }
+
+        await vm.refresh()
+
+        #expect(spy.notifyBuildCompleteCallCount == 1)
+        #expect(spy.notifyPRUpdatedCallCount == 0)
+    }
+
+    @Test
+    func prUpdatedNotificationFiredWhenNotBuildComplete() async {
+        let t1 = Date(timeIntervalSince1970: 1_000_000)
+        let t2 = Date(timeIntervalSince1970: 2_000_000)
+
+        // PR watched while pending at t1
+        let pendingPR = makePR(number: 1, nameWithOwner: "acme/widget", type: .authored, updatedAt: t1)
+        let watchlist = withDependencies { $0.userDefaults = UserDefaultsStore.testSuite() } operation: { WatchlistService() }
+        var watchedPending = pendingPR
+        watchedPending.buildStatus = .pending
+        watchlist.watch(watchedPending)
+
+        // Same PR still pending but updatedAt changed to t2 (e.g. new comment)
+        let updatedPR = makePR(number: 1, nameWithOwner: "acme/widget", buildStatus: .pending)
+        let github = StubGitHubService(prs: [updatedPR], updatedAt: t2)
+
+        let spy = SpyNotificationService()
+
+        let vm = withDependencies {
+            $0.userDefaults = UserDefaultsStore.testSuite()
+            $0.watchlistService = watchlist
+            $0.notificationService = spy
+            $0.otherPRsService = OtherPRsService()
+            $0.customNamesService = CustomNamesService()
+            $0.cacheService = PRCacheService()
+            $0[GitHubServiceKey.self] = github
+        } operation: {
+            let vm = PRMonitorViewModel(isDemoMode: false)
+            vm.stopPolling()
+            return vm
+        }
+
+        await vm.refresh()
+
+        #expect(spy.notifyBuildCompleteCallCount == 0)
+        #expect(spy.notifyPRUpdatedCallCount == 1)
+    }
+}
+
+@MainActor
+private final class SpyNotificationService: NotificationServicing, @unchecked Sendable {
+    private(set) var notifyBuildCompleteCallCount = 0
+    private(set) var notifyPRUpdatedCallCount = 0
+
+    func requestAuthorization() async throws {}
+    func notifyBuildComplete(pr: PullRequest, status: BuildStatus) { notifyBuildCompleteCallCount += 1 }
+    func notifyPRUpdated(pr: PullRequest) { notifyPRUpdatedCallCount += 1 }
+}
+
+@MainActor
+private final class StubGitHubService: GitHubServicing {
+    private let prs: [PullRequest]
+    private let updatedAt: Date?
+
+    init(prs: [PullRequest], updatedAt: Date? = nil) {
+        self.prs = prs
+        self.updatedAt = updatedAt
+    }
+
+    func checkGHAvailable() async throws {}
+    func invalidateHostsCache() {}
+
+    func fetchAllOpenPRs(enableInactiveDetection: Bool, inactiveThresholdDays: Int, isDemoMode: Bool) async throws -> PRFetchResult {
+        let result = updatedAt.map { date in
+            prs.map { pr in
+                PullRequest(
+                    number: pr.number, title: pr.title, repository: pr.repository,
+                    url: pr.url, author: pr.author, headRefName: pr.headRefName,
+                    updatedAt: date, buildStatus: pr.buildStatus, isWatched: pr.isWatched,
+                    labels: pr.labels, type: pr.type, isDraft: pr.isDraft,
+                    statusChecks: pr.statusChecks, reviewDecision: pr.reviewDecision,
+                    host: pr.host, customName: pr.customName
+                )
+            }
+        } ?? prs
+        return PRFetchResult(pullRequests: result, isPartial: false)
+    }
+
+    func fetchPRStatus(owner: String, repo: String, number: Int, updatedAt: Date, enableInactiveDetection: Bool, inactiveThresholdDays: Int, host: String) async throws -> (status: BuildStatus, headRefName: String, statusChecks: [StatusCheck], reviewDecision: ReviewDecision?) {
+        (.success, "", [], nil)
+    }
+
+    func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> PullRequest? {
+        nil
+    }
 }

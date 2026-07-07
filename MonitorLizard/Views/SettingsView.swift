@@ -4,6 +4,10 @@ import SwiftUI
 struct SettingsView: View {
     @Dependency(UserDefaultsStore.self) private var defaults
 
+    @State private var enableInactiveBranchDetectionValue: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.enableInactiveBranchDetection.rawValue)
+    @State private var hideInactivePRsValue: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.hideInactivePRs.rawValue)
+    @State private var inactiveBranchThresholdDaysValue: Int = UserDefaults.standard.object(forKey: PreferenceKeys.inactiveBranchThresholdDays.rawValue) as? Int ?? Constants.defaultInactiveBranchThreshold
+
     private var refreshInterval: Binding<Int> {
         Binding(
             get: { defaults.object(forKey: PreferenceKeys.refreshInterval) as? Int ?? Constants.defaultRefreshInterval },
@@ -39,10 +43,17 @@ struct SettingsView: View {
         )
     }
 
-    private var voiceAnnouncementText: Binding<String> {
+    private var voiceAnnouncementTextBuildComplete: Binding<String> {
         Binding(
-            get: { defaults.string(forKey: PreferenceKeys.voiceAnnouncementText) ?? Constants.defaultVoiceAnnouncementText },
-            set: { defaults.set($0, forKey: PreferenceKeys.voiceAnnouncementText) }
+            get: { defaults.string(forKey: PreferenceKeys.voiceAnnouncementTextBuildComplete) ?? Constants.defaultVoiceAnnouncementTextBuildComplete },
+            set: { defaults.set($0, forKey: PreferenceKeys.voiceAnnouncementTextBuildComplete) }
+        )
+    }
+
+    private var voiceAnnouncementTextPRUpdated: Binding<String> {
+        Binding(
+            get: { defaults.string(forKey: PreferenceKeys.voiceAnnouncementTextPRUpdated) ?? Constants.defaultVoiceAnnouncementTextPRUpdated },
+            set: { defaults.set($0, forKey: PreferenceKeys.voiceAnnouncementTextPRUpdated) }
         )
     }
 
@@ -55,22 +66,22 @@ struct SettingsView: View {
 
     private var enableInactiveBranchDetection: Binding<Bool> {
         Binding(
-            get: { defaults.bool(forKey: PreferenceKeys.enableInactiveBranchDetection) },
-            set: { defaults.set($0, forKey: PreferenceKeys.enableInactiveBranchDetection) }
+            get: { enableInactiveBranchDetectionValue },
+            set: { enableInactiveBranchDetectionValue = $0; defaults.set($0, forKey: PreferenceKeys.enableInactiveBranchDetection) }
         )
     }
 
     private var hideInactivePRs: Binding<Bool> {
         Binding(
-            get: { defaults.bool(forKey: PreferenceKeys.hideInactivePRs) },
-            set: { defaults.set($0, forKey: PreferenceKeys.hideInactivePRs) }
+            get: { hideInactivePRsValue },
+            set: { hideInactivePRsValue = $0; defaults.set($0, forKey: PreferenceKeys.hideInactivePRs) }
         )
     }
 
     private var inactiveBranchThresholdDays: Binding<Int> {
         Binding(
-            get: { defaults.object(forKey: PreferenceKeys.inactiveBranchThresholdDays) as? Int ?? Constants.defaultInactiveBranchThreshold },
-            set: { defaults.set($0, forKey: PreferenceKeys.inactiveBranchThresholdDays) }
+            get: { inactiveBranchThresholdDaysValue },
+            set: { inactiveBranchThresholdDaysValue = $0; defaults.set($0, forKey: PreferenceKeys.inactiveBranchThresholdDays) }
         )
     }
 
@@ -198,13 +209,24 @@ struct SettingsView: View {
 
                 if enableVoice.wrappedValue {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Announcement text")
+                        Text("Build announcement text")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
-                        TextField("", text: voiceAnnouncementText, prompt: Text("Build ready for Q A"))
+                        TextField("", text: voiceAnnouncementTextBuildComplete, prompt: Text(Constants.defaultVoiceAnnouncementTextBuildComplete))
                             .textFieldStyle(.roundedBorder)
                             .help("The text that will be spoken when a watched build completes successfully")
+                    }
+                    .padding(.leading, 20)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("PR update announcement text")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        TextField("", text: voiceAnnouncementTextPRUpdated, prompt: Text(Constants.defaultVoiceAnnouncementTextPRUpdated))
+                            .textFieldStyle(.roundedBorder)
+                            .help("The text that will be spoken when a watched PR is updated")
                     }
                     .padding(.leading, 20)
                 }
