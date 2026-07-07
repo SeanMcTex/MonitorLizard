@@ -275,6 +275,29 @@ Please keep pull requests focused on a single feature, bug fix, or improvement. 
 3. Make your changes and run the test suite: `swift test`
 4. Open a pull request with a clear description of what changed and why
 
+### Keeping Your Branch Up to Date
+
+The `main` branch moves fast as PRs are merged. If your fork's `main` or your feature branch is stale, the PR diff will show many changes from other already-merged PRs, making review much harder.
+
+**Before opening a PR**, rebase your feature branch onto the latest upstream `main` so the diff contains only your changes:
+
+```bash
+# Add the upstream remote if you haven't already
+git remote add upstream https://github.com/SeanMcTex/MonitorLizard.git
+
+# Fetch the latest upstream main
+git fetch upstream main
+
+# Rebase your feature branch onto it
+git checkout your-feature-branch
+git rebase upstream/main
+
+# Force-push the rebased branch to your fork
+git push --force-with-lease origin your-feature-branch
+```
+
+If other PRs are merged while yours is open, rebase again before requesting a re-review. A clean, up-to-date branch makes for a much faster review.
+
 AI-assisted and AI-authored contributions are welcome, but the human submitting the PR is responsible for reviewing the changes, understanding what they do, and verifying that the app builds and works correctly before opening the PR. Unvetted AI output will not be merged.
 
 ### Feature Requests & Bug Reports
