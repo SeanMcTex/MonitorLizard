@@ -80,7 +80,7 @@ struct NonBlockingCheckSummaryTests {
         }
     }
 
-    private func makePR(statusChecks: [StatusCheck]) -> PullRequest {
+    private func makePR(statusChecks: [StatusCheck], viewerApproved: Bool? = nil) -> PullRequest {
         PullRequest(
             number: 1,
             title: "Test PR",
@@ -96,7 +96,8 @@ struct NonBlockingCheckSummaryTests {
             isDraft: false,
             statusChecks: statusChecks,
             reviewDecision: nil,
-            host: "github.com"
+            host: "github.com",
+            viewerApproved: viewerApproved
         )
     }
 
@@ -114,5 +115,16 @@ struct NonBlockingCheckSummaryTests {
         let summary = try #require(pr.nonBlockingCheckSummary)
 
         #expect(summary.segments.map(\.text) == scenario.expectedSegments)
+    }
+
+    @Test(arguments: [
+        (true, true),
+        (false, false),
+        (nil, false),
+    ] as [(Bool?, Bool)])
+    func isApprovedByViewerIsTrueOnlyForAConfirmedApproval(viewerApproved: Bool?, expected: Bool) {
+        let pr = makePR(statusChecks: [], viewerApproved: viewerApproved)
+
+        #expect(pr.isApprovedByViewer == expected)
     }
 }

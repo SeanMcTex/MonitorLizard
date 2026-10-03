@@ -2,7 +2,7 @@ import Foundation
 
 enum DemoData {
     static let samplePullRequests: [PullRequest] = [
-        // REVIEWING PRs (2 total)
+        // REVIEWING PRs (4 total)
 
         // 1. SUCCESS - Reviewing PR (with approved review)
         PullRequest(
@@ -58,9 +58,67 @@ enum DemoData {
             host: "github.com"
         ),
 
-        // AUTHORED PRs (6 total)
+        // 3. FAILURE - Reviewing PR
+        PullRequest(
+            number: 387,
+            title: "Implement Camembert ripeness detection algorithm",
+            repository: PullRequest.RepositoryInfo(
+                name: "cheese-cellar-manager",
+                nameWithOwner: "fromagerie/cheese-cellar-manager"
+            ),
+            url: "https://github.com/fromagerie/cheese-cellar-manager/pull/387",
+            author: PullRequest.Author(login: "judge-whiskers"),
+            headRefName: "feature/camembert-ai",
+            updatedAt: Date().addingTimeInterval(-7200), // 2 hours ago
+            buildStatus: .failure,
+            isWatched: true,
+            labels: [
+                PullRequest.Label(id: "4", name: "bug", color: "d73a4a"),
+                PullRequest.Label(id: "5", name: "machine-learning", color: "0e8a16")
+            ],
+            type: .reviewing,
+            isDraft: false,
+            statusChecks: [
+                StatusCheck(id: "1", name: "CI Tests", status: .failure, detailsUrl: "https://github.com/example/check/1"),
+                StatusCheck(id: "2", name: "Lint", status: .failure, detailsUrl: "https://github.com/example/check/2"),
+                StatusCheck(id: "3", name: "Security Scan", status: .success, detailsUrl: "https://github.com/example/check/3")
+            ],
+            reviewDecision: nil,
+            host: "github.com",
+            stack: PRStackInfo(id: "demo-stack-camembert", number: 12, size: 2, position: 1)
+        ),
 
-        // 3. SUCCESS + CHANGES REQUESTED - Authored PR
+        // 4. CONFLICT - Reviewing PR
+        PullRequest(
+            number: 445,
+            title: "Merge brie and camembert aging profiles",
+            repository: PullRequest.RepositoryInfo(
+                name: "cheese-cellar-manager",
+                nameWithOwner: "fromagerie/cheese-cellar-manager"
+            ),
+            url: "https://github.com/fromagerie/cheese-cellar-manager/pull/445",
+            author: PullRequest.Author(login: "judge-whiskers"),
+            headRefName: "feature/unified-soft-cheese",
+            updatedAt: Date().addingTimeInterval(-10800), // 3 hours ago
+            buildStatus: .conflict,
+            isWatched: false,
+            labels: [
+                PullRequest.Label(id: "6", name: "needs-rebase", color: "d93f0b")
+            ],
+            type: .reviewing,
+            isDraft: false,
+            statusChecks: [
+                StatusCheck(id: "1", name: "Merge Conflict Check", status: .failure, detailsUrl: "https://github.com/example/check/1")
+            ],
+            reviewDecision: nil,
+            host: "github.com",
+            stack: PRStackInfo(id: "demo-stack-camembert", number: 12, size: 2, position: 2),
+            viewerApproved: true
+        ),
+
+        // AUTHORED PRs (4 total)
+
+        // 5. SUCCESS + CHANGES REQUESTED - Authored PR
         PullRequest(
             number: 421,
             title: "Add temperature monitoring for cave aging rooms",
@@ -88,36 +146,7 @@ enum DemoData {
             host: "github.com"
         ),
 
-        // 4. FAILURE - Authored PR
-        PullRequest(
-            number: 387,
-            title: "Implement Camembert ripeness detection algorithm",
-            repository: PullRequest.RepositoryInfo(
-                name: "cheese-cellar-manager",
-                nameWithOwner: "fromagerie/cheese-cellar-manager"
-            ),
-            url: "https://github.com/fromagerie/cheese-cellar-manager/pull/387",
-            author: PullRequest.Author(login: "demo-user"),
-            headRefName: "feature/camembert-ai",
-            updatedAt: Date().addingTimeInterval(-7200), // 2 hours ago
-            buildStatus: .failure,
-            isWatched: true,
-            labels: [
-                PullRequest.Label(id: "4", name: "bug", color: "d73a4a"),
-                PullRequest.Label(id: "5", name: "machine-learning", color: "0e8a16")
-            ],
-            type: .authored,
-            isDraft: false,
-            statusChecks: [
-                StatusCheck(id: "1", name: "CI Tests", status: .failure, detailsUrl: "https://github.com/example/check/1"),
-                StatusCheck(id: "2", name: "Lint", status: .failure, detailsUrl: "https://github.com/example/check/2"),
-                StatusCheck(id: "3", name: "Security Scan", status: .success, detailsUrl: "https://github.com/example/check/3")
-            ],
-            reviewDecision: nil,
-            host: "github.com"
-        ),
-
-        // 5. PENDING - Authored PR
+        // 6. PENDING - Authored PR
         PullRequest(
             number: 512,
             title: "Update cheese rotation schedule for blue varieties",
@@ -137,32 +166,6 @@ enum DemoData {
             statusChecks: [
                 StatusCheck(id: "1", name: "Build", status: .pending, detailsUrl: "https://github.com/example/check/1"),
                 StatusCheck(id: "2", name: "Tests", status: .pending, detailsUrl: "https://github.com/example/check/2")
-            ],
-            reviewDecision: nil,
-            host: "github.com"
-        ),
-
-        // 6. CONFLICT - Authored PR
-        PullRequest(
-            number: 445,
-            title: "Merge brie and camembert aging profiles",
-            repository: PullRequest.RepositoryInfo(
-                name: "cheese-cellar-manager",
-                nameWithOwner: "fromagerie/cheese-cellar-manager"
-            ),
-            url: "https://github.com/fromagerie/cheese-cellar-manager/pull/445",
-            author: PullRequest.Author(login: "demo-user"),
-            headRefName: "feature/unified-soft-cheese",
-            updatedAt: Date().addingTimeInterval(-10800), // 3 hours ago
-            buildStatus: .conflict,
-            isWatched: false,
-            labels: [
-                PullRequest.Label(id: "6", name: "needs-rebase", color: "d93f0b")
-            ],
-            type: .authored,
-            isDraft: false,
-            statusChecks: [
-                StatusCheck(id: "1", name: "Merge Conflict Check", status: .failure, detailsUrl: "https://github.com/example/check/1")
             ],
             reviewDecision: nil,
             host: "github.com"

@@ -15,6 +15,12 @@ enum Constants {
     static let secondsPerDay: TimeInterval = 24 * 60 * 60
     static let defaultRefreshInterval = 30
     static let defaultShellTimeout: TimeInterval = 30
+    /// How long a stack's completion lookup is reused across polls before it is
+    /// fetched again. The tradeoff: within the interval a companion part's status
+    /// or a newly merged position can be up to this stale, but partial stacks are
+    /// spared a stack-entries GraphQL query plus per-part detail calls on every
+    /// poll; a shorter interval revalidates sooner at more network cost.
+    static let stackResolutionRevalidationInterval: TimeInterval = 120
 
     // Settings defaults
     static let defaultInactiveBranchThreshold = 3

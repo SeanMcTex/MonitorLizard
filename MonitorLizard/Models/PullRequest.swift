@@ -64,8 +64,19 @@ struct PullRequest: Identifiable, Hashable, Codable {
     var reviewDecision: ReviewDecision?
     let host: String  // GitHub host (e.g. "github.com" or enterprise hostname)
     var customName: String?  // nil = use GitHub title
+    var stack: PRStackInfo?  // nil = not part of a GitHub stack
+    /// Whether the authenticated viewer approved this PR, judged by their latest
+    /// opinionated review. true = approved, false = not approved (their latest
+    /// opinionated review says otherwise, or they have none and the returned
+    /// review nodes prove the connection was exhausted), nil = unknown (older
+    /// cached data, no viewer login, an absent review connection, or a full
+    /// review window that may be truncated before the viewer's review).
+    var viewerApproved: Bool? = nil
 
     var displayTitle: String { customName ?? title }
+
+    /// True only when the viewer's approval is known and positive.
+    var isApprovedByViewer: Bool { viewerApproved == true }
 
     var id: String {
         "\(repository.nameWithOwner)#\(number)"
@@ -73,6 +84,32 @@ struct PullRequest: Identifiable, Hashable, Codable {
 
     var hasStatusChecks: Bool {
         !statusChecks.isEmpty
+    }
+
+    /// True when something known prevents the PR from being merged: failing or
+    /// pending checks, a conflict, no recent activity, or an outstanding review.
+    /// Used both to surface PRs that need attention and to find what a stack waits on.
+    var isMergeBlocked: Bool {
+        mergeBlockReason != nil
+    }
+
+    /// Short description of what prevents this PR from merging, or nil when nothing
+    /// known blocks it.
+    var mergeBlockReason: String? {
+        switch reviewDecision {
+        case .changesRequested: return "changes requested"
+        case .reviewRequired:   return "review required"
+        case .approved, nil:    break
+        }
+        switch buildStatus {
+        case .failure:    return "failing checks"
+        case .error:      return "check errors"
+        case .conflict:   return "merge conflict"
+        case .notStarted: return "checks not started"
+        case .pending:    return "checks pending"
+        case .inactive:   return "inactive"
+        case .success, .unknown: return nil
+        }
     }
 
     struct RepositoryInfo: Hashable, Codable {
@@ -230,8 +267,10 @@ struct BatchPRStatusResponse: Codable {
     let mergeStateStatus: String?
     let reviewDecision: String?
     let latestReviews: ReviewConnection?
+    let latestOpinionatedReviews: ReviewConnection?
     let reviewRequests: ReviewRequestConnection?
     let baseRef: BaseRef?
+    let stackEntry: StackEntry?
 
     /// Wraps the raw GraphQL `statusCheckRollup { contexts { nodes [...] } }` shape.
     struct StatusCheckRollupWrapper: Codable {
@@ -277,6 +316,27 @@ struct BatchPRStatusResponse: Codable {
         let branchProtectionRule: BranchProtectionRule?
     }
 
+    struct StackEntry: Codable {
+        let position: Int?
+        let stack: Stack?
+
+        struct Stack: Codable {
+            let id: String
+            let number: Int
+            let size: Int
+        }
+
+        var stackInfo: PRStackInfo? {
+            guard let stack, let position else { return nil }
+            return PRStackInfo(
+                id: stack.id,
+                number: stack.number,
+                size: stack.size,
+                position: position
+            )
+        }
+    }
+
     struct BranchProtectionRule: Codable {
         let requiredStatusCheckContexts: [String]?
         let requiredStatusChecks: [RequiredStatusCheck]?
@@ -294,7 +354,9 @@ struct BatchPRStatusResponse: Codable {
     }
 
     /// Converts to GHPRDetailResponse so existing status-parsing logic can be reused.
-    func toDetailResponse() -> GHPRDetailResponse {
+    /// - Parameter viewerLogin: Login of the authenticated viewer, used to detect
+    ///   whether the viewer approved this PR (see `viewerApproved(viewerLogin:)`).
+    func toDetailResponse(viewerLogin: String?) -> GHPRDetailResponse {
         let flatRequests = reviewRequests?.nodes?.map {
             GHPRDetailResponse.ReviewRequest(login: $0.requestedReviewer?.login)
         }
@@ -307,18 +369,123 @@ struct BatchPRStatusResponse: Codable {
             reviewDecision: reviewDecision,
             latestReviews: latestReviews?.nodes,
             reviewRequests: flatRequests,
-            requiredStatusCheckContexts: requiredStatusCheckContexts
+            requiredStatusCheckContexts: requiredStatusCheckContexts,
+            stack: stackEntry?.stackInfo,
+            viewerApproved: viewerApproved(viewerLogin: viewerLogin)
         )
+    }
+
+    /// How many nodes the queries request from `latestOpinionatedReviews`,
+    /// which returns one node per user. When that many nodes come back, the
+    /// window may be truncated, so a viewer absent from it is unknown rather
+    /// than proven to have no opinionated review. The query builders
+    /// interpolate this same value so the request and its interpretation
+    /// cannot drift apart.
+    nonisolated static let reviewConnectionWindow = 20
+
+    /// Whether the authenticated viewer approved this PR, judged by their latest
+    /// opinionated review (`latestOpinionatedReviews` ignores later comments,
+    /// unlike `viewerLatestReview`). true = approved; false = the viewer's
+    /// latest opinionated review is not an approval, including when they have
+    /// none and the returned nodes prove the connection was exhausted (fewer
+    /// than `reviewConnectionWindow` nodes); nil = unknown (no viewer login, an
+    /// absent `latestOpinionatedReviews` connection, or a full window that may
+    /// be truncated before the viewer's review).
+    func viewerApproved(viewerLogin: String?) -> Bool? {
+        guard let viewerLogin, let nodes = latestOpinionatedReviews?.nodes else {
+            return nil
+        }
+        guard let viewerState = nodes.first(where: { $0.author?.login == viewerLogin })?.state else {
+            // The viewer is absent from the returned nodes. The connection
+            // returns one node per user, newest first, so a full window may be
+            // truncated with the viewer's review pushed off the end; a partial
+            // window means the connection was exhausted and the viewer truly
+            // has no opinionated review.
+            return nodes.count >= Self.reviewConnectionWindow ? nil : false
+        }
+        return viewerState.uppercased() == "APPROVED"
     }
 }
 
 /// Top-level response from `gh api graphql` for a batch status query.
-/// `data` is a dictionary keyed by alias (e.g. "pr0", "pr1").
+/// `data` holds one repository per `pr<n>` alias (e.g. "pr0", "pr1") plus the
+/// authenticated `viewer`, which is used to detect the viewer's own approval.
 struct BatchGraphQLResponse: Codable {
-    let data: [String: RepositoryNode]
+    let data: BatchData
+
+    struct BatchData: Codable {
+        /// Login of the authenticated viewer, or nil when the query did not ask
+        /// for it or GitHub returned nothing.
+        let viewerLogin: String?
+
+        private let repositories: [String: RepositoryNode]
+
+        subscript(alias: String) -> RepositoryNode? {
+            repositories[alias]
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: DynamicKey.self)
+            if let viewerKey = DynamicKey(stringValue: "viewer") {
+                viewerLogin = (try? container.decode(Viewer.self, forKey: viewerKey))?.login
+            } else {
+                viewerLogin = nil
+            }
+
+            var decodedRepositories: [String: RepositoryNode] = [:]
+            for key in container.allKeys where key.stringValue != "viewer" {
+                decodedRepositories[key.stringValue] = try container.decode(RepositoryNode.self, forKey: key)
+            }
+            repositories = decodedRepositories
+        }
+
+        struct Viewer: Codable {
+            let login: String?
+        }
+
+        /// Coding key that accepts any string, so the dynamic `pr<n>` aliases and
+        /// the fixed `viewer` key can be read from the same object.
+        private struct DynamicKey: CodingKey {
+            var stringValue: String
+
+            init?(stringValue: String) { self.stringValue = stringValue }
+
+            var intValue: Int? { nil }
+
+            init?(intValue: Int) { nil }
+        }
+    }
 
     struct RepositoryNode: Codable {
         let pullRequest: BatchPRStatusResponse?
+    }
+}
+
+/// Response of the stack entries query (`node(id:)` on a PullRequestStack).
+/// Lists the stack's parts so PRs missing from the user's lists can be added.
+struct StackEntriesResponse: Codable {
+    let data: DataNode?
+
+    struct DataNode: Codable {
+        let node: Stack?
+    }
+
+    struct Stack: Codable {
+        let entries: Entries
+
+        struct Entries: Codable {
+            let nodes: [Entry]
+        }
+
+        struct Entry: Codable {
+            let position: Int?
+            let pullRequest: Part?
+
+            struct Part: Codable {
+                let number: Int
+                let state: String?
+            }
+        }
     }
 }
 
@@ -332,6 +499,8 @@ struct GHPRDetailResponse: Codable {
     let latestReviews: [Review]?
     let reviewRequests: [ReviewRequest]?
     let requiredStatusCheckContexts: [String]?
+    let stack: PRStackInfo?
+    let viewerApproved: Bool?
 
     init(
         headRefName: String,
@@ -342,7 +511,9 @@ struct GHPRDetailResponse: Codable {
         reviewDecision: String?,
         latestReviews: [Review]?,
         reviewRequests: [ReviewRequest]?,
-        requiredStatusCheckContexts: [String]? = nil
+        requiredStatusCheckContexts: [String]? = nil,
+        stack: PRStackInfo? = nil,
+        viewerApproved: Bool? = nil
     ) {
         self.headRefName = headRefName
         self.statusCheckRollup = statusCheckRollup
@@ -353,6 +524,8 @@ struct GHPRDetailResponse: Codable {
         self.latestReviews = latestReviews
         self.reviewRequests = reviewRequests
         self.requiredStatusCheckContexts = requiredStatusCheckContexts
+        self.stack = stack
+        self.viewerApproved = viewerApproved
     }
 
     struct Review: Codable {

@@ -185,14 +185,48 @@ struct MenuBarView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var prListView: some View {
-        let totalPRs = viewModel.authoredPRs.count + viewModel.reviewPRs.count + viewModel.filteredOtherPRs.count
-        let estimatedRowHeight: CGFloat = 120 // Approximate height per PR row
+    @ViewBuilder
+    private func sectionRow(_ row: PRListRow, type: PRType) -> some View {
+        switch row {
+        case .stackHeader(let header):
+            StackHeaderView(header: header)
+                .environmentObject(viewModel)
+                .id("\(type.rawValue)-\(row.id)")
+        case .pr(let pr, let stackContext):
+            PRRowView(pr: pr, stackContext: stackContext)
+                .environmentObject(viewModel)
+                .id("\(type.rawValue)-\(row.id)")
+        }
+    }
+
+    /// Rough height of the list from the rows that will actually render, so stack
+    /// blocks do not leave empty space below the popup's content.
+    private var estimatedListHeight: CGFloat {
         let sectionHeaderHeight: CGFloat = 40
-        let numSections = (viewModel.reviewPRs.isEmpty ? 0 : 1)
-            + (viewModel.authoredPRs.isEmpty ? 0 : 1)
-            + (viewModel.filteredOtherPRs.isEmpty ? 0 : 1)
-        let estimatedContentHeight = CGFloat(totalPRs) * estimatedRowHeight + CGFloat(numSections) * sectionHeaderHeight
+        let fullRowHeight: CGFloat = 120
+        let stackHeaderHeight: CGFloat = 34
+        let stackPartHeight: CGFloat = 52
+
+        var height: CGFloat = 0
+        var sections = 0
+        for type in [PRType.reviewing, .other, .authored] {
+            let rows = viewModel.sectionRows(for: type)
+            guard !rows.isEmpty else { continue }
+            sections += 1
+            for row in rows {
+                switch row {
+                case .stackHeader:
+                    height += stackHeaderHeight
+                case .pr(_, let context):
+                    height += context == nil ? fullRowHeight : stackPartHeight
+                }
+            }
+        }
+        return height + CGFloat(sections) * sectionHeaderHeight
+    }
+
+    private var prListView: some View {
+        let estimatedContentHeight = estimatedListHeight
         let maxHeight = calculateMaxHeight()
         let targetHeight = min(estimatedContentHeight, maxHeight)
 
@@ -207,10 +241,8 @@ struct MenuBarView: View {
                         sectionHeader(type: .reviewing, count: viewModel.reviewPRs.count)
                             .id("header-review")
 
-                        ForEach(viewModel.reviewPRs) { pr in
-                            PRRowView(pr: pr)
-                                .environmentObject(viewModel)
-                                .id("review-\(pr.id)")
+                        ForEach(viewModel.sectionRows(for: .reviewing)) { row in
+                            sectionRow(row, type: .reviewing)
                             Divider()
                         }
                     }
@@ -220,10 +252,8 @@ struct MenuBarView: View {
                         sectionHeader(type: .other, count: viewModel.filteredOtherPRs.count)
                             .id("header-other")
 
-                        ForEach(viewModel.filteredOtherPRs) { pr in
-                            PRRowView(pr: pr)
-                                .environmentObject(viewModel)
-                                .id("other-\(pr.id)")
+                        ForEach(viewModel.sectionRows(for: .other)) { row in
+                            sectionRow(row, type: .other)
                             Divider()
                         }
                     }
@@ -233,10 +263,8 @@ struct MenuBarView: View {
                         sectionHeader(type: .authored, count: viewModel.authoredPRs.count)
                             .id("header-authored")
 
-                        ForEach(viewModel.authoredPRs) { pr in
-                            PRRowView(pr: pr)
-                                .environmentObject(viewModel)
-                                .id("authored-\(pr.id)")
+                        ForEach(viewModel.sectionRows(for: .authored)) { row in
+                            sectionRow(row, type: .authored)
                             Divider()
                         }
                     }

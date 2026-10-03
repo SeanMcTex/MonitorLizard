@@ -6,7 +6,7 @@ import Testing
 @MainActor
 struct PRCacheServiceTests {
 
-    private func makePR(number: Int, isWatched: Bool = false, type: PRType = .authored) -> PullRequest {
+    private func makePR(number: Int, isWatched: Bool = false, type: PRType = .authored, stack: PRStackInfo? = nil) -> PullRequest {
         PullRequest(
             number: number,
             title: "Test PR #\(number)",
@@ -23,7 +23,8 @@ struct PRCacheServiceTests {
             statusChecks: [],
             reviewDecision: nil,
             host: "github.com",
-            customName: nil
+            customName: nil,
+            stack: stack
         )
     }
 
@@ -95,6 +96,80 @@ struct PRCacheServiceTests {
         #expect(loaded.isDraft == true)
         #expect(loaded.reviewDecision == .approved)
         #expect(loaded.customName == "My Custom Name")
+    }
+
+    @Test
+    func preservesStackMembership() {
+        let service = makeService()
+        let pr = makePR(
+            number: 4,
+            stack: PRStackInfo(id: "ST_stack", number: 7, size: 4, position: 2)
+        )
+
+        service.save(mainPRs: [pr], otherPRs: [])
+        let loaded = service.loadMainPRs()[0]
+
+        #expect(loaded.stack?.id == "ST_stack")
+        #expect(loaded.stack?.number == 7)
+        #expect(loaded.stack?.size == 4)
+        #expect(loaded.stack?.position == 2)
+    }
+
+    @Test
+    func decodesLegacyCacheWithoutStackKey() throws {
+        // Caches written before stack support have no "stack" key; those entries
+        // must still load (as unstacked) instead of dropping the whole cache.
+        let legacyJSON = """
+        [{
+          "number": 1,
+          "title": "Legacy PR",
+          "repository": { "name": "repo", "nameWithOwner": "owner/repo" },
+          "url": "https://github.com/owner/repo/pull/1",
+          "author": { "login": "testuser" },
+          "headRefName": "feature/test",
+          "updatedAt": 1000000,
+          "buildStatus": "success",
+          "isWatched": false,
+          "labels": [],
+          "type": "authored",
+          "isDraft": false,
+          "statusChecks": [],
+          "host": "github.com"
+        }]
+        """
+        let prs = try JSONDecoder().decode([PullRequest].self, from: Data(legacyJSON.utf8))
+
+        #expect(prs.count == 1)
+        #expect(prs[0].stack == nil)
+    }
+
+    @Test
+    func decodesCachedStackWithoutMergedPositions() throws {
+        // Caches written before merged-part tracking have a stack but no
+        // "mergedPositions" key; those entries must still load.
+        let legacyJSON = """
+        [{
+          "number": 2,
+          "title": "Stacked PR",
+          "repository": { "name": "repo", "nameWithOwner": "owner/repo" },
+          "url": "https://github.com/owner/repo/pull/2",
+          "author": { "login": "testuser" },
+          "headRefName": "feature/test",
+          "updatedAt": 1000000,
+          "buildStatus": "success",
+          "isWatched": false,
+          "labels": [],
+          "type": "authored",
+          "isDraft": false,
+          "statusChecks": [],
+          "host": "github.com",
+          "stack": { "id": "ST_stack", "number": 7, "size": 2, "position": 1 }
+        }]
+        """
+        let prs = try JSONDecoder().decode([PullRequest].self, from: Data(legacyJSON.utf8))
+
+        #expect(prs.count == 1)
+        #expect(prs[0].stack?.mergedPositions == nil)
     }
 
     @Test

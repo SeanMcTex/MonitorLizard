@@ -239,6 +239,10 @@ private struct UnimplementedNotificationService: NotificationServicing {
     func notifyBuildComplete(pr: PullRequest, status: BuildStatus) {
         reportIssue("Unimplemented: NotificationServicing.notifyBuildComplete called without a test override")
     }
+
+    func notifyStackReady(stack: ReadyStack) {
+        reportIssue("Unimplemented: NotificationServicing.notifyStackReady called without a test override")
+    }
 }
 
 private struct UnimplementedPRCacheService: PRCacheServicing {
@@ -349,6 +353,20 @@ private struct UnimplementedShellExecutor: ShellExecuting {
     func fetchOtherPR(_ id: OtherPRIdentifier, enableInactiveDetection: Bool, inactiveThresholdDays: Int) async throws -> PullRequest? {
         reportIssue("Unimplemented: GitHubServicing.fetchOtherPR called without a test override")
         return nil
+    }
+
+    func fetchMissingStackParts(
+        stackID: String,
+        host: String,
+        owner: String,
+        repo: String,
+        knownNumbers: Set<Int>,
+        type: PRType,
+        enableInactiveDetection: Bool,
+        inactiveThresholdDays: Int
+    ) async throws -> StackCompletion {
+        reportIssue("Unimplemented: GitHubServicing.fetchMissingStackParts called without a test override")
+        return .empty
     }
 }
 

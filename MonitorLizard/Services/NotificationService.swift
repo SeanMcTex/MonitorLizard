@@ -7,6 +7,7 @@ import UserNotifications
 protocol NotificationServicing: Sendable {
     func requestAuthorization() async throws
     func notifyBuildComplete(pr: PullRequest, status: BuildStatus)
+    func notifyStackReady(stack: ReadyStack)
 }
 
 /// Posts system notifications, plays sounds, and speaks announcements for build completions.
@@ -56,6 +57,61 @@ final class NotificationService: NotificationServicing, @unchecked Sendable {
         if voiceEnabled && status == .success {
             speak(text: voiceAnnouncementText)
         }
+    }
+
+    func notifyStackReady(stack: ReadyStack) {
+        if notificationsEnabled {
+            let stackContent = NotificationService.stackReadyContent(for: stack)
+            let content = UNMutableNotificationContent()
+            content.title = stackContent.title
+            content.subtitle = stackContent.subtitle
+            content.body = stackContent.body
+            content.sound = .default
+
+            let request = UNNotificationRequest(
+                identifier: stackContent.identifier,
+                content: content,
+                trigger: nil
+            )
+
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    print("Error showing notification: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        if soundsEnabled {
+            playSound(for: .success)
+        }
+    }
+
+    /// The notification content for a stack that became ready to merge. Kept
+    /// separate from `notifyStackReady` so the wording is testable without
+    /// posting a real notification.
+    nonisolated static func stackReadyContent(
+        for stack: ReadyStack
+    ) -> (title: String, subtitle: String, body: String, identifier: String) {
+        let title: String
+        let body: String
+        if stack.allReady {
+            title = "✅ Stack ready"
+            body = stack.landedPositions.isEmpty
+                ? "All \(stack.size) pull requests in this stack are ready to merge."
+                : "All remaining parts are ready to merge."
+        } else if let nextPartPosition = stack.nextPartPosition {
+            title = "✅ Stack ready"
+            body = "Part \(nextPartPosition) of \(stack.size) is ready to merge."
+        } else {
+            title = "Stack status unknown"
+            body = "The next part to merge could not be determined."
+        }
+        return (
+            title: title,
+            subtitle: "Stack #\(stack.number)",
+            body: body,
+            identifier: "stack-\(stack.id)"
+        )
     }
 
     private func showNotification(pr: PullRequest, status: BuildStatus) {

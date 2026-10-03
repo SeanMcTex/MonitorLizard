@@ -34,6 +34,10 @@ struct GitHubServiceFetchOtherPRTests {
             "reviewDecision": "APPROVED",
             "latestReviews": { "nodes": [] },
             "reviewRequests": { "nodes": [] },
+            "stackEntry": {
+              "position": 1,
+              "stack": { "id": "ST_stack", "number": 7, "size": 2 }
+            },
             "baseRef": {
               "branchProtectionRule": {
                 "requiredStatusCheckContexts": ["required_ci"],
@@ -103,6 +107,7 @@ struct GitHubServiceFetchOtherPRTests {
         #expect(pr.number == 42)
         #expect(pr.title == "Track required checks")
         #expect(pr.headRefName == "feature/required-checks")
+        #expect(pr.stack == PRStackInfo(id: "ST_stack", number: 7, size: 2, position: 1))
         #expect(pr.buildStatus == .success)
         #expect(pr.statusChecks.map(\.name) == ["required_ci"])
         #expect(calls.filter { $0.arguments.contains("graphql") }.count == 1)
@@ -236,5 +241,68 @@ struct GitHubServiceFetchOtherPRTests {
         } catch {
             Issue.record("Unexpected error type: \(error)")
         }
+    }
+
+    // MARK: - Viewer approval mapping
+
+    private static let viewerApprovedGraphQLResult = """
+    {
+      "data": {
+        "viewer": { "login": "luke" },
+        "pr0": {
+          "pullRequest": {
+            "number": 42,
+            "title": "Track required checks",
+            "url": "https://github.com/alice/repo/pull/42",
+            "author": { "login": "alice" },
+            "updatedAt": "2024-01-01T00:00:00Z",
+            "labels": { "nodes": [] },
+            "isDraft": false,
+            "state": "OPEN",
+            "headRefName": "feature/required-checks",
+            "statusCheckRollup": null,
+            "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
+            "reviewDecision": null,
+            "latestReviews": { "nodes": [{ "state": "COMMENTED", "author": { "login": "luke" } }] },
+            "latestOpinionatedReviews": { "nodes": [{ "state": "APPROVED", "author": { "login": "luke" } }] },
+            "reviewRequests": { "nodes": [] }
+          }
+        }
+      }
+    }
+    """
+
+    @Test func fetchOtherPRMapsViewerApprovalOntoPullRequest() async throws {
+        // The viewer commented after approving; `latestReviews` alone would mask the
+        // approval, so only `latestOpinionatedReviews` can establish it.
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(Self.viewerApprovedGraphQLResult))
+            ]
+        )
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
+        let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
+
+        let pr = try #require(await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3))
+
+        #expect(pr.viewerApproved == true)
+        #expect(pr.isApprovedByViewer == true)
+    }
+
+    @Test func fetchOtherPRLeavesViewerApprovalNilWhenResponseHasNoViewerData() async throws {
+        // otherPRGraphQLResult has no top-level viewer and no opinionated reviews.
+        let mock = MockShellExecutor(
+            executeResponseMatchers: [
+                ("graphql", .success(Self.otherPRGraphQLResult))
+            ]
+        )
+        let service = withDependencies { $0.shellExecutor = mock } operation: { GitHubService() }
+        let id = OtherPRIdentifier(host: "github.com", owner: "alice", repo: "repo", number: 42)
+
+        let pr = try #require(await service.fetchOtherPR(id, enableInactiveDetection: false, inactiveThresholdDays: 3))
+
+        #expect(pr.viewerApproved == nil)
+        #expect(pr.isApprovedByViewer == false)
     }
 }

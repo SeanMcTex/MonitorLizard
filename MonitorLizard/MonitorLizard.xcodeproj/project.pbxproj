@@ -53,6 +53,9 @@
 		063C7C99 /* GitHubServiceBatchQueryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFC005C /* GitHubServiceBatchQueryTests.swift */; };
 		E37C4485 /* GitHubServiceBatchResponseParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64D70C3A /* GitHubServiceBatchResponseParsingTests.swift */; };
 		5DA2FC27 /* GitHubServiceFetchOtherPRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5BE17EA /* GitHubServiceFetchOtherPRTests.swift */; };
+		32STACK012F103E3200F0ABCD /* PRStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32STACK022F103E3200F0ABCD /* PRStack.swift */; };
+		32STACK032F103E3200F0ABCD /* PRStackOrderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32STACK042F103E3200F0ABCD /* PRStackOrderingTests.swift */; };
+		32STACK052F103E3200F0ABCD /* StackHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32STACK062F103E3200F0ABCD /* StackHeaderView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -111,6 +114,9 @@
 		9FFC005C /* GitHubServiceBatchQueryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceBatchQueryTests.swift; sourceTree = "<group>"; };
 		64D70C3A /* GitHubServiceBatchResponseParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceBatchResponseParsingTests.swift; sourceTree = "<group>"; };
 		B5BE17EA /* GitHubServiceFetchOtherPRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubServiceFetchOtherPRTests.swift; sourceTree = "<group>"; };
+		32STACK022F103E3200F0ABCD /* PRStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRStack.swift; sourceTree = "<group>"; };
+		32STACK042F103E3200F0ABCD /* PRStackOrderingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRStackOrderingTests.swift; sourceTree = "<group>"; };
+		32STACK062F103E3200F0ABCD /* StackHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackHeaderView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +176,7 @@
 				32B67F272F2D4FA000F3968F /* StatusCheck.swift */,
 				329D9EDE2F103E3200F0E6EA /* BuildStatus.swift */,
 				329D9EDF2F103E3200F0E6EA /* PullRequest.swift */,
+				32STACK022F103E3200F0ABCD /* PRStack.swift */,
 				32DEMO9E2F103E3200F0E6EA /* DemoData.swift */,
 			);
 			path = Models;
@@ -213,6 +220,7 @@
 			children = (
 				329D9EEA2F103E3200F0E6EA /* MenuBarView.swift */,
 				329D9EEB2F103E3200F0E6EA /* PRRowView.swift */,
+				32STACK062F103E3200F0ABCD /* StackHeaderView.swift */,
 				329D9EEC2F103E3200F0E6EA /* SettingsView.swift */,
 				AA0004442F103E3200F0ABCD /* AddPRView.swift */,
 			);
@@ -230,6 +238,7 @@
 				9FFC005C /* GitHubServiceBatchQueryTests.swift */,
 				64D70C3A /* GitHubServiceBatchResponseParsingTests.swift */,
 				B5BE17EA /* GitHubServiceFetchOtherPRTests.swift */,
+				32STACK042F103E3200F0ABCD /* PRStackOrderingTests.swift */,
 				32TESTS012F4A000000000000 /* PRMonitorViewModelTests.swift */,
 				32TESTS022F4A000000000000 /* UpdateServiceTests.swift */,
 				32TESTS032F4A000000000000 /* WindowOcclusionObserverTests.swift */,
@@ -375,11 +384,13 @@
 				329D9EF52F103E3200F0E6EA /* PRMonitorViewModel.swift in Sources */,
 				329D9EF62F103E3200F0E6EA /* MenuBarView.swift in Sources */,
 				329D9EF72F103E3200F0E6EA /* PRRowView.swift in Sources */,
+				32STACK052F103E3200F0ABCD /* StackHeaderView.swift in Sources */,
 				32B67F282F2D4FA000F3968F /* StatusCheck.swift in Sources */,
 				329D9EF82F103E3200F0E6EA /* SettingsView.swift in Sources */,
 				AA0001112F103E3200F0ABCD /* OtherPRsService.swift in Sources */,
 				BB0001112F103E3200F0ABCD /* CustomNamesService.swift in Sources */,
 				AA0003332F103E3200F0ABCD /* AddPRView.swift in Sources */,
+				32STACK012F103E3200F0ABCD /* PRStack.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,6 +406,7 @@
 				063C7C99 /* GitHubServiceBatchQueryTests.swift in Sources */,
 				E37C4485 /* GitHubServiceBatchResponseParsingTests.swift in Sources */,
 				5DA2FC27 /* GitHubServiceFetchOtherPRTests.swift in Sources */,
+				32STACK032F103E3200F0ABCD /* PRStackOrderingTests.swift in Sources */,
 				32TESTS012F4A000000000001 /* PRMonitorViewModelTests.swift in Sources */,
 				32TESTS022F4A000000000001 /* UpdateServiceTests.swift in Sources */,
 				32TESTS032F4A000000000001 /* WindowOcclusionObserverTests.swift in Sources */,
